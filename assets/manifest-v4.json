@@ -1,6 +1,6 @@
 {
   "version": 4,
-  "stage": "representatives",
+  "stage": "animals",
   "coordinates": "metres; Y up; forward -Z; ground Y=0; L is negative X",
   "contract": {
     "Fox": {
@@ -291,9 +291,238 @@
   },
   "assets": {
     "wildlife-kit-v4": {
-      "sha256": "b6842062b3e705f4b9dde331d7c68ce632961ec9049dac00a114bb2335f0b770",
-      "bytes": 325872,
+      "sha256": "a0bccbe9a2e3ee3fabc97c3624d3cd75f23e885a9d0f277d4e397f7c8b52ce6e",
+      "bytes": 849256,
       "props": {
+        "Badger": {
+          "bounds_min_m": [
+            -0.23,
+            0.0,
+            -0.63458
+          ],
+          "bounds_max_m": [
+            0.23,
+            0.551,
+            0.58826
+          ],
+          "dimensions_m": [
+            0.46,
+            0.551,
+            1.22284
+          ],
+          "triangles": 1784,
+          "attachments": {
+            "Badger": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "Body": [
+              0.0,
+              0.27,
+              0.06
+            ],
+            "Head": [
+              0.0,
+              0.33,
+              -0.26
+            ],
+            "PhotoHead": [
+              0.0,
+              0.4,
+              -0.38
+            ],
+            "LegBL": [
+              -0.17,
+              0.25,
+              0.27
+            ],
+            "LegBR": [
+              0.17,
+              0.25,
+              0.27
+            ],
+            "LegFL": [
+              -0.17,
+              0.25,
+              -0.2
+            ],
+            "ClawsL": [
+              -0.17,
+              0.035,
+              -0.27
+            ],
+            "LegFR": [
+              0.17,
+              0.25,
+              -0.2
+            ],
+            "ClawsR": [
+              0.17,
+              0.035,
+              -0.27
+            ],
+            "PhotoBody": [
+              0.0,
+              0.33,
+              0.04
+            ],
+            "Tail": [
+              0.0,
+              0.3,
+              0.38
+            ]
+          },
+          "parents": {
+            "Badger": "wildlife-kit-v4",
+            "Body": "Badger",
+            "Head": "Body",
+            "PhotoHead": "Head",
+            "LegBL": "Body",
+            "LegBR": "Body",
+            "LegFL": "Body",
+            "ClawsL": "LegFL",
+            "LegFR": "Body",
+            "ClawsR": "LegFR",
+            "PhotoBody": "Body",
+            "Tail": "Body"
+          },
+          "pose_rotations_xyz_radians": {
+            "Head": [
+              0.35,
+              0,
+              0
+            ],
+            "LegFL": [
+              -0.6,
+              0,
+              0
+            ],
+            "LegFR": [
+              0.4,
+              0,
+              0
+            ]
+          },
+          "colliders": []
+        },
+        "Beaver": {
+          "bounds_min_m": [
+            -0.26,
+            0.0,
+            -0.5075
+          ],
+          "bounds_max_m": [
+            0.26,
+            0.555,
+            1.06238
+          ],
+          "dimensions_m": [
+            0.52,
+            0.555,
+            1.56988
+          ],
+          "triangles": 1424,
+          "attachments": {
+            "Beaver": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "Body": [
+              0.0,
+              0.26,
+              0.06
+            ],
+            "Head": [
+              0.0,
+              0.35,
+              -0.24
+            ],
+            "EarL": [
+              -0.145,
+              0.49,
+              -0.27
+            ],
+            "EarR": [
+              0.145,
+              0.49,
+              -0.27
+            ],
+            "PhotoHead": [
+              0.0,
+              0.4,
+              -0.32
+            ],
+            "LegBL": [
+              -0.19,
+              0.19,
+              0.27
+            ],
+            "LegBR": [
+              0.19,
+              0.19,
+              0.27
+            ],
+            "LegFL": [
+              -0.19,
+              0.19,
+              -0.22
+            ],
+            "LegFR": [
+              0.19,
+              0.19,
+              -0.22
+            ],
+            "PhotoBody": [
+              0.0,
+              0.32,
+              0.04
+            ],
+            "Tail": [
+              0.0,
+              0.16,
+              0.36
+            ]
+          },
+          "parents": {
+            "Beaver": "wildlife-kit-v4",
+            "Body": "Beaver",
+            "Head": "Body",
+            "EarL": "Head",
+            "EarR": "Head",
+            "PhotoHead": "Head",
+            "LegBL": "Body",
+            "LegBR": "Body",
+            "LegFL": "Body",
+            "LegFR": "Body",
+            "PhotoBody": "Body",
+            "Tail": "Body"
+          },
+          "pose_rotations_xyz_radians": {
+            "Head": [
+              0.25,
+              0,
+              0
+            ],
+            "LegFL": [
+              -0.7,
+              0,
+              0
+            ],
+            "LegFR": [
+              -0.7,
+              0,
+              0
+            ],
+            "Tail": [
+              0.08,
+              0,
+              0
+            ]
+          },
+          "colliders": []
+        },
         "Fox": {
           "bounds_min_m": [
             -0.18,
@@ -411,6 +640,206 @@
           },
           "colliders": []
         },
+        "Mallard": {
+          "bounds_min_m": [
+            -0.2135,
+            0.0,
+            -0.4495
+          ],
+          "bounds_max_m": [
+            0.2135,
+            0.623,
+            0.46316
+          ],
+          "dimensions_m": [
+            0.427,
+            0.623,
+            0.91266
+          ],
+          "triangles": 1196,
+          "attachments": {
+            "Mallard": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "Body": [
+              0.0,
+              0.208,
+              0.04
+            ],
+            "FootL": [
+              -0.075,
+              0.128,
+              0.04
+            ],
+            "FootR": [
+              0.075,
+              0.128,
+              0.04
+            ],
+            "Head": [
+              0.0,
+              0.288,
+              -0.2
+            ],
+            "PhotoHead": [
+              0.0,
+              0.518,
+              -0.225
+            ],
+            "PhotoBody": [
+              0.0,
+              0.248,
+              0.04
+            ],
+            "Tail": [
+              0.0,
+              0.278,
+              0.28
+            ],
+            "WingL": [
+              -0.145,
+              0.298,
+              -0.045
+            ],
+            "WingR": [
+              0.145,
+              0.298,
+              -0.045
+            ]
+          },
+          "parents": {
+            "Mallard": "wildlife-kit-v4",
+            "Body": "Mallard",
+            "FootL": "Body",
+            "FootR": "Body",
+            "Head": "Body",
+            "PhotoHead": "Head",
+            "PhotoBody": "Body",
+            "Tail": "Body",
+            "WingL": "Body",
+            "WingR": "Body"
+          },
+          "pose_rotations_xyz_radians": {
+            "Head": [
+              0.5,
+              0.7,
+              0
+            ],
+            "WingL": [
+              0,
+              0,
+              0.85
+            ],
+            "WingR": [
+              0,
+              0,
+              -0.4
+            ]
+          },
+          "colliders": []
+        },
+        "Otter": {
+          "bounds_min_m": [
+            -0.15075,
+            0.0,
+            -0.5406
+          ],
+          "bounds_max_m": [
+            0.15075,
+            0.385,
+            0.9914
+          ],
+          "dimensions_m": [
+            0.30151,
+            0.385,
+            1.53199
+          ],
+          "triangles": 1384,
+          "attachments": {
+            "Otter": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "Body": [
+              0.0,
+              0.18,
+              0.03
+            ],
+            "Head": [
+              0.0,
+              0.24,
+              -0.27
+            ],
+            "PhotoHead": [
+              0.0,
+              0.28,
+              -0.38
+            ],
+            "LegBL": [
+              -0.115,
+              0.17,
+              0.29
+            ],
+            "LegBR": [
+              0.115,
+              0.17,
+              0.29
+            ],
+            "LegFL": [
+              -0.115,
+              0.17,
+              -0.21
+            ],
+            "LegFR": [
+              0.115,
+              0.17,
+              -0.21
+            ],
+            "PhotoBody": [
+              0.0,
+              0.22,
+              0.03
+            ],
+            "Tail": [
+              0.0,
+              0.19,
+              0.36
+            ]
+          },
+          "parents": {
+            "Otter": "wildlife-kit-v4",
+            "Body": "Otter",
+            "Head": "Body",
+            "PhotoHead": "Head",
+            "LegBL": "Body",
+            "LegBR": "Body",
+            "LegFL": "Body",
+            "LegFR": "Body",
+            "PhotoBody": "Body",
+            "Tail": "Body"
+          },
+          "pose_rotations_xyz_radians": {
+            "Head": [
+              0,
+              0.5,
+              0
+            ],
+            "LegFL": [
+              -0.7,
+              0,
+              0
+            ],
+            "Tail": [
+              0,
+              0.4,
+              0
+            ]
+          },
+          "colliders": []
+        },
         "Owl": {
           "bounds_min_m": [
             -0.241,
@@ -507,6 +936,118 @@
               0,
               0,
               -0.75
+            ]
+          },
+          "colliders": []
+        },
+        "Rabbit": {
+          "bounds_min_m": [
+            -0.198,
+            0.0,
+            -0.31641
+          ],
+          "bounds_max_m": [
+            0.198,
+            0.77,
+            0.36228
+          ],
+          "dimensions_m": [
+            0.396,
+            0.77,
+            0.67869
+          ],
+          "triangles": 1704,
+          "attachments": {
+            "Rabbit": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "Body": [
+              0.0,
+              0.2,
+              0.04
+            ],
+            "Head": [
+              0.0,
+              0.29,
+              -0.135
+            ],
+            "EarL": [
+              -0.066,
+              0.45,
+              -0.16
+            ],
+            "EarR": [
+              0.066,
+              0.45,
+              -0.16
+            ],
+            "PhotoHead": [
+              0.0,
+              0.37,
+              -0.18
+            ],
+            "LegBL": [
+              -0.1,
+              0.18,
+              0.16
+            ],
+            "LegBR": [
+              0.1,
+              0.18,
+              0.16
+            ],
+            "LegFL": [
+              -0.08,
+              0.22,
+              -0.1
+            ],
+            "LegFR": [
+              0.08,
+              0.22,
+              -0.1
+            ],
+            "PhotoBody": [
+              0.0,
+              0.26,
+              0.04
+            ],
+            "Tail": [
+              0.0,
+              0.24,
+              0.25
+            ]
+          },
+          "parents": {
+            "Rabbit": "wildlife-kit-v4",
+            "Body": "Rabbit",
+            "Head": "Body",
+            "EarL": "Head",
+            "EarR": "Head",
+            "PhotoHead": "Head",
+            "LegBL": "Body",
+            "LegBR": "Body",
+            "LegFL": "Body",
+            "LegFR": "Body",
+            "PhotoBody": "Body",
+            "Tail": "Body"
+          },
+          "pose_rotations_xyz_radians": {
+            "Head": [
+              0.22,
+              0,
+              0
+            ],
+            "EarL": [
+              -0.2,
+              0,
+              -0.15
+            ],
+            "LegBL": [
+              -0.25,
+              0,
+              0
             ]
           },
           "colliders": []
@@ -624,6 +1165,112 @@
               0,
               0.25,
               0
+            ]
+          },
+          "colliders": []
+        },
+        "Woodpecker": {
+          "bounds_min_m": [
+            -0.102,
+            0.0,
+            -0.22508
+          ],
+          "bounds_max_m": [
+            0.102,
+            0.485,
+            0.23
+          ],
+          "dimensions_m": [
+            0.204,
+            0.485,
+            0.45508
+          ],
+          "triangles": 1368,
+          "attachments": {
+            "Woodpecker": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "Body": [
+              0.0,
+              0.19,
+              0.02
+            ],
+            "FootL": [
+              -0.04,
+              0.12,
+              -0.015
+            ],
+            "FootR": [
+              0.04,
+              0.12,
+              -0.015
+            ],
+            "Head": [
+              0.0,
+              0.3,
+              -0.017
+            ],
+            "PhotoHead": [
+              0.0,
+              0.365,
+              -0.04
+            ],
+            "PhotoBody": [
+              0.0,
+              0.21,
+              0.015
+            ],
+            "Tail": [
+              0.0,
+              0.12,
+              0.085
+            ],
+            "WingL": [
+              -0.065,
+              0.3,
+              0.018
+            ],
+            "WingR": [
+              0.065,
+              0.3,
+              0.018
+            ],
+            "TrunkCling": [
+              0.0,
+              0.09,
+              -0.08
+            ]
+          },
+          "parents": {
+            "Woodpecker": "wildlife-kit-v4",
+            "Body": "Woodpecker",
+            "FootL": "Body",
+            "FootR": "Body",
+            "Head": "Body",
+            "PhotoHead": "Head",
+            "PhotoBody": "Body",
+            "Tail": "Body",
+            "WingL": "Body",
+            "WingR": "Body",
+            "TrunkCling": "Woodpecker"
+          },
+          "pose_rotations_xyz_radians": {
+            "Head": [
+              0.4,
+              0,
+              0
+            ],
+            "WingL": [
+              0,
+              0,
+              0.2
+            ],
+            "WingR": [
+              0,
+              0,
+              -0.2
             ]
           },
           "colliders": []
