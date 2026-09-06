@@ -14,13 +14,21 @@ Plan: [2026-09-06-generated-reserves.md](2026-09-06-generated-reserves.md). Spec
 ## Execution
 
 - [ ] Task 1: validated procedural world data.
-- [ ] Task 2: nine animal models and habitat props in visible Blender.
-- [ ] Task 3: native audio module and licensed samples.
+- [x] Task 2: nine animal models and habitat props in visible Blender; independent review approved. Actual in-game actions/photos remain Tasks 4–5.
+- [x] Task 3: native audio module and licensed samples; independent review approved. Production integration and listening remain Task 7.
 - [ ] Task 4: authoritative generated world end to end.
 - [ ] Task 5: complete species/commission/co-op loop.
 - [ ] Task 6: bounded albums and safe next reserve.
 - [ ] Task 7: integrated audible soundscape.
 - [ ] Task 8: visible acceptance, portable release and private milestone backup.
+
+## Integrated foundation checkpoint
+
+- `6f900c3`: deterministic, validated reserve data with twelve species, 36–48 residents, six required/two optional commissions, connected equipment routes and density measurements. Independent review found four important gaps; Task 1 stays open while they are fixed.
+- `db587b6` through `0760354`: nine distinct low-poly animals and four habitat props, authored in the visible foreground Blender session. Actual exported roots, pivots, attachments and bounds passed the v4 checker and glTF validation. Independent model review approved; gallery and action renders inspected.
+- `25a9fd9` through `0807b27`: native audio module, six CC0 samples and thirty original synthesized files with source/license/hash evidence. Sixteen focused audio tests passed; no listening claim is made.
+- At `0807b27`, sequential build and the full **137-test suite** passed. That exact expansion-branch commit is backed up to the private origin, with privacy and remote/local SHA equality independently verified. Main remains the preserved baseline.
+- Generator review fixes in progress: real mesh support for owl perches, actual vertical support for camp/tin/equipment, strict nested fixture geometry, and exact resident-to-objective reachability. Focused regressions are required before Task 4 relies on the blueprint.
 
 ## Rulings
 
