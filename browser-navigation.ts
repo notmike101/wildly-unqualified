@@ -20,6 +20,17 @@ import {
   type Snapshot,
   type Vec3,
 } from "./shared.ts";
+/**
+ * Create route guidance and ordinary keyboard/button helpers for the visible acceptance
+ * driver. Reads diagnostic state but never assigns authoritative positions.
+ *
+ * @param options - Driver timing and evidence dependencies
+ * @param options.latency - Simulated network latency in milliseconds
+ * @param options.evidence - Directory for screenshots, logs, and recovery files
+ * @param options.startedAt - Outing start time in Unix milliseconds
+ * @param options.log - Shared evidence log to append to
+ * @returns Navigation helpers sharing the active blueprint and evidence log.
+ */
 export function createDriverNavigation({
   latency,
   evidence,
@@ -31,16 +42,50 @@ export function createDriverNavigation({
   startedAt: number;
   log: unknown[];
 }) {
+  /**
+   * Wait between ordinary browser actions without advancing simulation directly.
+   *
+   * @param ms - Delay in milliseconds
+   * @returns A promise resolving after the requested delay.
+   */
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   let activeWorld: ReserveBlueprint | undefined;
+  /**
+   * Return the world most recently observed by snapshot.
+   *
+   * @returns The active blueprint read from the browser.
+   * @throws {Error} No generated world has been loaded yet.
+   */
   const reserve = () => {
     if (!activeWorld) throw Error("Generated world not loaded");
     return activeWorld;
   };
+  /**
+   * Resolve active collision boxes for the driver's loaded reserve.
+   *
+   * @param state - Fixture states indexed by ID
+   * @returns Current fixture collision boxes.
+   * @throws {Error} No world is loaded or fixture state is invalid.
+   */
   const routeBoxes = (state: FixtureState) =>
     fixtureBoxes(reserve().fixtures, state);
+  /**
+   * Resolve active walking surfaces for the driver's loaded reserve.
+   *
+   * @param state - Fixture states indexed by ID
+   * @returns Current fixture walking surfaces.
+   * @throws {Error} No world is loaded or fixture state is invalid.
+   */
   const routeSurfaces = (state: FixtureState) =>
     fixtureSurfaces(reserve().fixtures, state);
+  /**
+   * Read the browser's diagnostic snapshot and refresh the cached blueprint when its world
+   * changes.
+   *
+   * @param p - Admitted browser page
+   * @returns Current snapshot copied through browser evaluation.
+   * @throws {Error} A matching loaded world cannot be resolved, or page evaluation fails.
+   */
   const snapshot = async (p: Page) => {
     const state = await p.evaluate(() => window.wildly.snapshot!);
     if (state.worldId !== activeWorld?.id)
@@ -48,14 +93,35 @@ export function createDriverNavigation({
     if (state.worldId !== reserve().id) throw Error("Driver world mismatch");
     return state;
   };
+  /**
+   * Read the admitted page's local player from its diagnostic snapshot. Requires an admitted
+   * player present in the snapshot.
+   *
+   * @param p - Admitted browser page
+   * @returns Current local player state.
+   */
   const me = (p: Page) =>
     p.evaluate(() =>
       window.wildly.snapshot!.players.find(
         (x) => x.id === window.wildly.playerId,
       )!,
     );
+  /**
+   * Wrap an angle to the shortest signed heading interval.
+   *
+   * @param angle - Angle in radians
+   * @returns Angle in radians between -pi and pi.
+   */
   const wrapped = (angle: number) =>
     Math.atan2(Math.sin(angle), Math.cos(angle));
+  /**
+   * Hold a keyboard key for a duration and always release it afterward.
+   *
+   * @param p - Browser page to control
+   * @param key - Playwright key name
+   * @param ms - Hold duration in milliseconds
+   * @throws {Error} Browser keyboard interaction fails.
+   */
   async function hold(p: Page, key: string, ms: number) {
     await p.keyboard.down(key);
     try {
@@ -64,6 +130,15 @@ export function createDriverNavigation({
       await p.keyboard.up(key);
     }
   }
+  /**
+   * Turn toward a world point using arrow keys and snapshot feedback, with a bounded number
+   * of attempts.
+   *
+   * @param p - Browser page to control
+   * @param point - World point to face horizontally
+   * @throws {Error} The camera cannot reach the heading tolerance or browser interaction
+   * fails.
+   */
   async function face(p: Page, point: Vec3) {
     for (let n = 0; n < 16; n++) {
       const player = await me(p);
@@ -83,6 +158,15 @@ export function createDriverNavigation({
     throw Error("Camera could not face the next waypoint with arrow keys");
   }
   // Read-only route guidance for the UI driver. All actual travel still uses keys.
+  /**
+   * Find and smooth a bounded local route using the shared movement solver against scenery,
+   * loose equipment, and crew. Does not move the player.
+   *
+   * @param player - Player at the search origin
+   * @param goal - Desired world destination
+   * @param state - Current snapshot supplying route, props, and crew
+   * @returns Waypoints, or an empty array if the bounded search fails.
+   */
   function detour(player: Player, goal: Vec3, state: Snapshot): Vec3[] {
     const walls = [
       ...reserve().walls,
@@ -113,6 +197,14 @@ export function createDriverNavigation({
         b.min[2] <= Math.max(player.position[2], goal[2]) + 8,
     );
     const surfaces = [...reserve().walkables, ...routeSurfaces(state.route)];
+    /**
+     * Simulate a straight walking segment in small steps and reject any deviation caused by
+     * collision.
+     *
+     * @param from - Segment start
+     * @param to - Segment end
+     * @returns Reached grounded point, or null when direct travel is blocked.
+     */
     const reach = (from: Vec3, to: Vec3) => {
       const dx = to[0] - from[0],
         dz = to[2] - from[2],
@@ -158,6 +250,12 @@ export function createDriverNavigation({
     const origin: Node = { x: 0, z: 0, position: player.position, cost: 0 };
     const open = [origin],
       seen = new Map([["0,0", 0]]);
+    /**
+     * Estimate remaining horizontal distance for local path search.
+     *
+     * @param n - Search node
+     * @returns Distance to the current goal in metres.
+     */
     const heuristic = (n: Node) =>
       Math.hypot(n.position[0] - goal[0], n.position[2] - goal[2]);
     for (let expanded = 0; open.length && expanded < 3000; expanded++) {
@@ -210,6 +308,16 @@ export function createDriverNavigation({
     }
     return [];
   }
+  /**
+   * Walk toward a waypoint with ordinary keys, detecting stalls and optionally trying local
+   * detours. Unresolved obstacles invoke the existing recovery-file workflow.
+   *
+   * @param p - Browser page to control
+   * @param point - Mutable destination vector, recovery may replace its coordinates
+   * @param tolerance - Arrival tolerance in metres, default 0.3
+   * @param allowDetour - Whether to attempt local detours before manual recovery
+   * @throws {Error} The waypoint budget, recovery wait, or browser interaction fails.
+   */
   async function walk(
     p: Page,
     point: Vec3,
@@ -274,6 +382,15 @@ export function createDriverNavigation({
     }
     throw Error(`Waypoint time budget exhausted: ${point}`);
   }
+  /**
+   * Write stall evidence and wait up to 15 minutes for an ordinary-control recovery file.
+   * Validates commands, archives the consumed file, and may update the destination in place.
+   *
+   * @param p - Browser page to control
+   * @param target - Destination vector that recovery can modify
+   * @throws {Error} Recovery commands are invalid, browser/file operations fail, or no
+   * recovery is supplied before the timeout.
+   */
   async function recoverWalk(p: Page, target: Vec3) {
     const player = await me(p),
       path = resolve(evidence, `outing-recovery-${player.name}.json`);
@@ -359,6 +476,13 @@ export function createDriverNavigation({
     }
     throw Error("No ordinary-control recovery supplied in 15 minutes");
   }
+  /**
+   * Press an ordinary action key and log the preceding prompt, player position, and resulting
+   * notice.
+   *
+   * @param p - Browser page to control
+   * @param key - Playwright key name
+   */
   async function action(p: Page, key: string) {
     const player = await me(p);
     const hint = await p.locator("#context-action").textContent();
@@ -373,7 +497,24 @@ export function createDriverNavigation({
       notice: await p.locator("#notice").textContent(),
     });
   }
+  /**
+   * Measure horizontal distance for driver arrival checks.
+   *
+   * @param a - First world point
+   * @param b - Second world point
+   * @returns Distance in metres, ignoring Y.
+   */
   const flat = (a: Vec3, b: Vec3) => Math.hypot(a[0] - b[0], a[2] - b[2]);
+  /**
+   * Choose supported, unobstructed standing ground at the target or within five metres,
+   * logging any adjustment.
+   *
+   * @param player - Player whose carried prop is excluded
+   * @param target - Requested destination
+   * @param state - Current route and equipment state
+   * @returns Original grounded target or nearest acceptable ring candidate.
+   * @throws {Error} No clear supported destination exists within five metres.
+   */
   function clearDestination(
     player: Player,
     target: Vec3,
@@ -387,6 +528,13 @@ export function createDriverNavigation({
         .filter((p) => !p.placed && !p.holders.includes(player.id))
         .flatMap((p) => propBoxes(p, PROP_DEFINITIONS[p.kind])),
     ];
+    /**
+     * Test standing clearance on the highest supporting surface at a horizontal location.
+     *
+     * @param x - World X coordinate
+     * @param z - World Z coordinate
+     * @returns Grounded point, or null if unsupported or blocked.
+     */
     const clear = (x: number, z: number): Vec3 | null => {
       const heights = surfaces
         .map((s) => surfaceHeight(s, x, z))
@@ -436,6 +584,14 @@ export function createDriverNavigation({
       `No clear supported standing destination within 5m of ${target}`,
     );
   }
+  /**
+   * Guide ordinary walking through authored navigation and a final clear destination. Retains
+   * the legacy decoy approach workaround used by the acceptance scenario.
+   *
+   * @param p - Browser page to control
+   * @param target - Requested world destination
+   * @throws {Error} Destination selection or any ordinary walking step fails.
+   */
   async function travel(p: Page, target: Vec3) {
     let state = await snapshot(p),
       player = await me(p);
@@ -466,6 +622,14 @@ export function createDriverNavigation({
     for (const point of path) await walk(p, point, 0.4);
     await walk(p, target);
   }
+  /**
+   * Turn horizontally and adjust pitch toward a point using bounded arrow-key attempts. Pitch
+   * adjustment is best effort after ten iterations.
+   *
+   * @param p - Browser page to control
+   * @param target - World-space photo target
+   * @throws {Error} Horizontal facing or browser interaction fails.
+   */
   async function aim(p: Page, target: Vec3) {
     await face(p, target);
     for (let n = 0; n < 10; n++) {
@@ -482,6 +646,16 @@ export function createDriverNavigation({
       await sleep(150 + latency);
     }
   }
+  /**
+   * Aim, click the shutter, wait for a new ready thumbnail, and record the photo in the
+   * evidence log.
+   *
+   * @param p - Browser page to control
+   * @param target - World-space camera target
+   * @returns Newest ready album record.
+   * @throws {Error} Aiming, capture readiness within 15 seconds, or browser interaction
+   * fails.
+   */
   async function photograph(p: Page, target: Vec3) {
     await aim(p, target);
     const before = (await snapshot(p)).album.length;
@@ -502,6 +676,17 @@ export function createDriverNavigation({
     await sleep(1050 + latency);
     return photo;
   }
+  /**
+   * Repeatedly frame eligible behavior and take ordinary photographs until the requested
+   * legacy assignment is credited.
+   *
+   * @param p - Browser page to control
+   * @param species - Legacy species to follow
+   * @param assignment - Assignment ID that must appear in completed
+   * @param seconds - Retry budget in seconds, default 35
+   * @throws {Error} No credited photograph is obtained before the budget expires, or an
+   * interaction fails.
+   */
   async function portrait(
     p: Page,
     species: "raccoon" | "deer" | "heron",
@@ -539,6 +724,12 @@ export function createDriverNavigation({
       `No legitimate ${assignment} photo in ${seconds}s; ${JSON.stringify((await snapshot(p)).animals)}`,
     );
   }
+  /**
+   * Approach the live tin and use ordinary interaction, retrying at most eight times.
+   *
+   * @param p - Browser page to control
+   * @throws {Error} The player cannot claim the tin or a browser action fails.
+   */
   async function pickupTin(p: Page) {
     for (let i = 0; i < 8; i++) {
       const state = await snapshot(p),
@@ -551,9 +742,22 @@ export function createDriverNavigation({
     }
     throw Error("Ordinary E could not claim the tin");
   }
+  /**
+   * Approach the decoy's authored handle, use the ordinary interaction prompt, and assert
+   * ownership.
+   *
+   * @param p - Browser page to control
+   * @throws {Error} Approach or interaction fails, or the snapshot does not confirm
+   * ownership.
+   */
   async function pickupDecoy(p: Page) {
     const prop = (await snapshot(p)).props.find((p) => p.kind === "decoy")!;
     const handle = propPoint(PROP_DEFINITIONS.decoy.handles[0], prop.pose);
+    /**
+     * Read the contextual action prompt to determine whether the decoy handle can be taken.
+     *
+     * @returns Whether the current prompt offers decoy pickup.
+     */
     const reachable = async () =>
       /Take wildlife decoy handle/.test(
         (await p.locator("#context-action").textContent()) ?? "",

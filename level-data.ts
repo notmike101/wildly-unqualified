@@ -106,6 +106,12 @@ export const PLANK_PLACEMENTS: Record<"left" | "right", Pose> = {
   left: { position: [-12.6, -0.905, 2], rotation: [0, 0, 0, 1] },
   right: { position: [-12.6, -0.905, 5], rotation: [0, 0, 0, 1] },
 };
+/**
+ * Create an identity-rotation equipment pose for the retained level catalog.
+ *
+ * @param position - World position
+ * @returns Equipment pose retaining the supplied position reference.
+ */
 const propPose = (position: Vec3): Pose => ({
   position,
   rotation: [0, 0, 0, 1],

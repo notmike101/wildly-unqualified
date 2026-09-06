@@ -13,21 +13,66 @@ import {
   type Fixture,
   type ReserveBlueprint,
 } from "./world-data.ts";
+/**
+ * Round generated geometry to five decimal places for stable serialized coordinates.
+ *
+ * @param n - Coordinate or bound component
+ * @returns Rounded number.
+ */
 export const round = (n: number) => Math.round(n * 100000) / 100000;
+/**
+ * Construct a vector with each coordinate rounded to five decimal places.
+ *
+ * @param x - World X coordinate
+ * @param y - World Y coordinate
+ * @param z - World Z coordinate
+ * @returns New rounded X/Y/Z tuple.
+ */
 export const point = (x: number, y: number, z: number): Vec3 => [
   round(x),
   round(y),
   round(z),
 ];
+/**
+ * Measure horizontal X/Z separation for reserve layout checks.
+ *
+ * @param a - First world point
+ * @param b - Second world point
+ * @returns Distance in metres, ignoring elevation.
+ */
 export const distance = (a: Vec3, b: Vec3) =>
   Math.hypot(a[0] - b[0], a[2] - b[2]);
+/**
+ * Create a yaw-only pose retaining the supplied position reference.
+ *
+ * @param position - World position
+ * @param yaw - Yaw in radians, default 0
+ * @returns New pose; its position is shared with the caller.
+ */
 export const pose = (position: Vec3, yaw = 0): Pose => ({
   position,
   rotation: [0, Math.sin(yaw / 2), 0, Math.cos(yaw / 2)],
 });
+/**
+ * Assert a reserve invariant with a consistent diagnostic prefix.
+ *
+ * @param ok - Condition that must be truthy
+ * @param message - Invariant description included in the error
+ * @throws {Error} The condition is falsy.
+ */
 export function check(ok: unknown, message: string): asserts ok {
   if (!ok) throw new Error(`Invalid reserve: ${message}`);
 }
+/**
+ * Create a catalog placement and round all collision/occluder bounds for stable blueprint
+ * serialization.
+ *
+ * @param id - Unique placement ID
+ * @param model - Known forest catalog model name
+ * @param p - World position
+ * @param yaw - Yaw in radians, default 0
+ * @returns Placement with rounded world-space boxes.
+ */
 export function placed(id: string, model: string, p: Vec3, yaw = 0) {
   const v = placement(id, model, p, yaw);
   for (const box of [...v.solids, ...v.occluders]) {
@@ -36,6 +81,15 @@ export function placed(id: string, model: string, p: Vec3, yaw = 0) {
   }
   return v;
 }
+/**
+ * Check a point against inclusive horizontal box bounds with an inward margin; elevation is
+ * ignored.
+ *
+ * @param box - Box footprint
+ * @param p - World point
+ * @param margin - Inward margin in metres, default 0
+ * @returns Whether X/Z lies inside the inset footprint.
+ */
 export function contains(box: Pick<Box, "min" | "max">, p: Vec3, margin = 0) {
   return (
     p[0] >= box.min[0] + margin &&
@@ -45,6 +99,17 @@ export function contains(box: Pick<Box, "min" | "max">, p: Vec3, margin = 0) {
   );
 }
 // Slab intersection against an expanded AABB checks the whole swept equipment box, including corners.
+/**
+ * Intersect a swept equipment corridor against expanded box footprints, excluding boxes
+ * outside its vertical span.
+ *
+ * @param a - Corridor start
+ * @param b - Corridor end
+ * @param boxes - World-space blockers
+ * @param halfWidth - Corridor half-width in metres, default 2
+ * @param height - Clearance height in metres, default 6
+ * @returns Whether the corridor intersects an applicable blocker.
+ */
 export function corridorBlocked(
   a: Vec3,
   b: Vec3,
@@ -77,12 +142,27 @@ export function corridorBlocked(
     return lo < hi;
   });
 }
+/**
+ * Find authored camera navigation nodes by habitat-pocket ID prefix.
+ *
+ * @param world - Reserve blueprint
+ * @param pocket - Habitat pocket ID
+ * @returns Matching node references; callers must not mutate a validated blueprint.
+ */
 export function reserveApproaches(
   world: ReserveBlueprint,
   pocket: string,
 ): NavNode[] {
   return world.navNodes.filter((n) => n.id.startsWith(`${pocket}-camera-`));
 }
+/**
+ * Resolve a commission's required tools, sufficiently sized camera approaches, and
+ * renewable supply stations.
+ *
+ * @param world - Reserve blueprint
+ * @param c - Bound commission definition
+ * @returns Tool names, camera node IDs, and station IDs.
+ */
 export function commissionRequirements(world: ReserveBlueprint, c: Commission) {
   const species = world.residents.find((r) => r.id === c.subjects[0])?.species;
   const tools: ("tin" | "screen" | "decoy")[] =
@@ -119,6 +199,16 @@ export const RESERVE_SUBJECT_HEIGHT: Record<ReserveSpecies, number> = {
   woodpecker: 0.485,
   mallard: 0.623,
 };
+/**
+ * Check minimum camera distance and projected subject height using calibrated species
+ * height and the standard field of view.
+ *
+ * @param camera - Camera foot position
+ * @param target - Subject foot position
+ * @param species - Species whose calibrated height is used
+ * @returns Whether distance is at least three metres and subject height fills the required
+ * frame fraction.
+ */
 export function reserveCameraFits(
   camera: Vec3,
   target: Vec3,
@@ -138,6 +228,13 @@ export function reserveCameraFits(
   });
   return horizontal >= 3 && Math.abs(projected[1] - projected[0]) / 2 >= 0.03;
 }
+/**
+ * Estimate dense-land canopy coverage using a four-metre grid and catalog crown occluders,
+ * excluding water. This measures proxies rather than rendered silhouettes.
+ *
+ * @param world - Reserve blueprint to sample
+ * @returns Covered sample fraction; assumes the blueprint contains sampled dense land.
+ */
 export function reserveCanopyCoverage(world: ReserveBlueprint): number {
   const crowns = world.placements
     .filter((p) => p.model.startsWith("Mature"))
@@ -158,6 +255,11 @@ export function reserveCanopyCoverage(world: ReserveBlueprint): number {
     }
   return covered / land;
 }
+/**
+ * Construct the fixed outer collision walls for the generated reserve.
+ *
+ * @returns Four new world-boundary boxes.
+ */
 export function boundaries(): Box[] {
   return [
     { id: "boundary-west", min: [-192, -4, -160], max: [-191.8, 36, 160] },
@@ -166,6 +268,12 @@ export function boundaries(): Box[] {
     { id: "boundary-north", min: [-192, -4, 159.8], max: [192, 36, 160] },
   ];
 }
+/**
+ * Create a one-metre-deep solid bed beneath each water volume.
+ *
+ * @param waters - Authored water volumes
+ * @returns New water-bed collision boxes.
+ */
 export function waterBeds(waters: Box[]): Box[] {
   return waters.map((b) => ({
     id: b.id + "-bed",
@@ -173,6 +281,15 @@ export function waterBeds(waters: Box[]): Box[] {
     max: point(b.max[0], b.min[1], b.max[2]),
   }));
 }
+/**
+ * Check whether a point sits on a flat walkable surface with the requested footprint
+ * margin.
+ *
+ * @param world - Reserve blueprint
+ * @param p - World point
+ * @param margin - Inward footprint margin in metres, default 0
+ * @returns Whether matching flat support exists.
+ */
 export function ground(world: ReserveBlueprint, p: Vec3, margin = 0) {
   return world.walkables.some(
     (s) =>
@@ -181,6 +298,12 @@ export function ground(world: ReserveBlueprint, p: Vec3, margin = 0) {
       s.heightStart === s.heightEnd,
   );
 }
+/**
+ * Partition the reserve into flat ground rectangles while removing water footprints.
+ *
+ * @param waters - Authored water volumes
+ * @returns New flat walkable surfaces at ground height.
+ */
 export function terrain(waters: Box[]): Walkable[] {
   const xs = [
       ...new Set([-192, 192, ...waters.flatMap((w) => [w.min[0], w.max[0]])]),
@@ -206,6 +329,14 @@ export function terrain(waters: Box[]): Walkable[] {
   }
   return result;
 }
+/**
+ * Apply yaw and translation to a local point and round the resulting coordinates.
+ *
+ * @param position - Placement translation
+ * @param yaw - Placement yaw in radians
+ * @param p - Placement-local point
+ * @returns New world-space point.
+ */
 function transformPoint(position: Vec3, yaw: number, p: Vec3): Vec3 {
   return point(
     position[0] + p[0] * Math.cos(yaw) + p[2] * Math.sin(yaw),
@@ -221,9 +352,26 @@ export const ROOT_ARCH_CONTACTS: Vec3[] = [
   [0.3, 3.86264, 0.35],
   [0.9, 3.57587, 0.35],
 ];
+/**
+ * Transform the measured root-arch support contacts into a placement's world coordinates.
+ *
+ * @param p - Root-arch placement
+ * @returns Calibrated world-space contact points.
+ */
 export function archContacts(p: WorldPlacement): Vec3[] {
   return ROOT_ARCH_CONTACTS.map((c) => transformPoint(p.position, p.yaw, c));
 }
+/**
+ * Construct the authored gate or crossing geometry, including hinge latch or plank
+ * seat/deck data.
+ *
+ * @param id - Unique fixture ID
+ * @param kind - Gate or crossing kind
+ * @param position - World position
+ * @param yaw - Yaw in radians
+ * @param plankId - Associated plank ID for a crossing, otherwise null
+ * @returns New fixture definition.
+ */
 export function fixture(
   id: string,
   kind: Fixture["kind"],

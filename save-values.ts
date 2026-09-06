@@ -2,6 +2,14 @@
 import { parseMessage, surfaceHeight, distance } from "./shared.ts";
 import { fixtureBoxes, fixtureSurfaces } from "./level.ts";
 import { RESERVE_SPECIES, type ReserveBlueprint } from "./world.ts";
+/**
+ * Require a non-array object, optionally with an exact field set.
+ *
+ * @param value - Untrusted saved value
+ * @param fields - Exact required field names, or omission to check only object shape
+ * @returns The same object as a record; no clone is made.
+ * @throws {Error} The value is not an object or its fields do not match.
+ */
 export function obj(value: unknown, fields?: string[]): Record<string, any> {
   if (!value || typeof value !== "object" || Array.isArray(value))
     throw Error("Invalid save object");
@@ -14,14 +22,36 @@ export function obj(value: unknown, fields?: string[]): Record<string, any> {
     throw Error("Unknown or missing save fields");
   return v;
 }
+/**
+ * Require a string within the maximum character count; an empty string is allowed.
+ *
+ * @param value - Untrusted saved text
+ * @param max - Maximum characters, default 128
+ * @throws {Error} The value is not a string or exceeds the limit.
+ */
 export function text(value: unknown, max = 128) {
   if (typeof value !== "string" || value.length > max)
     throw Error("Invalid saved text");
 }
+/**
+ * Require a 1–80 character saved identifier containing only letters, digits, hyphens, or
+ * underscores.
+ *
+ * @param value - Untrusted saved identifier
+ * @throws {Error} The identifier has an invalid type, length, or character.
+ */
 export function id(value: unknown) {
   if (typeof value !== "string" || !/^[-_a-zA-Z0-9]{1,80}$/.test(value))
     throw Error("Invalid saved identifier");
 }
+/**
+ * Require a finite number within inclusive bounds.
+ *
+ * @param value - Untrusted saved number
+ * @param min - Inclusive minimum, default negative maximum safe integer
+ * @param max - Inclusive maximum, default maximum safe integer
+ * @throws {Error} The value is nonnumeric, nonfinite, or outside the bounds.
+ */
 export function num(
   value: unknown,
   min = -Number.MAX_SAFE_INTEGER,
@@ -35,6 +65,14 @@ export function num(
   )
     throw Error("Invalid saved number");
 }
+/**
+ * Require a safe integer within inclusive bounds.
+ *
+ * @param value - Untrusted saved integer
+ * @param min - Inclusive minimum, default 0
+ * @param max - Inclusive maximum, default maximum safe integer
+ * @throws {Error} Numeric bounds or safe-integer validation fails.
+ */
 export function integer(
   value: unknown,
   min = 0,
@@ -43,28 +81,69 @@ export function integer(
   num(value, min, max);
   if (!Number.isSafeInteger(value)) throw Error("Invalid saved integer");
 }
+/**
+ * Require a boolean without coercing truthy values.
+ *
+ * @param value - Untrusted saved boolean
+ * @throws {Error} The value is not a boolean.
+ */
 export function bool(value: unknown) {
   if (typeof value !== "boolean") throw Error("Invalid saved boolean");
 }
+/**
+ * Require a string from an explicit enum allowlist.
+ *
+ * @param value - Untrusted saved enum value
+ * @param choices - Permitted string values
+ * @throws {Error} The value is not one of the permitted strings.
+ */
 export function one(value: unknown, choices: string[]) {
   if (typeof value !== "string" || !choices.includes(value))
     throw Error("Invalid saved enum");
 }
+/**
+ * Require a bounded array and validate each member with the supplied checker.
+ *
+ * @param value - Untrusted saved array
+ * @param max - Maximum number of entries
+ * @param check - Validator invoked for each entry
+ * @throws {Error} The value is not a bounded array or an entry validator fails.
+ */
 export function list(value: unknown, max: number, check: (v: any) => void) {
   if (!Array.isArray(value) || value.length > max)
     throw Error("Invalid saved list");
   value.forEach(check);
 }
+/**
+ * Require a fixed-size numeric vector with each component between -10,000 and 10,000.
+ *
+ * @param value - Untrusted saved vector
+ * @param size - Required component count, default 3
+ * @throws {Error} Vector shape or a component is invalid.
+ */
 function vector(value: unknown, size = 3) {
   if (!Array.isArray(value) || value.length !== size)
     throw Error("Invalid saved vector");
   value.forEach((v) => num(v, -10000, 10000));
 }
+/**
+ * Require three finite position components, each between -512 and 512.
+ *
+ * @param value - Untrusted saved position
+ * @throws {Error} Position shape or a component is invalid.
+ */
 export function position(value: unknown) {
   if (!Array.isArray(value) || value.length !== 3)
     throw Error("Invalid saved position");
   value.forEach((v) => num(v, -512, 512));
 }
+/**
+ * Require position/rotation fields and a four-component quaternion with magnitude between
+ * 0.9 and 1.1. Does not normalize accepted quaternions.
+ *
+ * @param value - Untrusted saved pose
+ * @throws {Error} Pose fields, position, or quaternion validation fails.
+ */
 function pose(value: unknown) {
   const v = obj(value, ["position", "rotation"]);
   position(v.position);
@@ -72,6 +151,13 @@ function pose(value: unknown) {
   const n = Math.hypot(...v.rotation);
   if (n < 0.9 || n > 1.1) throw Error("Invalid saved quaternion");
 }
+/**
+ * Validate a saved crew record, including identity, slot, view angles, sequence, and
+ * optional held input.
+ *
+ * @param value - Untrusted saved player
+ * @throws {Error} A player field or embedded input message is invalid.
+ */
 export function player(value: unknown) {
   const v = obj(value, [
     "id",
@@ -97,6 +183,13 @@ export function player(value: unknown) {
   if (v.lastInput !== null)
     parseMessage({ type: "input", worldId: "saved-input", value: v.lastInput });
 }
+/**
+ * Validate a saved resident's identity, species, behavior, pose, target, and remaining
+ * timer.
+ *
+ * @param value - Untrusted saved animal
+ * @throws {Error} A resident field is invalid.
+ */
 function animal(value: unknown) {
   const v = obj(value, [
     "id",
@@ -148,6 +241,13 @@ function animal(value: unknown) {
   num(v.remaining, -1, 1e8);
   position(v.target);
 }
+/**
+ * Validate saved tin pose, velocities, holder syntax, portions, and lid state. Holder
+ * existence is checked separately.
+ *
+ * @param value - Untrusted saved tin
+ * @throws {Error} A tin field is invalid.
+ */
 export function tin(value: unknown) {
   const v = obj(value, [
     "pose",
@@ -169,6 +269,14 @@ export function tin(value: unknown) {
   integer(v.portions, 0, 4);
   bool(v.open);
 }
+/**
+ * Require exactly the blueprint's resident inventory, with unique IDs and matching species.
+ *
+ * @param value - Untrusted saved animal array
+ * @param world - Validated reserve blueprint
+ * @throws {Error} A resident is malformed, duplicated, missing, or inconsistent with the
+ * blueprint.
+ */
 export function residentInventory(value: unknown, world: ReserveBlueprint) {
   list(value, 48, animal);
   const animals = value as any[];
@@ -182,6 +290,14 @@ export function residentInventory(value: unknown, world: ReserveBlueprint) {
   )
     throw Error("Invalid animal count or identities");
 }
+/**
+ * Validate an optional tin holder as a known player or a resident raccoon.
+ *
+ * @param value - Saved holder identifier or null
+ * @param ids - Known player IDs
+ * @param world - Validated reserve blueprint
+ * @throws {Error} The holder does not identify an allowed player or raccoon.
+ */
 export function carrier(value: any, ids: Set<string>, world: ReserveBlueprint) {
   if (value === null || ids.has(value)) return;
   if (
@@ -193,6 +309,14 @@ export function carrier(value: any, ids: Set<string>, world: ReserveBlueprint) {
   )
     throw Error("Missing saved tin holder");
 }
+/**
+ * Check saved entity positions and animal targets against the reserve's horizontal bounds
+ * and permitted vertical range. Requires validated entity shapes.
+ *
+ * @param v - Saved run record
+ * @param world - Validated reserve blueprint
+ * @throws {Error} A saved position lies outside the permitted bounds.
+ */
 export function stateBounds(v: Record<string, any>, world: ReserveBlueprint) {
   const points = [
     ...v.players.map((p: any) => p.position),
@@ -214,6 +338,15 @@ export function stateBounds(v: Record<string, any>, world: ReserveBlueprint) {
     )
       throw Error("Saved position outside world bounds");
 }
+/**
+ * Require the exact authored prop inventory with valid poses, velocities, holder
+ * references, and state fields.
+ *
+ * @param value - Untrusted saved prop array
+ * @param playerIds - Known player IDs
+ * @param world - Validated reserve blueprint
+ * @throws {Error} Prop fields, identities, inventory, or holder references are invalid.
+ */
 export function props(
   value: unknown,
   playerIds: Set<string>,
@@ -253,6 +386,13 @@ export function props(
   )
     throw Error("Invalid saved field prop inventory");
 }
+/**
+ * Validate the exact fixture-state map and each seat/open combination against the reserve.
+ *
+ * @param value - Untrusted saved route state
+ * @param world - Validated reserve blueprint
+ * @throws {Error} Fixture fields or state combinations are invalid.
+ */
 export function route(value: unknown, world: ReserveBlueprint) {
   const states = obj(
     value,
@@ -265,6 +405,14 @@ export function route(value: unknown, world: ReserveBlueprint) {
   }
   fixtureBoxes(world.fixtures, states);
 }
+/**
+ * Require each crossing plank's placed flag and seated pose to agree with the saved route.
+ *
+ * @param propValues - Validated saved prop records
+ * @param routeValue - Validated saved fixture state
+ * @param world - Validated reserve blueprint
+ * @throws {Error} A crossing plank is missing or contradicts its route state.
+ */
 export function plankRoute(
   propValues: any[],
   routeValue: any,
@@ -289,6 +437,13 @@ export function plankRoute(
       throw Error("Saved plank and crossing route disagree");
   }
 }
+/**
+ * Validate at most eight uniquely identified, single-portion bait spills and their
+ * positions/deadlines.
+ *
+ * @param value - Untrusted saved spill array
+ * @throws {Error} Spill fields, count, or uniqueness are invalid.
+ */
 export function spills(value: unknown) {
   const seen = new Set<string>();
   list(value, 8, (x) => {
@@ -301,6 +456,16 @@ export function spills(value: unknown) {
     integer(v.untilTick);
   });
 }
+/**
+ * Require exactly one hat per saved player and validate owners, carrier identities,
+ * positions, and timers.
+ *
+ * @param value - Untrusted saved hat array
+ * @param playerIds - Known player IDs
+ * @param world - Validated reserve blueprint
+ * @throws {Error} Hats are malformed, missing, duplicated, or reference invalid
+ * owners/carriers.
+ */
 export function hats(
   value: unknown,
   playerIds: Set<string>,
@@ -332,12 +497,28 @@ export function hats(
   });
   if (owners.size !== playerIds.size) throw Error("Missing saved crew hat");
 }
+/**
+ * Validate incident deadlines, ground support, single-raccoon hat ownership, and active
+ * hat-reach consistency against the current tick and crew.
+ *
+ * @param v - Saved run with already validated entity shapes
+ * @param world - Validated reserve blueprint
+ * @throws {Error} Spill, hat, or hat-reach state contradicts the run's timing, support, or
+ * ownership rules.
+ */
 export function incidents(v: Record<string, any>, world: ReserveBlueprint) {
   for (const prop of v.props) {
     integer(prop.spillUntilTick, 0, v.tick + 120);
     if (prop.kind !== "case" && prop.spillUntilTick !== 0)
       throw Error("Only the case has a spill guard");
   }
+  /**
+   * Check incident ground support and clearance against static walls; movable leaves are
+   * intentionally excluded from the obstruction check.
+   *
+   * @param point - Incident world position
+   * @returns Whether the incident point is supported and clear.
+   */
   const supported = (point: any) =>
     // A movable leaf can close over a previously valid incident.
     !world.walls.some(

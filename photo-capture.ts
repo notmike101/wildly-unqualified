@@ -3,6 +3,20 @@ import * as THREE from "three/webgpu";
 import { CAMERA_FAR } from "./view-constants.ts";
 import type { PhotoFrame } from "./shared.ts";
 import type { ReserveBlueprint } from "./world.ts";
+/**
+ * Render a frozen shutter frame to a 640x360 JPEG no larger than 64 KiB. Restores the live
+ * scene/render target even on failure and always disposes the temporary target.
+ *
+ * @param renderer - Initialized WebGPU renderer
+ * @param scene - Live scene temporarily set to the photo frame
+ * @param frame - Frozen shutter frame
+ * @param world - Blueprint belonging to the frame
+ * @param apply - Callback applying frozen scene state synchronously
+ * @param restore - Callback restoring live scene state synchronously
+ * @returns The encoded JPEG blob.
+ * @throws {Error} Frame/world IDs differ, rendering or encoding fails, or no attempted JPEG
+ * quality fits the byte limit.
+ */
 export async function capturePhoto(
   renderer: THREE.WebGPURenderer,
   scene: THREE.Scene,

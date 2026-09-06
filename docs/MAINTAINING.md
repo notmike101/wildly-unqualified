@@ -69,6 +69,7 @@ Use the existing pinned dependencies and Node 26.5+ within major 26, from the ga
 npm ci
 npm run build
 npm run format:check
+npm run lint:docs
 npm test
 ```
 
@@ -104,3 +105,26 @@ Split the remaining large production files into the responsibility groups above.
 | `browser.ts` | 1,664 | 309 |
 
 The production build, formatting, portable-release test, and dependency-cycle check pass. The full suite again reports **205 tests: 191 passing and 14 failing**, with every named outcome matching the pre-cleanup baseline. No tests were skipped, disabled, or weakened. This is a source modularity pass, not fresh visual/multiplayer acceptance of the expansion.
+
+## TypeScript documentation and linting — 2026-09-06
+
+Implementation functions, classes, methods, named helpers, and assigned event handlers now have JSDoc. This includes the extracted runtime modules and the retained browser/release/test-helper code. Short inline predicates and callbacks are explained by their surrounding function; test scenarios, generated data, and external API declaration signatures are outside the documentation gate.
+
+Write comments immediately above the declaration or method they describe. Explain behavior first, then use `@param`, `@returns`, `@throws`, and `@template` where applicable:
+
+- Describe units, meaningful defaults, input constraints, and null/empty/fallback behavior.
+- Say whether a function mutates authoritative state, returns a copy, or shares a cached reference. Explain resource ownership and disposal obligations.
+- Describe asynchronous completion and rejection conditions. Only document errors the implementation can actually produce or propagate; distinguish validation from authorization.
+- Keep TypeScript as the source of parameter and return types. Do not repeat `{Type}` annotations on `@param` or `@returns`. `@throws {Error}` identifies the error category; TypeScript has no checked exception signature.
+- Document the role of a generic type with `@template`, and describe object parameter properties where their meaning is not conveyed by the root parameter.
+- Keep tiny helpers short. Do not add empty tags, speculative behavior, or prose that merely repeats the function name. Change the comment alongside the implementation.
+
+Examples of the intended detail are `capturePhoto` in `photo-capture.ts`, `loadRun` and `loadRoom` in `save.ts`, and `movePlayer` in `shared.ts`. Their contracts explain renderer restoration, different backup policies, and collision/position ownership respectively.
+
+`npm run lint:docs` runs the strict TypeScript JSDoc rules, including parameter/return descriptions and missing declarations. Empty-comment autofixing is disabled. Both lint commands use the same exported documentation configuration.
+
+`npm run lint` adopts [Airbnb Extended](https://github.com/eslint-config/airbnb-extended)'s non-React base and TypeScript configurations, with its required plugins and Prettier compatibility. This command also checks JSDoc. **The repository is not yet Airbnb-clean:** this pass records **1,528 existing style findings (1,511 errors and 17 warnings)**, principally `for...of`, parameter mutation, combined variable declarations, explicit `.ts` imports, and sequential `await` in loops. These rules remain enabled and visible. Applying their fixes indiscriminately would change important runtime and driver behavior, so this documentation pass does not rewrite those constructs or suppress the findings. Reproduce the full report with `npm run lint`; use `npm run lint:docs` for the passing documentation gate.
+
+The build still uses **TypeScript 7.0.2**, pinned under the `typescript-native` npm alias and invoked explicitly by `npm run typecheck` (also part of `npm run build`). ESLint's TypeScript tooling requires the classic compiler API, so **TypeScript 6.0.3** occupies the `typescript` dependency used by lint tools. Use `npm run typecheck` for the production compiler rather than relying on which `tsc` executable npm places on PATH. ESLint 9 is pinned to the Airbnb package's supported peer range. These are development dependencies; game runtime dependencies are unchanged.
+
+Verification for this pass: documentation changed in **52 TypeScript files**; comparison of the executable syntax trees for **all 77 TypeScript files** found no code changes. A clean `npm ci`, strict JSDoc check, formatting check, and TypeScript 7 production build pass. The complete suite reports **205 tests: 191 passing and the same 14 failing**, with every named outcome matching the merged baseline and no skipped or TODO tests. The full Airbnb command remains failing for the explicitly recorded style debt above. No new browser acceptance is claimed.

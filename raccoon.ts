@@ -10,6 +10,17 @@ import {
 } from "./animal-context.ts";
 import { flatDistance, clear, routeTo, walk } from "./animal-navigation.ts";
 import { observe, goal, choose, approachPoint } from "./animal-behavior.ts";
+/**
+ * Advance raccoon investigation, tin theft, washing, and hat incidents using persistent
+ * memory and navigable approaches. Mutates the animal and any affected run equipment or
+ * incidents.
+ *
+ * @param run - Authoritative run to update
+ * @param a - Raccoon being advanced
+ * @param m - Persistent memory for this resident
+ * @param dt - Elapsed simulation seconds
+ * @param extra - Additional equipment blockers
+ */
 export function raccoonStep(
   run: RunState,
   a: Animal,
@@ -111,6 +122,13 @@ export function raccoonStep(
   const lure = candidates.find((c) =>
     approachPoint(run, a, c.point, extra, 0.85, c.id),
   );
+  /**
+   * Resolve a connected player whose hat is currently available for this raccoon's reach
+   * attempt.
+   *
+   * @param id - Candidate hat owner ID
+   * @returns Eligible player, or undefined when the owner/hat conditions fail.
+   */
   const hatOwner = (id: string) =>
     run.players.find(
       (p) =>

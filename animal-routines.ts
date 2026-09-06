@@ -25,6 +25,15 @@ type RoutineStage = {
   rotation?: Pose["rotation"];
 };
 const routines = new WeakMap<RunState["world"], Map<string, RoutineStage[]>>();
+/**
+ * Build and cache the resident's authored movement/action cycle, including calibrated
+ * perch, climbing, and water paths. Requires validated species anchors and placements.
+ *
+ * @param run - Run containing the resident blueprint
+ * @param a - Animal whose routine is requested
+ * @returns Shared routine stages keyed by blueprint and resident identity; do not mutate
+ * them.
+ */
 function routineStages(run: RunState, a: Animal): RoutineStage[] {
   let cache = routines.get(run.world);
   if (!cache) {
@@ -36,8 +45,24 @@ function routineStages(run: RunState, a: Animal): RoutineStage[] {
   const resident = run.world.residents.find((r) => r.id === a.id)!;
   const anchors = anchorsFor(run, a);
   const index = Number(a.id.split("-").at(-1));
+  /**
+   * Find a required routine anchor while excluding approach-start markers.
+   *
+   * @param kind - Routine anchor kind
+   * @returns The authored world point; requires a matching anchor.
+   */
   const anchor = (kind: string) =>
     anchors.find((p) => p.kind === kind && !p.id.endsWith("-start"))!.point;
+  /**
+   * Construct a routine stage with a copied destination.
+   *
+   * @param point - Destination world point
+   * @param move - Behavior during travel
+   * @param action - Behavior on arrival
+   * @param seconds - Action duration in seconds, default 4
+   * @param speed - Travel speed in metres per second, default 1.2
+   * @returns A movement/action stage with duration and speed.
+   */
   const stage = (
     point: Vec3,
     move: Behavior,
@@ -129,6 +154,12 @@ function routineStages(run: RunState, a: Animal): RoutineStage[] {
     const arch = run.world.placements.find(
       (p) => p.id === resident.home + "-perch-arch",
     )!;
+    /**
+     * Transform a calibrated local pose by the resident's root arch placement.
+     *
+     * @param p - Pose in the arch's local coordinates
+     * @returns A new world-space pose.
+     */
     const transform = (p: Pose): Pose => ({
       position: rotate(p.position, xyz([0, arch.yaw, 0])).map(
         (v, i) => v + arch.position[i],
@@ -210,6 +241,17 @@ function routineStages(run: RunState, a: Animal): RoutineStage[] {
   return stages;
 }
 
+/**
+ * Advance one species routine, mutating its goal cursor, pose, behavior, and action timer.
+ * Handles disturbance pauses and feeding setups; negative remaining values encode travel
+ * progress.
+ *
+ * @param run - Authoritative run and nearby entities
+ * @param a - Animal to update
+ * @param m - Persistent routine memory to update
+ * @param dt - Elapsed simulation seconds
+ * @param extra - Equipment blockers along routine paths
+ */
 export function wildlifeStep(
   run: RunState,
   a: Animal,

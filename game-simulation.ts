@@ -33,6 +33,15 @@ const carryState = new WeakMap<
   RunState,
   Map<string, { blocked: number; ignore: boolean }>
 >();
+/**
+ * Advance one authoritative tick, clamped to 1/60 second, including crew separation,
+ * carried equipment, wildlife, and incident timers. Paused/exhibition runs do not advance;
+ * an empty crew pauses the run.
+ *
+ * @param run - Authoritative run to mutate
+ * @param dt - Positive finite elapsed seconds
+ * @throws {Error} The supplied timestep is nonfinite or nonpositive.
+ */
 export function advanceRun(run: RunState, dt: number): void {
   if (!Number.isFinite(dt) || dt <= 0)
     throw Error("Invalid simulation timestep");
@@ -56,6 +65,12 @@ export function advanceRun(run: RunState, dt: number): void {
         : undefined;
       if (p) gripOffset(run, prop, handle, p);
     });
+  /**
+   * Combine world and fixture blockers with loose equipment the player is not holding.
+   *
+   * @param p - Player whose held equipment is excluded
+   * @returns Collision boxes applicable to this player.
+   */
   const playerWalls = (p: Player) => [
     ...run.world.walls,
     ...fixtureBoxes(run.world.fixtures, run.route),
@@ -63,6 +78,14 @@ export function advanceRun(run: RunState, dt: number): void {
       .filter((prop) => !prop.holders.includes(p.id) && !prop.placed)
       .flatMap((prop) => propBoxes(prop, PROP_DEFINITIONS[prop.kind])),
   ];
+  /**
+   * Find the highest reachable support under a separation candidate and test standing
+   * clearance.
+   *
+   * @param p - Player being separated
+   * @param point - Proposed foot position
+   * @returns Supported candidate, or null when it is blocked or above the step limit.
+   */
   const separationPoint = (p: Player, point: Vec3): Vec3 | null => {
     const heights = [
         ...run.world.walkables,
@@ -166,6 +189,14 @@ export function advanceRun(run: RunState, dt: number): void {
     });
     if (!holders.length) continue;
     const definition = PROP_DEFINITIONS[prop.kind],
+      /**
+       * Add the remembered grip displacement to the holder's current position.
+       *
+       * @param grip - Player and handle index for this grip
+       * @param grip.p - Player holding this grip
+       * @param grip.handle - Index of the held equipment handle
+       * @returns Desired world position of the held handle.
+       */
       targetPoint = ({ p, handle }: (typeof holders)[number]): Vec3 => {
         const offset = gripOffset(run, prop, handle, p);
         return p.position.map((value, axis) => value + offset[axis]) as Vec3;
@@ -176,6 +207,11 @@ export function advanceRun(run: RunState, dt: number): void {
         points = ordered.map(targetPoint),
         localA = definition.handles[ordered[0].handle],
         localB = definition.handles[ordered[1].handle],
+        /**
+         * Compare the two desired grip positions with the equipment's fixed handle spacing.
+         *
+         * @returns Whether the spacing mismatch exceeds 15 cm.
+         */
         incompatible = () =>
           Math.abs(distance(points[0], points[1]) - distance(localA, localB)) >
           0.15;

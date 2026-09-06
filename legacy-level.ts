@@ -19,6 +19,17 @@ import {
   STASH,
   PLANK_PLACEMENTS,
 } from "./level-data.ts";
+/**
+ * Construct a catalog tree placement for the retained MVP layout. The old height argument
+ * is intentionally unused.
+ *
+ * @param id - Placement ID
+ * @param model - Forest model name
+ * @param position - World position
+ * @param _height - Legacy height argument, retained for call compatibility
+ * @param yaw - Yaw in radians, default 0
+ * @returns Authored world placement.
+ */
 const tree = (
   id: string,
   model: string,
@@ -181,6 +192,15 @@ export const TRAILS: { id: string; points: Vec3[]; width: number }[] = [
     width: 4,
   },
 ];
+/**
+ * Find the shortest horizontal distance from a point to a finite segment, including
+ * degenerate segments.
+ *
+ * @param point - World point
+ * @param a - Segment start
+ * @param b - Segment end
+ * @returns Distance in metres.
+ */
 const segmentDistance = (point: Vec3, a: Vec3, b: Vec3) => {
   const dx = b[0] - a[0],
     dz = b[2] - a[2],
@@ -196,6 +216,12 @@ const segmentDistance = (point: Vec3, a: Vec3, b: Vec3) => {
     z = a[2] + dz * t;
   return Math.hypot(point[0] - x, point[2] - z);
 };
+/**
+ * Exclude retained MVP clearings, water margins, and trail corridors from tree placement.
+ *
+ * @param point - Proposed tree position
+ * @returns Whether the horizontal location permits a tree.
+ */
 const clearForTree = (point: Vec3) => {
   const clearings: [Vec3, number][] = [
     [CAMP, 10],
@@ -353,6 +379,12 @@ for (const [id, position] of [
   NAV_NODES.push(node);
 }
 
+/**
+ * Resolve the retained MVP's movable route collision geometry.
+ *
+ * @param route - Legacy route state
+ * @returns Active legacy gate/crossing collision boxes.
+ */
 export function routeBoxes(route: RouteState): Box[] {
   const gate = FEATURE_PLACEMENTS.find((p) => p.model === "ForestGate")!;
   const angle = route.gateOpen ? Math.PI / 2 : 0,
@@ -377,6 +409,12 @@ export function routeBoxes(route: RouteState): Box[] {
     ),
   ];
 }
+/**
+ * Resolve the retained MVP gate's latch for its current hinge state.
+ *
+ * @param route - Legacy route state
+ * @returns World-space latch position.
+ */
 export function gateLatch(route: RouteState): Vec3 {
   const gate = FEATURE_PLACEMENTS.find((p) => p.model === "ForestGate")!,
     angle = route.gateOpen ? Math.PI / 2 : 0,
@@ -402,6 +440,12 @@ export function gateLatch(route: RouteState): Vec3 {
       point[2] * Math.cos(gate.yaw),
   ];
 }
+/**
+ * Resolve walking surfaces enabled by the retained MVP crossing state.
+ *
+ * @param route - Legacy route state
+ * @returns Active legacy crossing surfaces.
+ */
 export function routeSurfaces(route: RouteState): Walkable[] {
   if (!route.crossing) return [];
   const z = PLANK_PLACEMENTS[route.crossing].position[2];

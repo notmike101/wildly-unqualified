@@ -24,15 +24,40 @@ import {
 } from "./shared.ts";
 import { sightBlocked, rotate } from "./wildlife.ts";
 import { nearby, flat } from "./game-state.ts";
+/**
+ * Transform a sight segment into the frozen tin's local coordinates and test its oriented
+ * bounds.
+ *
+ * @param frame - Frozen photograph frame
+ * @param from - World-space sight origin
+ * @param to - World-space sight target
+ * @returns Whether the tin blocks the segment.
+ */
 function tinBlocks(frame: PhotoFrame, from: Vec3, to: Vec3) {
   const q = frame.tin.pose.rotation,
     conjugate: Quat = [-q[0], -q[1], -q[2], q[3]];
+  /**
+   * Translate and inverse-rotate a point into the frozen tin's coordinate system.
+   *
+   * @param v - World-space point
+   * @returns Tin-local point.
+   */
   const local = (v: Vec3) =>
     rotate(v.map((n, i) => n - frame.tin.pose.position[i]) as Vec3, conjugate);
   return rayBlocked(local(from), local(to), [
     { id: "tin", min: TIN_HALF.map((n) => -n) as Vec3, max: TIN_HALF },
   ]);
 }
+/**
+ * Score visibility and commission requirements from the frozen frame and matching
+ * blueprint. Produces feedback without consulting or mutating the live run.
+ *
+ * @param frame - Frozen scene and camera at the shutter tick
+ * @param world - Validated blueprint matching the frame
+ * @returns Earned commission IDs and a player-facing acceptance or framing reason.
+ * @throws {Error} World IDs differ or photographed residents have duplicate or mismatched
+ * identities.
+ */
 export function evaluatePhoto(
   frame: PhotoFrame,
   world: ReserveBlueprint,
@@ -51,8 +76,22 @@ export function evaluatePhoto(
       Math.cos(c.pitch),
       Math.cos(c.yaw) * Math.sin(c.pitch),
     ];
+  /**
+   * Compute a three-dimensional dot product for camera projection.
+   *
+   * @param a - First vector
+   * @param b - Second vector
+   * @returns Scalar dot product.
+   */
   const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2],
     scale = Math.tan((c.fov * Math.PI) / 360);
+  /**
+   * Check camera framing and occlusion by scenery, the tin, and equipment.
+   *
+   * @param point - World-space sample point
+   * @param boxes - Scenery blockers, defaults to all photo occluders
+   * @returns Whether the world point is visible within the photograph.
+   */
   const pointVisible = (point: Vec3, boxes = occluders) => {
     const d = point.map((v, i) => v - c.position[i]) as Vec3,
       depth = dot(d, f);
@@ -68,6 +107,13 @@ export function evaluatePhoto(
   const reasons: string[] = [];
   const framed: { animal: Animal; center: number; reason: string | null }[] =
     [];
+  /**
+   * Test an animal's projected size, framing, immersion, and occlusion. Appends framing
+   * feedback and rejection reasons while evaluating samples.
+   *
+   * @param a - Animal in the frozen frame
+   * @returns Whether enough subject samples qualify as visible.
+   */
   const qualifies = (a: Animal) => {
     const points = subjectPoints(a, frame.tick).map((local) => {
       const v = rotate(local, a.pose.rotation);
@@ -144,6 +190,12 @@ export function evaluatePhoto(
   )
     throw Error("Photo resident identity mismatch");
   const visibleIds = new Set(visible.map((a) => a.id));
+  /**
+   * Recognize a raccoon inspecting an open tin within the required horizontal range.
+   *
+   * @param a - Animal in the frozen frame
+   * @returns Whether the frozen scene satisfies the inspection condition.
+   */
   const inspection = (a: Animal) =>
     a.species === "raccoon" &&
     a.behavior === "inspect" &&

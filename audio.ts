@@ -24,15 +24,38 @@ type Voice = {
   release?: { at: number; timer: ReturnType<typeof setTimeout> };
 };
 const assets = new Map(manifest.assets.map((a) => [a.id, a]));
+/**
+ * Normalize a volume setting to the inclusive 0–1 range, treating nonfinite input as
+ * silence.
+ *
+ * @param n - Requested gain
+ * @returns A finite gain between 0 and 1.
+ */
 const clamp = (n: number) =>
   Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 0;
+/**
+ * Check that an audio position contains exactly three finite components.
+ *
+ * @param p - Candidate position or direction
+ * @returns Whether the point is safe to pass to Web Audio.
+ */
 const point = (p: Point) => p.length === 3 && p.every(Number.isFinite);
+/**
+ * Measure three-dimensional distance for audio culling.
+ *
+ * @param a - Listener position
+ * @param b - Sound position
+ * @returns Distance in world metres.
+ */
 const distance = (a: Point, b: Point) =>
   Math.hypot(...a.map((v, i) => v - b[i]));
 
-/** One client-owned instance. Captions remain owned by the caller, even on failure.
- * Cue IDs must be world-scoped and already filtered against historical snapshots.
- * This bounded recent-ID cache supplements that authoritative delivery boundary.
+/**
+ * Create an isolated audio owner with bounded buffers and voices. AudioContext creation
+ * waits for unlock; callers must dispose the owner when finished. Cue IDs are deduplicated
+ * even when playback is unavailable.
+ *
+ * @returns Controls for settings, listener, environment, cues, pause, unlock, and disposal.
  */
 export function createAudio() {
   let context: AudioContext | undefined,
@@ -53,6 +76,11 @@ export function createAudio() {
     epoch = 0,
     decodedBytes = 0;
   const documentOwner = typeof document === "undefined" ? undefined : document;
+  /**
+   * Check disposal, pause, page visibility, and the audio context's running state.
+   *
+   * @returns Whether playback may start now.
+   */
   const active = () =>
     !disposed &&
     !paused &&
@@ -66,6 +94,12 @@ export function createAudio() {
     variants = new Map<string, number>();
   let music: Voice | undefined;
 
+  /**
+   * Cancel a voice's release timer, stop its source, disconnect its nodes, and remove it from
+   * the effects set. Already-ended sources are tolerated.
+   *
+   * @param v - Voice owned by this audio instance
+   */
   function stop(v: Voice) {
     clearTimeout(v.release?.timer);
     v.release = undefined;
@@ -80,6 +114,9 @@ export function createAudio() {
     for (const node of v.nodes) node.disconnect();
     effects.delete(v);
   }
+  /**
+   * Invalidate pending playback, stop every voice and bed, and reset compressor history.
+   */
   function stopAll() {
     epoch++;
     for (const v of effects) stop(v);
@@ -90,6 +127,10 @@ export function createAudio() {
     // A suspended compressor otherwise retains a few milliseconds of old audio.
     if (ceiling && !disposed) resetCompressor();
   }
+  /**
+   * Replace the compressor and reconnect audio buses so old compression state cannot leak
+   * across a stop. Requires an initialized context and ceiling node.
+   */
   function resetCompressor() {
     compressor?.disconnect();
     compressor = context!.createDynamicsCompressor();
@@ -104,6 +145,13 @@ export function createAudio() {
     });
     compressor.connect(ceiling!);
   }
+  /**
+   * Fetch and decode a manifest asset once per owner. Enforces encoded and aggregate decoded
+   * byte limits; failed loads are cached as null. Disposal aborts outstanding fetches.
+   *
+   * @param id - Manifest audio asset ID
+   * @returns Decoded buffer, or null for unavailable, failed, or over-budget audio.
+   */
   function load(id: string): Promise<AudioBuffer | null> {
     const existing = buffers.get(id);
     if (existing) return existing;
@@ -133,11 +181,26 @@ export function createAudio() {
     buffers.set(id, pending);
     return pending;
   }
+  /**
+   * Replace scheduled gain automation with a smooth approach from the held current value.
+   * Requires an initialized context.
+   *
+   * @param param - Audio parameter to automate
+   * @param value - Target gain
+   * @param seconds - Smoothing time constant in seconds, default 0.12
+   */
   function ramp(param: AudioParam, value: number, seconds = 0.12) {
     if (!context) return;
     param.cancelAndHoldAtTime(context.currentTime);
     param.setTargetAtTime(value, context.currentTime, seconds);
   }
+  /**
+   * Fade a water bed to silence once, then release it when the audio clock reaches the fade
+   * endpoint.
+   *
+   * @param id - Bed asset ID
+   * @param v - Water voice to fade
+   */
   function releaseWater(id: string, v: Voice) {
     if (v.release) return;
     const at = context!.currentTime + 0.12;
@@ -146,6 +209,10 @@ export function createAudio() {
     gain.cancelAndHoldAtTime(context!.currentTime);
     gain.setValueAtTime(value, context!.currentTime);
     gain.linearRampToValueAtTime(0, at);
+    /**
+     * Recheck the audio clock before stopping the fading water voice; reschedule if a
+     * wall-clock timer fires too early.
+     */
     const finish = () => {
       if (beds.get(id) !== v || !v.release) return;
       // Audio time can lag a timer (or be interrupted); never cut the ramp early.
@@ -158,6 +225,10 @@ export function createAudio() {
     };
     v.release = { at, timer: setTimeout(finish, 140) };
   }
+  /**
+   * Copy the stored listener position, normalized forward direction, and world up axis into
+   * Web Audio. Does nothing before initialization.
+   */
   function updateListener() {
     if (!context) return;
     const l = context.listener,
@@ -172,6 +243,15 @@ export function createAudio() {
     l.upY.setValueAtTime(1, now);
     l.upZ.setValueAtTime(0, now);
   }
+  /**
+   * Load and start a looping bed with a fade-in. Discards completion after ownership or
+   * playback generation changes and resynchronizes gain after loading.
+   *
+   * @param id - Manifest asset ID
+   * @param bus - Destination audio bus
+   * @param gain - Initial target gain
+   * @param voice - Voice slot reserved for this loop
+   */
   function loop(id: string, bus: GainNode, gain: number, voice: Voice) {
     const generation = epoch;
     void load(id).then((buffer) => {
@@ -203,6 +283,10 @@ export function createAudio() {
       }
     });
   }
+  /**
+   * Reconcile forest, water, and music loops with current settings and habitat. Fades water
+   * with distance and cancels a pending release if water becomes audible again.
+   */
   function syncBeds() {
     if (!active()) return;
     const water = Number.isFinite(env.waterDistance)
@@ -242,6 +326,9 @@ export function createAudio() {
       music = undefined;
     }
   }
+  /**
+   * Apply bus settings, using exact zero for master mute, then reconcile ambience and music.
+   */
   function applyLevels() {
     if (!context) return;
     [levels.master, levels.effects, levels.ambience, levels.music].forEach(
@@ -255,6 +342,10 @@ export function createAudio() {
     );
     syncBeds();
   }
+  /**
+   * Attempt to resume audio only when visible and unpaused. Rejected autoplay is tolerated so
+   * a later gesture can retry.
+   */
   async function resume() {
     if (!context || disposed || paused || documentOwner?.hidden) return;
     const generation = epoch;
@@ -268,6 +359,10 @@ export function createAudio() {
       /* Captions still work; next gesture can retry. */
     }
   }
+  /**
+   * Stop and suspend playback while hidden or paused; otherwise attempt to resume without
+   * replaying historical cues.
+   */
   function visibility() {
     if (paused || documentOwner?.hidden) {
       stopAll();
@@ -275,11 +370,25 @@ export function createAudio() {
     } else void resume();
   }
   documentOwner?.addEventListener("visibilitychange", visibility);
+  /**
+   * Advance a per-key round-robin cursor through an asset palette.
+   *
+   * @param key - Variation group key
+   * @param palette - Ordered, nonempty asset palette
+   * @returns The next asset ID; callers must supply a nonempty palette.
+   */
   function variant(key: string, palette: string[]) {
     const index = ((variants.get(key) ?? -1) + 1) % palette.length;
     variants.set(key, index);
     return palette[index];
   }
+  /**
+   * Map cue kind, material, and species to an asset, advancing variation cursors where
+   * applicable.
+   *
+   * @param c - Incoming audio cue
+   * @returns Selected asset ID, or undefined for an unsupported cue/species.
+   */
   function select(c: AudioCue): string | undefined {
     switch (c.kind) {
       case "shutter":
@@ -321,6 +430,10 @@ export function createAudio() {
     }
   }
   return {
+    /**
+     * Lazily initialize the audio graph on a user gesture, warm the bounded asset palette, and
+     * attempt playback. Unsupported devices and autoplay failures are intentionally tolerated.
+     */
     async unlock() {
       if (disposed) return;
       try {
@@ -353,6 +466,12 @@ export function createAudio() {
         /* Unsupported device must not stop admission or play. */
       }
     },
+    /**
+     * Clamp and replace volume settings, then apply them to the audio buses. Calls after
+     * disposal do nothing.
+     *
+     * @param value - Master, effects, ambience, and music gains
+     */
     settings(value: AudioSettings) {
       if (disposed) return;
       levels = {
@@ -363,6 +482,13 @@ export function createAudio() {
       };
       applyLevels();
     },
+    /**
+     * Store a copied position and normalized forward direction, ignoring malformed or near-zero
+     * vectors, then update Web Audio.
+     *
+     * @param position - Listener position in world metres
+     * @param direction - Nonzero forward direction
+     */
     listener(position: Point, direction: Point) {
       if (
         disposed ||
@@ -376,11 +502,22 @@ export function createAudio() {
       forward = direction.map((n) => n / length) as Point;
       updateListener();
     },
+    /**
+     * Replace habitat and water-distance inputs and reconcile ambient beds.
+     *
+     * @param value - Current habitat and nearest-water distance in metres
+     */
     environment(value: Environment) {
       if (disposed) return;
       env = { habitat: value.habitat, waterDistance: value.waterDistance };
       syncBeds();
     },
+    /**
+     * Deduplicate a cue and schedule bounded local or spatial playback. Drops inaudible, muted,
+     * stale, or over-capacity effects; successful cues temporarily duck music.
+     *
+     * @param value - Cue with a stable world-scoped ID and world position
+     */
     cue(value: AudioCue) {
       if (disposed || !value.id || seen.has(value.id)) return;
       seen.add(value.id);
@@ -434,6 +571,7 @@ export function createAudio() {
             );
             source.connect(panner).connect(buses[1]);
           }
+          /** Release this completed effect's nodes and its bounded voice slot. */
           source.onended = () => {
             for (const node of v.nodes) node.disconnect();
             effects.delete(v);
@@ -451,11 +589,21 @@ export function createAudio() {
         }
       });
     },
+    /**
+     * Change playback pause state and reconcile visibility/suspension. Repeated values and
+     * calls after disposal do nothing.
+     *
+     * @param value - Whether gameplay audio should be paused
+     */
     pause(value: boolean) {
       if (disposed || paused === value) return;
       paused = value;
       visibility();
     },
+    /**
+     * Idempotently stop voices, abort loads, clear caches/listeners, disconnect nodes, and
+     * request context closure.
+     */
     dispose() {
       if (disposed) return;
       disposed = true;

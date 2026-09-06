@@ -1,10 +1,27 @@
 /** Notebook observations, shared album controls, and reserve map presentation. */
 import type { Snapshot, Vec3 } from "./shared.ts";
 import type { ReserveBlueprint } from "./world.ts";
+/**
+ * Look up a required page element using the caller's expected element type. The page markup
+ * must supply this ID.
+ *
+ * @template T - Expected DOM element subtype; the markup must satisfy this assertion.
+ * @param id - Required element ID
+ * @returns The existing DOM element; no runtime null or type check is performed.
+ */
 const $ = <T extends HTMLElement = HTMLElement>(id: string) =>
   document.getElementById(id) as T;
 let albumSignature = "";
 
+/**
+ * Rebuild notebook observations and album controls from the snapshot, wiring favorite
+ * requests through the supplied callback.
+ *
+ * @param latest - Latest snapshot, if installed
+ * @param localId - Local player ID
+ * @param commissionTitle - Commission ID-to-title resolver
+ * @param onFavorite - Callback requesting a photo favorite toggle
+ */
 export function renderNotebook(
   latest: Snapshot | undefined,
   localId: string,
@@ -74,6 +91,11 @@ export function renderNotebook(
       const selected = photo.favorites.includes(localId);
       b.textContent = selected ? "★ Favorite" : "☆ Favorite";
       b.setAttribute("aria-pressed", String(selected));
+      /**
+       * Request a favorite toggle for this album entry through the owning client.
+       *
+       * @returns No value after invoking the supplied callback.
+       */
       b.onclick = () => onFavorite(photo.id);
       f.append(b);
       if (photo.favorites.length) {
@@ -93,6 +115,14 @@ export function renderNotebook(
     $("album").append(f);
   }
 }
+/**
+ * Draw trails, water, habitats, equipment, and crew on the notebook canvas. Does nothing
+ * until both snapshot and blueprint exist.
+ *
+ * @param latest - Latest snapshot, if installed
+ * @param world - Matching blueprint, if installed
+ * @param colors - Crew colors indexed by slot
+ */
 export function drawMap(
   latest: Snapshot | undefined,
   world: ReserveBlueprint | undefined,
@@ -106,6 +136,13 @@ export function drawMap(
     336 / (world.bounds.max[0] - world.bounds.min[0]),
     236 / (world.bounds.max[2] - world.bounds.min[2]),
   );
+  /**
+   * Project horizontal world coordinates into the centered notebook map using its current
+   * scale.
+   *
+   * @param p - World position whose X/Z components are used
+   * @returns Canvas X/Y coordinates in pixels.
+   */
   const point = (p: number[]) => [180 + p[0] * scale, 130 + p[2] * scale];
   c.strokeStyle = "#b0a16e";
   c.lineWidth = 3;

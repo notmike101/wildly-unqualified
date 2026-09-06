@@ -24,6 +24,15 @@ import {
   hats,
   incidents,
 } from "./save-values.ts";
+/**
+ * Validate a frozen pending frame's camera, crew slots, residents, equipment, and incidents
+ * against the saved crew and world. Album metadata is validated separately by validateRun.
+ *
+ * @param value - Untrusted frozen photo frame
+ * @param crew - Saved crew IDs mapped to their stable slot numbers
+ * @param world - Validated reserve blueprint
+ * @throws {Error} Frame fields, geometry, or crew/world references are invalid.
+ */
 function photo(
   value: unknown,
   crew: Map<string, number>,
@@ -73,6 +82,13 @@ function photo(
   incidents(v, world);
   stateBounds(v, world);
 }
+/**
+ * Check the 64 KiB JPEG limit, supported frame dimensions, segment structure, a scan header,
+ * and the final end marker. Does not decode pixels or validate the entropy-coded scan.
+ *
+ * @param bytes - Encoded JPEG bytes
+ * @returns Whether the bytes satisfy the stored-photo JPEG contract.
+ */
 export function validJPEG(bytes: Uint8Array) {
   if (
     bytes.length < 8 ||
@@ -83,6 +99,12 @@ export function validJPEG(bytes: Uint8Array) {
     bytes.at(-1) !== 217
   )
     return false;
+  /**
+   * Read a big-endian unsigned 16-bit word from the JPEG buffer.
+   *
+   * @param offset - Byte offset, the caller must have checked the buffer bounds
+   * @returns Decoded segment word.
+   */
   const word = (offset: number) => bytes[offset] * 256 + bytes[offset + 1];
   let offset = 2,
     frame = false;
@@ -120,6 +142,15 @@ export function validJPEG(bytes: Uint8Array) {
   }
   return false;
 }
+/**
+ * Validate the complete versioned run and cross-check blueprint, entities, incidents,
+ * album, pending frames, and image ownership. Blueprint validation freezes its graph.
+ *
+ * @param value - Untrusted saved run
+ * @param images - Decoded JPEG buffers indexed by photo ID
+ * @returns The validated run object, retaining its input identity.
+ * @throws {Error} Any run field, reference, image, or cross-entity invariant is invalid.
+ */
 function validateRun(
   value: unknown,
   images: Map<string, Uint8Array>,
@@ -357,6 +388,14 @@ function validateRun(
     if (!albumIds.has(key)) throw Error("Orphan saved image or frame");
   return v as RunState;
 }
+/**
+ * Parse the version-3 save envelope, decode bounded base64 JPEGs, and validate the run.
+ * Older versions are rejected without migration.
+ *
+ * @param raw - UTF-8 JSON save contents
+ * @returns Validated run and decoded image map.
+ * @throws {Error} JSON, save version, image encoding, or run validation fails.
+ */
 export function decodeSave(raw: string) {
   const data = obj(JSON.parse(raw));
   if (data.version === 1 || data.version === 2)

@@ -367,6 +367,17 @@ export const FOREST_MODELS: Record<
     solids: [],
   },
 };
+/**
+ * Transform local box corners by yaw and translation and enclose them in a
+ * world-axis-aligned box.
+ *
+ * @param id - Box identifier
+ * @param position - Placement translation
+ * @param yaw - Yaw in radians
+ * @param min - Local minimum corner
+ * @param max - Local maximum corner
+ * @returns New world-space bounding box.
+ */
 export function worldBox(
   id: string,
   position: Vec3,
@@ -394,6 +405,16 @@ export function worldBox(
     ],
   };
 }
+/**
+ * Resolve a known forest catalog model into a placement with collision solids and
+ * applicable crown/arch occluders.
+ *
+ * @param id - Placement ID
+ * @param model - Existing forest catalog model name
+ * @param position - World position
+ * @param yaw - Yaw in radians, default 0
+ * @returns Placement retaining the supplied position reference.
+ */
 export function placement(
   id: string,
   model: string,

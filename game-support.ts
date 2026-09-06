@@ -14,6 +14,13 @@ import {
 import { localRecoveryPoint } from "./encounters.ts";
 import { type RunState, nearby, flat, observe, event } from "./game-state.ts";
 import { rotate } from "./wildlife.ts";
+/**
+ * Consume one spare bait portion and create a reachable spill when an open case passes the
+ * incident limits and cooldown. Leaves state alone when no recovery ground is available.
+ *
+ * @param run - Authoritative run and incident history to update
+ * @param prop - Equipment that was bumped or turned
+ */
 export function spillCase(run: RunState, prop: FieldProp) {
   if (
     prop.kind !== "case" ||
@@ -38,6 +45,12 @@ export function spillCase(run: RunState, prop: FieldProp) {
     "The open case spilled one bait portion after a bump or sharp turn. Set equipment down, then E retrieves the pile before wildlife eats it.",
   );
 }
+/**
+ * Synchronize hats with owners or raccoons and resolve expired thefts onto reachable
+ * ground, falling back to the owner. Also clears theft on disconnection.
+ *
+ * @param run - Authoritative run containing hats and carriers
+ */
 export function updateHats(run: RunState) {
   for (const hat of run.hats) {
     const owner = run.players.find((p) => p.id === hat.owner),
@@ -70,12 +83,27 @@ export function updateHats(run: RunState) {
       ];
   }
 }
+/**
+ * Clear every player's held input at the current tick to prevent stale movement after a
+ * pause or disconnect.
+ *
+ * @param run - Authoritative run to update
+ */
 export function neutralize(run: RunState) {
   for (const p of run.players) {
     p.lastInput = null;
     p.inputTick = run.tick;
   }
 }
+/**
+ * Check horizontal world bounds, surface coverage, and standing-player clearance. Surface
+ * coverage does not by itself snap the point's height.
+ *
+ * @param run - Run supplying terrain and route state
+ * @param point - Candidate foot position
+ * @param walls - Blocking boxes, defaults to static and current fixture boxes
+ * @returns Whether the candidate passes these spawn/placement checks.
+ */
 export function safe(
   run: RunState,
   point: Vec3,
@@ -101,6 +129,13 @@ export function safe(
     )
   );
 }
+/**
+ * Search around connected crew, or camp, for a supported clear spawn with crew separation.
+ *
+ * @param run - Run supplying crew and terrain
+ * @param id - Joining player ID, excluded from separation checks
+ * @returns A new spawn vector, falling back to a copy of camp if the search fails.
+ */
 export function safeSpawn(run: RunState, id: string): Vec3 {
   const crew = run.players.filter((p) => p.connected && p.id !== id),
     anchor = crew[0]?.position ?? run.world.camp;
@@ -131,6 +166,12 @@ export function safeSpawn(run: RunState, id: string): Vec3 {
   return [...run.world.camp];
 }
 
+/**
+ * Update the tin's pose to follow its player or animal holder and zero its velocities. An
+ * unheld tin is unchanged.
+ *
+ * @param run - Authoritative run whose tin is updated
+ */
 export function heldPose(run: RunState) {
   const holder = run.tin.holder;
   if (!holder) return;
@@ -157,6 +198,15 @@ export function heldPose(run: RunState) {
   run.tin.velocity = [0, 0, 0];
   run.tin.angularVelocity = [0, 0, 0];
 }
+/**
+ * Place the tin on clear ground ahead of the player or drop it from its held pose. Opens
+ * the tin, increments its revision, and records a placement event.
+ *
+ * @param run - Authoritative run to update
+ * @param p - Player releasing the tin
+ * @param drop - Drop at the held position when true, otherwise validate a ground placement
+ * @throws {Error} Ground placement is blocked or lacks safe support.
+ */
 export function release(run: RunState, p: Player, drop: boolean) {
   heldPose(run);
   const f = forward(p.yaw),
@@ -189,6 +239,12 @@ export function release(run: RunState, p: Player, drop: boolean) {
   run.tinRevision++;
   event(run, "place", p, run.tin.pose.position);
 }
+/**
+ * Detect an invalid, out-of-height-range, or horizontally unsafe tin position.
+ *
+ * @param run - Run containing the tin and current geometry
+ * @returns Whether the tin qualifies for recovery.
+ */
 export function recoverable(run: RunState) {
   const p = run.tin.pose.position;
   return (

@@ -46,6 +46,18 @@ import {
   recoverable,
 } from "./game-support.ts";
 import { makePhotoFrame } from "./game-snapshot.ts";
+/**
+ * Parse and apply a client message to authoritative state, enforcing world, sequence,
+ * player, cooldown, and command-specific rules. Mutates the run and may create a frozen
+ * photo frame.
+ *
+ * @param run - Authoritative run to update
+ * @param id - Acting player ID
+ * @param input - Untrusted client message; validated before dispatch
+ * @returns Frozen frame and verdict for a successful shutter request; otherwise no value.
+ * @throws {Error} The command is stale, unauthorized, invalid for the current state, or
+ * blocked by a gameplay precondition.
+ */
 export function applyCommand(
   run: RunState,
   id: string,
@@ -58,6 +70,11 @@ export function applyCommand(
     throw Error("Stale world command; refresh the reserve");
   if (seq <= p.lastSeq) throw Error("Replayed command sequence");
   p.lastSeq = seq;
+  /**
+   * Enforce that the acting player owns the room's host role.
+   *
+   * @throws {Error} The acting player is not the host.
+   */
   const host = () => {
     if (run.hostId !== id) throw Error("Only the host can do that");
   };

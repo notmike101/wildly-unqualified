@@ -110,6 +110,13 @@ const {
   pickupTin,
   pickupDecoy,
 } = createDriverNavigation({ latency, evidence, startedAt, log });
+/**
+ * Persist the latest snapshot, coverage, and log, then save a screenshot and print
+ * checkpoint progress.
+ *
+ * @param name - Evidence filename stem
+ * @throws {Error} Snapshot reading, evidence writing, or screenshot capture fails.
+ */
 async function checkpoint(name: string) {
   const state = await snapshot(pages[0]);
   log.push({
@@ -127,6 +134,14 @@ async function checkpoint(name: string) {
     `Outing checkpoint: ${name}; ${state.completed.length}/4 assignments.`,
   );
 }
+/**
+ * Capture first-person habitat and upward-sky screenshots, then restore aim toward the
+ * habitat.
+ *
+ * @param name - Evidence filename stem
+ * @param center - Habitat center in world coordinates
+ * @throws {Error} Browser aiming or screenshot capture fails.
+ */
 async function habitatViews(name: string, center: Vec3) {
   const p = pages[0],
     position = (await me(p)).position;
@@ -136,6 +151,13 @@ async function habitatViews(name: string, center: Vec3) {
   await p.screenshot({ path: resolve(evidence, name + "-upward-sky.png") });
   await aim(p, [center[0], 1.1, center[2]]);
 }
+/**
+ * Save and restart the owned server, wait for crew reconnection, resume if appropriate, and
+ * assert album/credit persistence. Records evidence under the supplied label.
+ *
+ * @param label - Coverage label for this restart
+ * @throws {Error} Server restart, reconnection, or persistence assertions fail.
+ */
 async function restart(label: string) {
   const before = await snapshot(pages[0]);
   restarting = true;
@@ -231,6 +253,11 @@ try {
     restart,
     checkpoint,
     habitatViews,
+    /**
+     * Read live restart status so event handlers do not retain a stale boolean.
+     *
+     * @returns Whether the driver is currently restarting its server.
+     */
     isRestarting: () => restarting,
   });
 } catch (error) {

@@ -51,6 +51,15 @@ export {
   subjectPoints,
 } from "./subject-geometry.ts";
 
+/**
+ * Validate one fixture's open/seat combination against its authored kind and seats.
+ *
+ * @param fixture - Authored fixture definition
+ * @param states - Current states indexed by fixture ID
+ * @returns The existing state object for this fixture.
+ * @throws {Error} The fixture state is missing or has an incompatible open/seat
+ * combination.
+ */
 function fixtureState(fixture: Fixture, states: FixtureState) {
   const state = states[fixture.id];
   if (
@@ -67,6 +76,14 @@ function fixtureState(fixture: Fixture, states: FixtureState) {
   return state;
 }
 
+/**
+ * Resolve current fixture collision boxes, including the rotated leaf of an open gate.
+ *
+ * @param fixtures - Authored fixtures
+ * @param states - Current states indexed by fixture ID
+ * @returns Active collision boxes; closed authored boxes may be shared references.
+ * @throws {Error} A fixture has invalid state.
+ */
 export function fixtureBoxes(fixtures: Fixture[], states: FixtureState): Box[] {
   return fixtures.flatMap((fixture) => {
     if (!fixtureState(fixture, states).open) return fixture.closedBoxes;
@@ -94,6 +111,14 @@ export function fixtureBoxes(fixtures: Fixture[], states: FixtureState): Box[] {
   });
 }
 
+/**
+ * Collect walking surfaces contributed by open fixtures.
+ *
+ * @param fixtures - Authored fixtures
+ * @param states - Current states indexed by fixture ID
+ * @returns Active authored surfaces; callers must not mutate them.
+ * @throws {Error} A fixture has invalid state.
+ */
 export function fixtureSurfaces(
   fixtures: Fixture[],
   states: FixtureState,
@@ -103,6 +128,16 @@ export function fixtureSurfaces(
   );
 }
 
+/**
+ * Resolve a gate latch after rotation around its hinge; fixtures without a latch return
+ * null.
+ *
+ * @param fixture - Authored fixture definition
+ * @param states - Current states indexed by fixture ID
+ * @returns World-space latch point, or null; a closed latch may retain its authored
+ * reference.
+ * @throws {Error} A fixture with a latch has invalid state.
+ */
 export function fixtureLatch(
   fixture: Fixture,
   states: FixtureState,

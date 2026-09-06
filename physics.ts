@@ -46,12 +46,47 @@ export type ReservePhysics = {
   dispose(): void;
 };
 export type TinPhysics = ReservePhysics;
+/**
+ * Convert a tuple to the native physics vector shape.
+ *
+ * @param components - World-space vector components
+ * @param components.0 - X component.
+ * @param components.1 - Y component.
+ * @param components.2 - Z component.
+ * @returns A new X/Y/Z object.
+ */
 const vector = ([x, y, z]: Vec3): V => ({ x, y, z });
+/**
+ * Copy a native physics vector into the shared tuple representation.
+ *
+ * @param v - Native vector to copy
+ * @returns A new X/Y/Z tuple.
+ */
 const tuple = (v: V): Vec3 => [v.x, v.y, v.z];
+/**
+ * Compare equal-length numeric vectors without taking a square root.
+ *
+ * @param a - First vector
+ * @param b - Second vector of the same length
+ * @returns Sum of squared component differences.
+ */
 const distanceSquared = (a: number[], b: number[]) =>
   a.reduce((sum, value, index) => sum + (value - b[index]) ** 2, 0);
 let modulePromise: ReturnType<typeof Box3D> | undefined;
 
+/**
+ * Initialize a single-threaded native world with static geometry and equipment bodies.
+ * Shares only module initialization; each returned world owns resources that must be
+ * disposed.
+ *
+ * @param boxes - Static collision boxes
+ * @param tin - Initial tin state
+ * @param props - Initial field props, default empty
+ * @param route - Initial fixture or legacy route state
+ * @param fixtures - Generated fixture definitions, omission selects legacy route geometry
+ * @returns An independent physics adapter with setters, stepping, and disposal.
+ * @throws {Error} Native initialization fails or the loaded build is not single-threaded.
+ */
 export async function createPhysics(
   boxes: Box[],
   tin: Tin,
@@ -61,6 +96,12 @@ export async function createPhysics(
 ): Promise<ReservePhysics> {
   const b3 = await (modulePromise ??= Box3D());
   const sourceNames = ["tin", ...props.map((p) => p.id)],
+    /**
+     * Map a known equipment ID to its one-based contact-event tag.
+     *
+     * @param id - Tin or field-prop ID
+     * @returns Contact tag, or zero when the ID is unknown.
+     */
     sourceTag = (id: string) => sourceNames.indexOf(id) + 1;
   if (b3.threaded !== false)
     throw Error("Expected Box3D standard single-threaded build");
@@ -80,9 +121,17 @@ export async function createPhysics(
     disposed = false,
     accumulator = 0,
     state = structuredClone(tin);
+  /**
+   * Reject operations on a disposed physics owner.
+   *
+   * @throws {Error} This physics world has already been disposed.
+   */
   const ensure = () => {
     if (disposed) throw Error("Reserve physics is disposed");
   };
+  /**
+   * Destroy and release the current native tin body, if present.
+   */
   const remove = () => {
     if (body) {
       body.destroy();
@@ -90,6 +139,11 @@ export async function createPhysics(
       body = null;
     }
   };
+  /**
+   * Destroy a prop's native body and remove its tracked state. Unknown IDs are ignored.
+   *
+   * @param id - Prop ID to remove
+   */
   const removeProp = (id: string) => {
     const entry = propBodies.get(id);
     if (entry?.body) {
@@ -98,6 +152,14 @@ export async function createPhysics(
     }
     propBodies.delete(id);
   };
+  /**
+   * Construct collision hulls from the prop catalog and tag them for impact events. Dynamic
+   * bodies receive the saved velocities.
+   *
+   * @param value - Prop pose and motion state
+   * @param type - Native body mode
+   * @returns New native body; the owning adapter must destroy and delete it.
+   */
   const createPropBody = (
     value: FieldProp,
     type: "static" | "kinematic" | "dynamic",
@@ -137,6 +199,12 @@ export async function createPhysics(
     }
     return moving;
   };
+  /**
+   * Construct an untagged static collision box in the native world.
+   *
+   * @param box - World-space axis-aligned collision box
+   * @returns New native body; the owning adapter must destroy and delete it.
+   */
   const createStaticBox = (box: Box) => {
     const center = box.min.map((n, i) => (n + box.max[i]) / 2) as Vec3,
       half = box.min.map((n, i) => (box.max[i] - n) / 2) as Vec3,
@@ -155,6 +223,13 @@ export async function createPhysics(
     shape.delete();
     return item;
   };
+  /**
+   * Rebuild fixture bodies and seated crossing planks only when serialized route state
+   * changes.
+   *
+   * @param value - Generated fixture states or the legacy route state
+   * @throws {Error} Generated fixture state is inconsistent with its definitions.
+   */
   const setRoute = (value: RouteState | FixtureState) => {
     const key = JSON.stringify(value);
     if (routeKey === key) return;
@@ -201,6 +276,14 @@ export async function createPhysics(
         ),
       );
   };
+  /**
+   * Reconcile held, placed, and loose body modes with copied authoritative state, then update
+   * fixture geometry.
+   *
+   * @param values - Current field prop states
+   * @param nextRoute - Current generated or legacy route state
+   * @throws {Error} The adapter is disposed or fixture state is invalid.
+   */
   const setProps = (
     values: FieldProp[],
     nextRoute: RouteState | FixtureState,
@@ -253,6 +336,9 @@ export async function createPhysics(
     }
     setRoute(nextRoute);
   };
+  /**
+   * Idempotently destroy the native world and release every retained body and world wrapper.
+   */
   const dispose = () => {
     if (disposed) return;
     disposed = true;
@@ -266,6 +352,13 @@ export async function createPhysics(
     for (const item of statics) item.delete();
     world.delete();
   };
+  /**
+   * Replace the tin state and reset the substep accumulator. Held tins have no dynamic body;
+   * loose tins are recreated with supplied velocities.
+   *
+   * @param value - Authoritative tin state to copy
+   * @throws {Error} The adapter has been disposed.
+   */
   const setTin = (value: Tin) => {
     ensure();
     remove();
@@ -305,6 +398,14 @@ export async function createPhysics(
     setTin,
     setProps,
     dispose,
+    /**
+     * Advance physics in 1/60-second substeps, clamping each supplied interval to 0.25 seconds.
+     * Collect impacts and copy current body transforms back into adapter state.
+     *
+     * @param dt - Finite, nonnegative elapsed seconds
+     * @returns Detached tin and prop state plus impact positions and source IDs.
+     * @throws {Error} The adapter is disposed or the timestep is negative or nonfinite.
+     */
     step(dt) {
       ensure();
       if (!Number.isFinite(dt) || dt < 0)
@@ -349,6 +450,15 @@ export async function createPhysics(
             shapeUserDataB: number;
           }[];
         };
+        /**
+         * Decode and deduplicate equipment IDs from a native contact pair, ignoring untagged
+         * scenery.
+         *
+         * @param e - Contact event containing both shape tags
+         * @param e.shapeUserDataA - Contact tag on the first shape; zero denotes scenery
+         * @param e.shapeUserDataB - Contact tag on the second shape; zero denotes scenery
+         * @returns Distinct known equipment IDs involved in the contact.
+         */
         const ids = (e: { shapeUserDataA: number; shapeUserDataB: number }) => [
           ...new Set(
             [e.shapeUserDataA, e.shapeUserDataB].flatMap((tag) =>

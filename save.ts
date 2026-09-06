@@ -26,12 +26,29 @@ export type RoomCredentials = {
   >;
 };
 const LIMIT = 8 * 1024 * 1024;
+/**
+ * Read a regular save file as UTF-8 after enforcing the file-size limit.
+ *
+ * @param path - Filesystem path to the save
+ * @returns File contents.
+ * @throws {Error} The file is missing, unreadable, nonregular, or larger than the save
+ * limit.
+ */
 async function boundedRead(path: string) {
   const info = await stat(path);
   if (info.size > LIMIT || !info.isFile())
     throw Error("Save file exceeds allowed size");
   return readFile(path, "utf8");
 }
+/**
+ * Load the primary run save, falling back to its backup for non-version failures. Version
+ * errors stop loading; missing primary and backup mean no existing run.
+ *
+ * @param dataDir - Private data directory
+ * @returns Validated run/images, or null only when both files are absent.
+ * @throws {Error} Save versions are incompatible or neither available save can be loaded
+ * safely.
+ */
 export async function loadRun(
   dataDir: string,
 ): Promise<{ run: RunState; images: Map<string, Uint8Array> } | null> {
@@ -57,6 +74,15 @@ export async function loadRun(
   }
 }
 const writes = new Map<string, Promise<void>>();
+/**
+ * Queue writes per destination path. Each caller receives its own write failure while later
+ * writes can still proceed.
+ *
+ * @param path - Destination path used as the queue key
+ * @param write - Asynchronous write operation
+ * @returns Completion of this queued write.
+ * @throws {Error} The supplied write operation fails.
+ */
 function serialize(path: string, write: () => Promise<void>) {
   const task = (writes.get(path) ?? Promise.resolve())
     .catch(() => {})
@@ -69,6 +95,16 @@ function serialize(path: string, write: () => Promise<void>) {
     .catch(() => {});
   return task;
 }
+/**
+ * Write a validated replacement through a temporary file and rename, retaining only a valid
+ * prior file as backup. Creates private directories/files; does not perform an fsync.
+ *
+ * @param path - Destination save path
+ * @param raw - Already validated replacement JSON
+ * @param validate - Validator for the existing file before backup
+ * @throws {Error} An incompatible prior version or filesystem operation prevents
+ * replacement.
+ */
 async function replace(
   path: string,
   raw: string,
@@ -97,6 +133,17 @@ async function replace(
   }
   await rename(path + ".tmp", path);
 }
+/**
+ * Validate and clone the run, neutralize the saved restart state, and encode images before
+ * a serialized atomic replacement. Does not mutate the live run or its images.
+ *
+ * @param dataDir - Private data directory
+ * @param run - Live authoritative run to snapshot
+ * @param images - JPEG buffers indexed by photo ID
+ * @returns Completion of the queued save.
+ * @throws {Error} Validation, encoded size, or persistence fails; validation failures are
+ * returned as rejected promises.
+ */
 export function saveRun(
   dataDir: string,
   run: RunState,
@@ -141,6 +188,14 @@ export function saveRun(
   }
   return serialize(path, () => replace(path, raw, decodeSave));
 }
+/**
+ * Parse and validate private room credentials, distinct host/join secrets, and bounded
+ * session records.
+ *
+ * @param raw - UTF-8 room JSON
+ * @returns Validated private credentials; never expose this object to clients.
+ * @throws {Error} JSON, room version, credential shape, or session data is invalid.
+ */
 function decodeRoom(raw: string): RoomCredentials {
   const v = obj(JSON.parse(raw), [
     "version",
@@ -168,12 +223,30 @@ function decodeRoom(raw: string): RoomCredentials {
   }
   return v as RoomCredentials;
 }
+/**
+ * Validate private room credentials and queue their atomic replacement. Validation occurs
+ * synchronously before queuing.
+ *
+ * @param dataDir - Private data directory
+ * @param room - Complete private room state
+ * @returns Completion of the queued credential write.
+ * @throws {Error} Credentials are invalid or persistence fails.
+ */
 export function saveRoom(dataDir: string, room: RoomCredentials) {
   const path = resolve(dataDir, "room.json"),
     raw = JSON.stringify(room);
   decodeRoom(raw);
   return serialize(path, () => replace(path, raw, decodeRoom));
 }
+/**
+ * Load private credentials, consulting the backup only when the primary is absent. If both
+ * are absent, create and persist fresh secrets. Corrupt credentials are never silently
+ * replaced.
+ *
+ * @param dataDir - Private data directory
+ * @returns Validated existing or newly persisted private room state.
+ * @throws {Error} Existing credentials are invalid or filesystem operations fail.
+ */
 export async function loadRoom(dataDir: string): Promise<RoomCredentials> {
   const path = resolve(dataDir, "room.json");
   try {

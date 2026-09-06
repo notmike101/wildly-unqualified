@@ -48,6 +48,16 @@ const runtime = [
   "world-validation.ts",
   "world.ts",
 ];
+/**
+ * Create a new portable release from the retained built web directory and explicit runtime
+ * allowlist. Checks local runtime imports and rejects symlinked web assets; never
+ * overwrites an existing destination.
+ *
+ * @param destination - New output directory, defaults to a timestamped artifacts path
+ * @returns Absolute release directory path.
+ * @throws {Error} The build is missing, an import is absent from the allowlist, web assets
+ * contain symlinks, or filesystem operations fail.
+ */
 export async function buildRelease(
   destination = resolve(
     root,

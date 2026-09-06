@@ -32,6 +32,14 @@ import {
   archContacts,
   fixture,
 } from "./world-geometry.ts";
+/**
+ * Validate the blueprint, freezing it, then hash its JSON serialization with SHA-256.
+ * Property serialization order remains significant.
+ *
+ * @param world - Reserve blueprint to validate and hash
+ * @returns Lowercase hexadecimal digest.
+ * @throws {Error} Blueprint validation or digest computation fails.
+ */
 export async function reserveHash(world: ReserveBlueprint): Promise<string> {
   const bytes = new TextEncoder().encode(
     JSON.stringify(validateReserve(world)),
@@ -41,6 +49,15 @@ export async function reserveHash(world: ReserveBlueprint): Promise<string> {
     (b) => b.toString(16).padStart(2, "0"),
   ).join("");
 }
+/**
+ * Check blueprint size, schema, identities, geometry, routes, and commission feasibility,
+ * then recursively freeze the accepted object. Does not regenerate data from its seed.
+ *
+ * @param value - Untrusted blueprint object
+ * @returns The same validated blueprint, deeply frozen at runtime.
+ * @throws {Error} Serialization or any structural, geometric, or gameplay-reference
+ * invariant fails.
+ */
 export function validateReserve(value: unknown): ReserveBlueprint {
   check(value !== null && typeof value === "object", "object");
   const json = JSON.stringify(value);
@@ -49,6 +66,14 @@ export function validateReserve(value: unknown): ReserveBlueprint {
     "blueprint exceeds 1 MiB",
   );
   const w = value as ReserveBlueprint;
+  /**
+   * Require a non-array object with exactly the listed fields.
+   *
+   * @param v - Candidate object
+   * @param expected - Space-separated required field names
+   * @returns No value when the field set is valid.
+   * @throws {Error} Object shape or fields do not match.
+   */
   const keys = (v: object, expected: string) =>
     check(
       v !== null &&
@@ -93,6 +118,13 @@ export function validateReserve(value: unknown): ReserveBlueprint {
     Number.isInteger(w.attempt) && w.attempt >= 0 && w.attempt < 8,
     "attempt",
   );
+  /**
+   * Walk JSON values to enforce finite numbers, bounded strings/arrays, and a nesting limit.
+   *
+   * @param v - Value to inspect recursively
+   * @param depth - Current depth, default 0
+   * @throws {Error} A value exceeds the limits or is not JSON-compatible.
+   */
   const visit = (v: unknown, depth = 0): void => {
     check(depth < 12, "nesting");
     if (typeof v === "number") check(Number.isFinite(v), "finite numbers");
@@ -122,6 +154,13 @@ export function validateReserve(value: unknown): ReserveBlueprint {
     "props",
   ] as const)
     check(Array.isArray(w[key]), key);
+  /**
+   * Require exactly three finite numeric coordinates.
+   *
+   * @param p - Untrusted vector
+   * @returns No value when the vector is valid.
+   * @throws {Error} Vector shape or a component is invalid.
+   */
   const vec = (p: unknown) =>
     check(
       Array.isArray(p) &&
@@ -129,8 +168,21 @@ export function validateReserve(value: unknown): ReserveBlueprint {
         p.every((n) => typeof n === "number" && Number.isFinite(n)),
       "vector",
     );
+  /**
+   * Require a 1–96 character reserve ID consisting of word characters or hyphens.
+   *
+   * @param s - Untrusted identifier
+   * @returns No value when the identifier is valid.
+   * @throws {Error} Identifier type, length, or characters are invalid.
+   */
   const id = (s: unknown) =>
     check(typeof s === "string" && /^[\w-]{1,96}$/.test(s), "id");
+  /**
+   * Validate each ID and reject duplicates within a collection.
+   *
+   * @param a - Records with identifiers
+   * @throws {Error} An ID is invalid or repeated.
+   */
   const unique = (a: { id: string }[]) => {
     const ids = new Set<string>();
     for (const item of a) {
@@ -139,6 +191,13 @@ export function validateReserve(value: unknown): ReserveBlueprint {
       ids.add(item.id);
     }
   };
+  /**
+   * Validate box fields, identifier, vectors, and min/max ordering.
+   *
+   * @param b - Candidate box
+   * @param extra - Additional space-separated fields permitted by the subtype
+   * @throws {Error} Box shape, identifier, vectors, or coordinate ordering is invalid.
+   */
   const box = (b: Box, extra = "") => {
     keys(b, "id min max" + (extra ? " " + extra : ""));
     id(b.id);
@@ -159,15 +218,35 @@ export function validateReserve(value: unknown): ReserveBlueprint {
       }),
     "bounds",
   );
+  /**
+   * Validate a point and require it to lie within the reserve's horizontal and vertical
+   * bounds.
+   *
+   * @param p - Candidate world point
+   * @throws {Error} The point is malformed or outside reserve bounds.
+   */
   const inside = (p: Vec3) => {
     vec(p);
     check(contains(w.bounds, p) && p[1] >= -4 && p[1] <= 36, "out of bounds");
   };
+  /**
+   * Validate a box and require both corners to lie inside reserve bounds.
+   *
+   * @param b - Candidate box
+   * @param extra - Additional space-separated subtype fields
+   * @throws {Error} Box validation or corner containment fails.
+   */
   const inBox = (b: Box, extra = "") => {
     box(b, extra);
     inside(b.min);
     inside(b.max);
   };
+  /**
+   * Validate a walkable box, slope axis, and finite endpoint heights.
+   *
+   * @param s - Candidate walkable surface
+   * @throws {Error} Surface shape, bounds, axis, or heights are invalid.
+   */
   const surface = (s: Walkable) => {
     inBox(s, "axis heightStart heightEnd");
     check(
@@ -454,6 +533,12 @@ export function validateReserve(value: unknown): ReserveBlueprint {
       r.group === null || (typeof r.group === "string" && r.group.length <= 96),
       "group",
     );
+    /**
+     * Check a box against the current resident's 28-metre habitat neighborhood.
+     *
+     * @param b - Candidate scenery box
+     * @returns Whether the box overlaps the local habitat search footprint.
+     */
     const nearby = (b: Box) =>
       b.min[0] < p.position[0] + 28 &&
       b.max[0] > p.position[0] - 28 &&
@@ -793,6 +878,12 @@ export function validateReserve(value: unknown): ReserveBlueprint {
   const coverage = reserveCanopyCoverage(w);
   check(coverage >= 0.7 && coverage <= 0.9, `canopy coverage ${coverage}`);
   const seen = new WeakSet<object>();
+  /**
+   * Recursively freeze the accepted blueprint graph in place. Requires the already validated
+   * acyclic JSON structure.
+   *
+   * @param v - Validated object or nested value to freeze
+   */
   const freeze = (v: unknown): void => {
     if (v && typeof v === "object" && !seen.has(v)) {
       seen.add(v);

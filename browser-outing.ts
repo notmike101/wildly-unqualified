@@ -7,6 +7,64 @@ import { PROP_DEFINITIONS, PLANK_PLACEMENTS, RULES, CAMP } from "./level.ts";
 import { animalRoute } from "./encounters.ts";
 import { distance, propPoint, type Vec3 } from "./shared.ts";
 import type { BrowserOutingContext } from "./browser.ts";
+/**
+ * Execute the retained visible-browser outing scenario with supplied pages and navigation
+ * helpers. Writes screenshots, logs, coverage, and restart evidence; this is historical
+ * acceptance code, not a new gameplay routine.
+ *
+ * @param options - Existing driver resources, evidence collections, and action callbacks
+ * @param options.count - Number of participating browser clients
+ * @param options.evidence - Directory for screenshots, logs, and recovery files
+ * @param options.resumedFrom - Prior evidence checkpoint, if resuming
+ * @param options.serverOptions - Configuration for the owned test server
+ * @param options.browsers - Owned browser instances
+ * @param options.pages - Admitted crew pages
+ * @param options.errors - Shared browser-error collection
+ * @param options.network - Shared network evidence collection
+ * @param options.log - Shared evidence log to append to
+ * @param options.coverage - Shared scenario coverage record
+ * @param options.latency - Simulated network latency in milliseconds
+ * @param options.startedAt - Outing start time in Unix milliseconds
+ * @param options.sleep - Wait between ordinary browser actions without advancing simulation
+ * directly.
+ * @param options.reserve - Return the world most recently observed by snapshot.
+ * @param options.snapshot - Read the browser's diagnostic snapshot and refresh the cached
+ * blueprint when its world changes.
+ * @param options.me - Read the admitted page's local player from its diagnostic snapshot.
+ * Requires an admitted player present in the snapshot.
+ * @param options.hold - Hold a keyboard key for a duration and always release it afterward.
+ * @param options.face - Turn toward a world point using arrow keys and snapshot feedback,
+ * with a bounded number of attempts.
+ * @param options.walk - Walk toward a waypoint with ordinary keys, detecting stalls and
+ * optionally trying local detours. Unresolved obstacles invoke the existing recovery-file
+ * workflow.
+ * @param options.action - Press an ordinary action key and log the preceding prompt, player
+ * position, and resulting notice.
+ * @param options.flat - Measure horizontal distance for driver arrival checks.
+ * @param options.travel - Guide ordinary walking through authored navigation and a final
+ * clear destination. Retains the legacy decoy approach workaround used by the acceptance
+ * scenario.
+ * @param options.aim - Turn horizontally and adjust pitch toward a point using bounded
+ * arrow-key attempts. Pitch adjustment is best effort after ten iterations.
+ * @param options.photograph - Aim, click the shutter, wait for a new ready thumbnail, and
+ * record the photo in the evidence log.
+ * @param options.portrait - Repeatedly frame eligible behavior and take ordinary
+ * photographs until the requested legacy assignment is credited.
+ * @param options.pickupTin - Approach the live tin and use ordinary interaction, retrying
+ * at most eight times.
+ * @param options.pickupDecoy - Approach the decoy's authored handle, use the ordinary
+ * interaction prompt, and assert ownership.
+ * @param options.restart - Save and restart the owned server, wait for crew reconnection,
+ * resume if appropriate, and assert album/credit persistence. Records evidence under the
+ * supplied label.
+ * @param options.checkpoint - Persist the latest snapshot, coverage, and log, then save a
+ * screenshot and print checkpoint progress.
+ * @param options.habitatViews - Capture first-person habitat and upward-sky screenshots,
+ * then restore aim toward the habitat.
+ * @param options.isRestarting - Getter for live server-restart status
+ * @throws {Error} Scenario assertions, navigation, browser interaction, or evidence
+ * persistence fail.
+ */
 export async function runOuting({
   count,
   evidence,
@@ -552,6 +610,12 @@ export async function runOuting({
     }
   }
 
+  /**
+   * Coordinate the helper's lure actions and photographer's raccoon attempts, then record the
+   * woodland checkpoint. Uses the retained legacy assignment selection.
+   *
+   * @throws {Error} The coordinated photo attempt, navigation, or checkpoint fails.
+   */
   async function woodlandPhoto() {
     const assignment = world.commissions
       .filter((c) => c.required)
@@ -600,6 +664,14 @@ export async function runOuting({
     await checkpoint("woodland-assignment");
   }
 
+  /**
+   * Move the host along an authored route in short steps while waiting for the interested
+   * raccoon to follow the tin. Logs observed progress without relocating wildlife.
+   *
+   * @param target - World destination for the escort
+   * @throws {Error} Ordinary movement fails or the raccoon falls outside the allowed interest
+   * distance.
+   */
   async function escort(target: Vec3) {
     const state = await snapshot(host),
       player = await me(host);

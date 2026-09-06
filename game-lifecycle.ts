@@ -19,6 +19,15 @@ import {
   safeSpawn,
   release,
 } from "./game-support.ts";
+/**
+ * Generate a validated reserve and initialize a paused outing with fresh equipment,
+ * wildlife memory, and empty crew/album state. Does not create native physics.
+ *
+ * @param seed - Unsigned 32-bit generation seed, default 1
+ * @param worldId - Stable world ID, defaults to a fresh UUID
+ * @returns A new authoritative run.
+ * @throws {Error} The seed or world ID is invalid, or bounded reserve generation fails.
+ */
 export function createRun(
   seed = 1,
   worldId: string = crypto.randomUUID(),
@@ -26,6 +35,15 @@ export function createRun(
   if (!Number.isInteger(seed) || seed < 0 || seed > 0xffffffff)
     throw Error("World seed must be a uint32 integer");
   const world = generateReserve(seed, worldId);
+  /**
+   * Create an unheld, closed, stationary field prop with copied pose components.
+   *
+   * @param id - Authored prop ID
+   * @param kind - Equipment kind
+   * @param position - Initial world position
+   * @param rotation - Initial XYZW rotation, defaults to identity
+   * @returns A new mutable field prop.
+   */
   const fieldProp = (
     id: string,
     kind: FieldProp["kind"],
@@ -114,6 +132,16 @@ export function createRun(
   };
 }
 
+/**
+ * Reconnect an existing player or claim a free crew slot at a safe spawn. Initializes hats
+ * and cooldowns for new crew and assigns the first host.
+ *
+ * @param run - Authoritative run to update
+ * @param id - Validated-format player ID
+ * @param name - Display name, trimmed and limited to 24 characters for new players
+ * @returns The live player object stored in the run.
+ * @throws {Error} The player ID is invalid or all four crew slots are occupied.
+ */
 export function addPlayer(run: RunState, id: string, name: string): Player {
   if (
     !/^[-_a-zA-Z0-9]{1,80}$/.test(id) ||
@@ -165,6 +193,15 @@ export function addPlayer(run: RunState, id: string, name: string): Player {
   return p;
 }
 
+/**
+ * Release carried equipment, cancel hat targeting, and pause the outing with inputs
+ * neutralized. Unknown IDs are ignored; occupied crew slots remain reserved.
+ *
+ * @param run - Authoritative run to update
+ * @param id - Disconnecting player ID
+ * @throws {Error} Released equipment needs recovery but no clear authored recovery pose
+ * exists.
+ */
 export function disconnectPlayer(run: RunState, id: string): void {
   const p = run.players.find((p) => p.id === id);
   if (!p) return;
@@ -203,6 +240,14 @@ export function disconnectPlayer(run: RunState, id: string): void {
   neutralize(run);
 }
 
+/**
+ * Create a native physics owner for this run and synchronize physical props back into
+ * authoritative state. The caller must dispose it when replacing or closing the run.
+ *
+ * @param run - Authoritative run to synchronize
+ * @returns Physics step and disposal methods bound to the run.
+ * @throws {Error} Native physics initialization fails.
+ */
 export async function attachPhysics(
   run: RunState,
 ): Promise<{ step(dt: number): void; dispose(): void }> {
@@ -216,7 +261,18 @@ export async function attachPhysics(
   let revision = run.tinRevision,
     holder = run.tin.holder;
   return {
+    /**
+     * Release the native physics resources owned by this run adapter.
+     *
+     * @returns No value after releasing the adapter.
+     */
     dispose: () => physics.dispose(),
+    /**
+     * Synchronize changed held poses, advance loose equipment physics, and record
+     * impacts/spills. Does nothing while paused or in exhibition.
+     *
+     * @param dt - Elapsed simulation seconds
+     */
     step(dt) {
       if (run.paused || run.phase === "exhibition") return;
       if (

@@ -24,6 +24,15 @@ import { CREW_COLORS } from "./view-constants.ts";
 export { CREW_COLORS, CAMERA_FAR } from "./view-constants.ts";
 const palette = CREW_COLORS;
 
+/**
+ * Apply camera prediction to the rendered carry group, shifting held equipment and
+ * participating players together. Call only on a render snapshot, never authority or frozen
+ * photo data.
+ *
+ * @param state - Render-only snapshot to mutate
+ * @param localId - Local player ID
+ * @param position - Predicted local player foot position
+ */
 export function alignLocalCarry(
   state: Snapshot,
   localId: string,
@@ -34,6 +43,12 @@ export function alignLocalCarry(
   if (!local || (!carried && state.tin.holder !== localId)) return;
   // Apply camera prediction to the rendered carry group only; photos use authority.
   const delta = position.map((n, i) => n - local.position[i]);
+  /**
+   * Apply the current prediction displacement to a world point.
+   *
+   * @param point - Original world point
+   * @returns New shifted point.
+   */
   const shift = (point: Vec3) => point.map((n, i) => n + delta[i]) as Vec3;
   if (carried) carried.pose.position = shift(carried.pose.position);
   else state.tin.pose.position = shift(state.tin.pose.position);
@@ -44,17 +59,41 @@ export function alignLocalCarry(
 
 import { loadAsset } from "./view-assets.ts";
 export { loadAsset } from "./view-assets.ts";
+/**
+ * Load shared assets and build one reserve's visual state. Collects asset errors for the
+ * caller to inspect; returned disposal releases owned resources while preserving cached
+ * imports.
+ *
+ * @param scene - Scene owned by this view
+ * @param world - Validated reserve blueprint
+ * @returns View update, shadow centering, world ID, disposal, and asset errors.
+ */
 export async function createView(scene: THREE.Scene, world: ReserveBlueprint) {
   const loader = new GLTFLoader();
   const assets = new Map<string, THREE.Group>();
   const ownedMaterials = new Set<THREE.Material>();
   const actors = new Map<string, THREE.Object3D>();
   const bases = new Map<THREE.Object3D, THREE.Euler>();
+  /**
+   * Create a rough standard material and register it for view disposal.
+   *
+   * @param color - Hexadecimal RGB color
+   * @returns New material owned by the view.
+   */
   function material(color: number) {
     const m = new THREE.MeshStandardMaterial({ color, roughness: 1 });
     ownedMaterials.add(m);
     return m;
   }
+  /**
+   * Create a shadow-casting mesh with an owned material and add it to the scene.
+   *
+   * @param geometry - Geometry whose lifetime transfers to the view
+   * @param color - Hexadecimal RGB color
+   * @param position - World position
+   * @param scale - Per-axis scale, default unit scale
+   * @returns New scene mesh owned by the view.
+   */
   function mesh(
     geometry: THREE.BufferGeometry,
     color: number,
@@ -98,6 +137,13 @@ export async function createView(scene: THREE.Scene, world: ReserveBlueprint) {
       errors.push(`${name}: ${String(e)}`);
     }
   }
+  /**
+   * Clone an imported actor hierarchy and remember base rotations for animation. Geometry and
+   * unchanged materials remain shared.
+   *
+   * @param name - Asset/species name
+   * @returns Cloned actor root, or null if its source asset is missing.
+   */
   function clone(name: string) {
     const src =
       assets.get(name) ??
@@ -112,6 +158,15 @@ export async function createView(scene: THREE.Scene, world: ReserveBlueprint) {
     model.traverse((o) => bases.set(o, o.rotation.clone()));
     return model;
   }
+  /**
+   * Clone a named field object from loaded assets, remember base rotations, and mount it in
+   * the scene.
+   *
+   * @param name - Imported object name
+   * @param pos - World position
+   * @param scale - Uniform scale multiplier, default 1
+   * @returns Mounted object, or null when no source object exists.
+   */
   function field(name: string, pos: Vec3, scale = 1) {
     const src = [...assets.values()]
       .map((group) => group.getObjectByName(name))
@@ -132,6 +187,15 @@ export async function createView(scene: THREE.Scene, world: ReserveBlueprint) {
     mesh(new THREE.CylinderGeometry(0.147, 0.147, 0.218, 10), 0xcaae60, [
       ...world.tinStart,
     ]);
+  /**
+   * Reuse or create an actor by ID, cloning its model or a fallback and applying crew colors
+   * where applicable.
+   *
+   * @param id - Stable player or resident ID
+   * @param species - Model/species name
+   * @param index - Crew palette index, default 0
+   * @returns Cached scene actor for this ID.
+   */
   function actor(id: string, species: string, index = 0) {
     let o = actors.get(id);
     if (o) return o;
@@ -247,6 +311,15 @@ export async function createView(scene: THREE.Scene, world: ReserveBlueprint) {
     string,
     { sprite: THREE.Sprite; name: string; texture: THREE.CanvasTexture }
   >();
+  /**
+   * Reuse a crew label or replace it when the name changes, disposing the previous label
+   * texture/material.
+   *
+   * @param id - Player ID
+   * @param name - Display name
+   * @param slot - Zero-based crew color/number slot
+   * @returns Scene sprite for the player's name and slot.
+   */
   function playerLabel(id: string, name: string, slot: number) {
     const prior = labels.get(id);
     if (prior?.name === name) return prior.sprite;
@@ -286,6 +359,15 @@ export async function createView(scene: THREE.Scene, world: ReserveBlueprint) {
     labels.set(id, { sprite, name, texture });
     return sprite;
   }
+  /**
+   * Apply authoritative or render-only snapshot poses, animation, equipment, incidents, and
+   * UI markers to this reserve's scene. Photo mode suppresses interactive overlays.
+   *
+   * @param state - Snapshot belonging to this view's world
+   * @param localId - Local player or photographer ID
+   * @param photo - Render a frozen photograph when true, default false
+   * @throws {Error} Snapshot and view world IDs differ.
+   */
   function update(state: Snapshot, localId: string, photo = false) {
     const alive = new Set<string>();
     const local = state.players.find((p) => p.id === localId);
@@ -512,6 +594,13 @@ export async function createView(scene: THREE.Scene, world: ReserveBlueprint) {
             materials = [];
             part.traverse((node) => {
               if (!(node instanceof THREE.Mesh)) return;
+              /**
+               * Clone a handle material for independent grip highlighting and register it with the view
+               * and grip cache.
+               *
+               * @param source - Shared source material
+               * @returns New owned highlight material.
+               */
               const replace = (source: THREE.Material) => {
                 const m = source.clone() as THREE.MeshStandardMaterial;
                 ownedMaterials.add(m);
@@ -586,6 +675,12 @@ export async function createView(scene: THREE.Scene, world: ReserveBlueprint) {
         if (!hat) continue;
         hat.traverse((o) => {
           if (o instanceof THREE.Mesh) {
+            /**
+             * Replace only the hat's CrewAccent material with an owned crew-colored material.
+             *
+             * @param m - Original hat material
+             * @returns New accent material, or the unchanged shared material.
+             */
             const replace = (m: THREE.Material) =>
               m.name === "CrewAccent" ? material(palette[player.slot]) : m;
             o.material = Array.isArray(o.material)
@@ -658,6 +753,10 @@ export async function createView(scene: THREE.Scene, world: ReserveBlueprint) {
       o.rotation.z = Math.PI;
     }
   }
+  /**
+   * Release scene-owned geometry, materials, and textures while excluding resources belonging
+   * to cached imported assets.
+   */
   function dispose() {
     const sharedGeometry = new Set<THREE.BufferGeometry>(),
       sharedMaterials = new Set<THREE.Material>();
@@ -695,6 +794,10 @@ export async function createView(scene: THREE.Scene, world: ReserveBlueprint) {
     update,
     worldId: world.id,
     centerShadows: forest.centerShadows,
+    /**
+     * Dispose the forest and view-owned resources, then clear the scene. The caller must stop
+     * using this view afterward.
+     */
     dispose: () => {
       forest.dispose();
       dispose();

@@ -11,6 +11,13 @@ import {
   type Walkable,
 } from "./shared.ts";
 type Navigation = Pick<RunState, "world" | "route">;
+/**
+ * Measure separation in the horizontal X/Z plane, ignoring elevation.
+ *
+ * @param a - First world position
+ * @param b - Second world position
+ * @returns Horizontal distance in metres.
+ */
 export const flatDistance = (a: Vec3, b: Vec3) =>
   Math.hypot(a[0] - b[0], a[2] - b[2]);
 const geometryCache = new WeakMap<
@@ -20,6 +27,14 @@ const geometryCache = new WeakMap<
     { walls: Box[]; surfaces: Walkable[]; routes: Map<string, Vec3[]> }
   >
 >();
+/**
+ * Cache combined static and fixture geometry by blueprint identity and serialized route
+ * state.
+ *
+ * @param run - World and current fixture state
+ * @returns Shared walls, walkable surfaces, and a route cache for that fixture
+ * configuration.
+ */
 export function geometry(run: Navigation) {
   let cache = geometryCache.get(run.world);
   if (!cache) {
@@ -44,6 +59,14 @@ export function geometry(run: Navigation) {
   }
   return value;
 }
+/**
+ * Project a point onto the highest supporting surface at its X/Z coordinates.
+ *
+ * @param point - World point to project
+ * @param run - World and current fixture state
+ * @param surfaces - Candidate surfaces, defaults to current combined geometry
+ * @returns A new grounded point, or null when no surface covers it.
+ */
 export const ground = (
   point: Vec3,
   run: Navigation,
@@ -58,6 +81,16 @@ export const ground = (
 };
 // ponytail: a 30cm animal radius and authored graph suit these three actors; use species hulls if larger wildlife is added.
 const radius = 0.3;
+/**
+ * Sample a grounded segment every five centimetres using the animal clearance radius and a
+ * 30 cm step limit.
+ *
+ * @param from - Segment start
+ * @param to - Segment end
+ * @param run - World and current fixture state
+ * @param extra - Additional blockers, normally loose equipment
+ * @returns Whether the entire segment is supported and unobstructed.
+ */
 export function clear(
   from: Vec3,
   to: Vec3,
@@ -114,6 +147,12 @@ const graphCache = new WeakMap<
   Navigation["world"],
   Map<string, Map<string, string[]>>
 >();
+/**
+ * Cache the authored navigation links that remain traversable in the current fixture state.
+ *
+ * @param run - World and current fixture state
+ * @returns Shared adjacency map keyed by navigation node ID.
+ */
 function graph(run: Navigation) {
   const key = JSON.stringify(run.route),
     cache =
@@ -134,6 +173,17 @@ function graph(run: Navigation) {
   }
   return value;
 }
+/**
+ * Find a grounded route using direct travel or shortest paths over authored nodes. Cached
+ * results are copied before reuse.
+ *
+ * @param from - Starting world point
+ * @param target - Destination world point
+ * @param run - World and current fixture state
+ * @param extra - Additional blockers, included in the route cache key
+ * @returns Waypoints excluding the start, or an empty array if either endpoint or the route
+ * is blocked.
+ */
 export function routeTo(
   from: Vec3,
   target: Vec3,
@@ -147,6 +197,13 @@ export function routeTo(
     query = JSON.stringify([from, target, extra]),
     cached = cache.get(query);
   if (cached) return cached.map((p) => [...p]);
+  /**
+   * Store a defensive copy of this query's path, evicting the oldest entry at the 256-entry
+   * limit.
+   *
+   * @param points - Computed waypoints, including an empty failed route
+   * @returns The original waypoint array supplied by the caller.
+   */
   const remember = (points: Vec3[]) => {
     if (cache.size >= 256) cache.delete(cache.keys().next().value!);
     cache.set(
@@ -197,6 +254,14 @@ export function routeTo(
     result.unshift(ground(nodes.find((n) => n.id === id)!.position, run)!);
   return remember(result);
 }
+/**
+ * Resolve a navigation node and route to its position.
+ *
+ * @param from - Starting world point
+ * @param toNode - Destination navigation node ID
+ * @param run - World and current fixture state
+ * @returns Grounded waypoints, or an empty array for an unknown or unreachable node.
+ */
 export function animalRoute(
   from: Vec3,
   toNode: string,
@@ -209,6 +274,18 @@ export const paths = new WeakMap<
   Animal,
   { target: Vec3; route: string; points: Vec3[] }
 >();
+/**
+ * Advance an animal along its cached route, updating pose and target. Invalidates blocked
+ * routes and tries a short lateral yield when another resident obstructs movement.
+ *
+ * @param run - Authoritative run to update
+ * @param a - Animal to move in place
+ * @param target - Destination world point
+ * @param speed - Travel speed in metres per second
+ * @param dt - Elapsed simulation seconds
+ * @param extra - Additional equipment blockers
+ * @returns Whether the animal is within 20 cm of the destination after moving.
+ */
 export function walk(
   run: RunState,
   a: Animal,
@@ -251,6 +328,13 @@ export function walk(
     paths.delete(a);
     return false;
   }
+  /**
+   * Check whether a proposed step would move closer to an overlapping resident at similar
+   * elevation.
+   *
+   * @param p - Proposed grounded animal position
+   * @returns Whether another resident prevents this step.
+   */
   const occupied = (p: Vec3) =>
     run.animals.some(
       (other) =>
@@ -292,6 +376,14 @@ export function walk(
   if (length <= amount + 0.02) path.points.shift();
   return flatDistance(point, target) <= 0.2;
 }
+/**
+ * Search concentric rings up to three metres away for supported, unobstructed ground
+ * connected to an authored navigation node.
+ *
+ * @param run - Run supplying fixture and equipment geometry
+ * @param origin - Incident position around which to search
+ * @returns First suitable recovery point, or null when the local search fails.
+ */
 export function localRecoveryPoint(run: RunState, origin: Vec3): Vec3 | null {
   const extra = run.props
     .filter((p) => !p.placed)

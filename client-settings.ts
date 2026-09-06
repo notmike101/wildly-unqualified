@@ -1,4 +1,11 @@
-/** Local preference loading, persistence, and accessible key binding controls. */
+/**
+ * Look up a required page element using the caller's expected element type. The page markup
+ * must supply this ID.
+ *
+ * @template T - Expected DOM element subtype; the markup must satisfy this assertion.
+ * @param id - Required element ID
+ * @returns The existing DOM element; no runtime null or type check is performed.
+ */
 const $ = <T extends HTMLElement = HTMLElement>(id: string) =>
   document.getElementById(id) as T;
 const keyDefaults = {
@@ -43,14 +50,24 @@ try {
 } catch {
   /* Corrupt local preferences never block admission. */
 }
+/**
+ * Persist the current local preferences as JSON in browser storage.
+ *
+ * @throws {DOMException} Browser storage is unavailable or its quota is exceeded.
+ */
 function saveSettings() {
   localStorage.setItem("wu-settings", JSON.stringify(settings));
 }
+/**
+ * Populate preference controls and install change/key-binding handlers. Call once during
+ * startup; handlers update the shared settings object and persist changes.
+ */
 export function setupSettings() {
   $<HTMLInputElement>("sensitivity").value = String(settings.sensitivity);
   $<HTMLInputElement>("invert").checked = settings.invert;
   $<HTMLInputElement>("volume").value = String(settings.volume);
   for (const id of ["sensitivity", "invert", "volume"])
+    /** Read the preference controls into shared settings and persist them locally. */
     $(id).onchange = () => {
       settings.sensitivity = Number($<HTMLInputElement>("sensitivity").value);
       settings.invert = $<HTMLInputElement>("invert").checked;
@@ -64,6 +81,12 @@ export function setupSettings() {
     control.value = settings.keys[action];
     control.readOnly = true;
     control.setAttribute("aria-label", `Rebind ${action}`);
+    /**
+     * Capture a replacement key binding while preventing gameplay input and navigation.
+     * Escape leaves the existing binding unchanged.
+     *
+     * @param e - Keyboard event received by the binding control
+     */
     control.onkeydown = (e) => {
       e.preventDefault();
       e.stopPropagation();

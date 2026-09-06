@@ -238,12 +238,32 @@ export type ServerMessage =
       source: string;
       position: Vec3;
     };
+/**
+ * Measure Euclidean distance in three dimensions.
+ *
+ * @param a - First point
+ * @param b - Second point
+ * @returns Distance in world metres.
+ */
 export const distance = (a: Vec3, b: Vec3) =>
   Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+/**
+ * Create an identity-rotation pose with a copied position.
+ *
+ * @param position - World-space position
+ * @returns A new pose.
+ */
 export const pose = (position: Vec3): Pose => ({
   position: [...position],
   rotation: [0, 0, 0, 1],
 });
+/**
+ * Rotate a local point by an XYZW quaternion and translate it into world space.
+ *
+ * @param point - Prop-local point
+ * @param value - Prop world pose with a unit quaternion
+ * @returns Transformed world point.
+ */
 export const propPoint = (point: Vec3, value: Pose): Vec3 => {
   const [x, y, z, w] = value.rotation,
     tx = 2 * (y * point[2] - z * point[1]),
@@ -255,9 +275,27 @@ export const propPoint = (point: Vec3, value: Pose): Vec3 => {
     value.position[2] + point[2] + w * tz + x * ty - y * tx,
   ];
 };
+/**
+ * Find the first field prop whose holder slots contain a player.
+ *
+ * @param playerId - Player ID
+ * @param props - Current field props
+ * @returns The existing held prop, or undefined.
+ */
 export function heldProp(playerId: string, props: FieldProp[]) {
   return props.find((prop) => prop.holders.includes(playerId));
 }
+/**
+ * Find the nearest visible equipment handle or bait-cup use point within two metres of the
+ * player's eye. Excludes occupied handles and placed props from pickup.
+ *
+ * @param player - Interacting player
+ * @param props - Current field props
+ * @param definitions - Equipment geometry catalog
+ * @param occluders - World and fixture sight blockers
+ * @param parts - Select pickup handles or use points
+ * @returns Nearest eligible target, or null.
+ */
 function closestTarget(
   player: Player,
   props: FieldProp[],
@@ -315,6 +353,15 @@ function closestTarget(
       )[0] ?? null
   );
 }
+/**
+ * Find the nearest unoccupied, visible equipment handle within interaction range.
+ *
+ * @param player - Interacting player
+ * @param props - Current field props
+ * @param definitions - Equipment geometry catalog
+ * @param occluders - World and fixture sight blockers
+ * @returns Pickup target, or null.
+ */
 export function equipmentTarget(
   player: Player,
   props: FieldProp[],
@@ -323,6 +370,15 @@ export function equipmentTarget(
 ) {
   return closestTarget(player, props, definitions, occluders, "handles");
 }
+/**
+ * Find a visible bait-cup use point only when the player is not holding equipment.
+ *
+ * @param player - Interacting player
+ * @param props - Current field props
+ * @param definitions - Equipment geometry catalog
+ * @param occluders - World and fixture sight blockers
+ * @returns Use target, or null when hands are occupied or no point qualifies.
+ */
 export function equipmentUseTarget(
   player: Player,
   props: FieldProp[],
@@ -332,6 +388,16 @@ export function equipmentUseTarget(
   if (heldProp(player.id, props)) return null;
   return closestTarget(player, props, definitions, occluders, "usePoints");
 }
+/**
+ * Find the nearest visible hat or unexpired spill within interaction range. Equipment
+ * holders cannot recover incidents, and spills require spare-bait capacity.
+ *
+ * @param player - Interacting player
+ * @param state - Current equipment and incident state
+ * @param definitions - Equipment geometry catalog
+ * @param walls - World and fixture sight blockers
+ * @returns Incident kind, ID, and world point, or null.
+ */
 export function recoveryTarget(
   player: Player,
   state: Pick<Snapshot, "props" | "spills" | "hats" | "spareBait" | "tick">,
@@ -364,6 +430,13 @@ export function recoveryTarget(
       )[0] ?? null
   );
 }
+/**
+ * Enclose each rotated prop solid in a world-space axis-aligned box.
+ *
+ * @param prop - Prop world pose and identity
+ * @param definition - Local equipment solid definitions
+ * @returns New world-space collision boxes.
+ */
 export function propBoxes(prop: FieldProp, definition: PropDefinition): Box[] {
   const [x, y, z, w] = prop.pose.rotation,
     matrix = [
@@ -384,6 +457,16 @@ export function propBoxes(prop: FieldProp, definition: PropDefinition): Box[] {
     };
   });
 }
+/**
+ * Test a sight segment against oriented prop solids by transforming it into each prop's
+ * local coordinates.
+ *
+ * @param from - World-space segment start
+ * @param to - World-space segment end
+ * @param props - Current field props
+ * @param definitions - Local equipment geometry catalog
+ * @returns Whether any equipment solid blocks the segment.
+ */
 export function propRayBlocked(
   from: Vec3,
   to: Vec3,
@@ -392,6 +475,12 @@ export function propRayBlocked(
 ) {
   return props.some((prop) => {
     const [x, y, z, w] = prop.pose.rotation;
+    /**
+     * Inverse-transform a world point into the current prop's coordinates.
+     *
+     * @param point - World-space point
+     * @returns Prop-local point.
+     */
     const local = (point: Vec3) =>
       propPoint(point.map((v, i) => v - prop.pose.position[i]) as Vec3, {
         position: [0, 0, 0],
@@ -408,6 +497,15 @@ export function propRayBlocked(
     );
   });
 }
+/**
+ * Resolve movement speed from crouch/run input and equipment holder count. Heavy solo and
+ * paired carries override ordinary movement speed.
+ *
+ * @param playerId - Moving player ID
+ * @param input - Current movement input
+ * @param props - Current field props
+ * @returns Speed limit in metres per second.
+ */
 export function playerSpeed(
   playerId: string,
   input: Input,
@@ -418,6 +516,12 @@ export function playerSpeed(
     return held.holders.filter(Boolean).length === 2 ? 2 : 0.8;
   return input.crouch ? 1.4 : input.run ? 5 : 3;
 }
+/**
+ * Offset the player's foot position to standing or crouched eye height using lastInput.
+ *
+ * @param p - Player whose camera origin is needed
+ * @returns New eye position in world coordinates.
+ */
 export function eye(p: Player): Vec3 {
   return [
     p.position[0],
@@ -425,6 +529,13 @@ export function eye(p: Player): Vec3 {
     p.position[2],
   ];
 }
+/**
+ * Convert view angles to a unit forward vector with negative Z as the neutral heading.
+ *
+ * @param yaw - Yaw in radians
+ * @param pitch - Pitch in radians, default 0
+ * @returns Unit direction vector.
+ */
 export function forward(yaw: number, pitch = 0): Vec3 {
   return [
     -Math.sin(yaw) * Math.cos(pitch),
@@ -432,11 +543,25 @@ export function forward(yaw: number, pitch = 0): Vec3 {
     -Math.cos(yaw) * Math.cos(pitch),
   ];
 }
+/**
+ * Require a non-null, non-array object at the message boundary.
+ *
+ * @param v - Untrusted message value
+ * @returns The original object as a record.
+ * @throws {Error} The value is not an object.
+ */
 function object(v: unknown): Record<string, unknown> {
   if (!v || typeof v !== "object" || Array.isArray(v))
     throw Error("Expected object");
   return v as Record<string, unknown>;
 }
+/**
+ * Require exactly the allowed object fields, rejecting missing and unknown keys.
+ *
+ * @param v - Message record to inspect
+ * @param allowed - Exact required field names
+ * @throws {Error} Object keys do not match the schema.
+ */
 function keys(v: Record<string, unknown>, allowed: string[]) {
   if (
     Object.keys(v).length !== allowed.length ||
@@ -444,11 +569,28 @@ function keys(v: Record<string, unknown>, allowed: string[]) {
   )
     throw Error("Unexpected fields");
 }
+/**
+ * Validate a finite number within inclusive bounds without coercion.
+ *
+ * @param v - Untrusted numeric value
+ * @param min - Inclusive minimum
+ * @param max - Inclusive maximum
+ * @returns The accepted number.
+ * @throws {Error} The value is nonnumeric, nonfinite, or outside the range.
+ */
 function number(v: unknown, min: number, max: number): number {
   if (typeof v !== "number" || !Number.isFinite(v) || v < min || v > max)
     throw Error("Invalid number");
   return v;
 }
+/**
+ * Validate a client message's exact shape, command, sequence, world identifier, and
+ * command-specific values. Does not authorize the command or mutate gameplay.
+ *
+ * @param value - Untrusted decoded network value
+ * @returns A detached validated client message.
+ * @throws {Error} Any message field or command variant is invalid.
+ */
 export function parseMessage(value: unknown): ClientMessage {
   const m = object(value);
   if (typeof m.worldId !== "string" || !/^[-_a-zA-Z0-9]{1,64}$/.test(m.worldId))
@@ -510,6 +652,15 @@ export function parseMessage(value: unknown): ClientMessage {
   }
   return structuredClone(value) as ClientMessage;
 }
+/**
+ * Intersect a finite segment with axis-aligned boxes using slab intervals, ignoring
+ * contacts only at the near or far endpoint tolerances.
+ *
+ * @param from - Segment start
+ * @param to - Segment end
+ * @param boxes - World-space blockers
+ * @returns Whether an interior portion of the segment intersects a box.
+ */
 export function rayBlocked(from: Vec3, to: Vec3, boxes: Box[]): boolean {
   return boxes.some((b) => {
     let low = 0,
@@ -530,6 +681,14 @@ export function rayBlocked(from: Vec3, to: Vec3, boxes: Box[]): boolean {
     return high > 0.001 && low < 0.995;
   });
 }
+/**
+ * Interpolate a walkable surface's height along its slope axis within inclusive X/Z bounds.
+ *
+ * @param surface - Walkable surface definition
+ * @param x - World X coordinate
+ * @param z - World Z coordinate
+ * @returns Height in metres, or null outside the surface footprint.
+ */
 export function surfaceHeight(
   surface: Walkable,
   x: number,
@@ -547,6 +706,20 @@ export function surfaceHeight(
     t = length ? ((surface.axis === 0 ? x : z) - start) / length : 0;
   return surface.heightStart + (surface.heightEnd - surface.heightStart) * t;
 }
+/**
+ * Integrate input into a copied player, normalizing diagonal movement and clamping elapsed
+ * time to 0.25 seconds. Swept axis steps preserve wall clearance and the 45 cm terrain step
+ * limit; existing overlaps may be escaped.
+ *
+ * @param player - Starting player state
+ * @param input - Movement axes, view angles, and buttons
+ * @param dt - Elapsed seconds, clamped to 0–0.25
+ * @param walls - World-space movement blockers
+ * @param surfaces - Walkable surfaces providing ground support
+ * @param speedLimit - Optional speed override in metres per second
+ * @returns Updated player with a detached position; unrelated fields retain their
+ * references.
+ */
 export function movePlayer(
   player: Player,
   input: Input,
@@ -569,6 +742,15 @@ export function movePlayer(
   const z =
     ((-input.x * Math.sin(input.yaw) + input.z * Math.cos(input.yaw)) / len) *
     speed;
+  /**
+   * Measure horizontal penetration into a player-expanded box when the player's vertical span
+   * overlaps it.
+   *
+   * @param point - Candidate foot position
+   * @param height - Player collision height in metres
+   * @param box - World-space collision box
+   * @returns Minimum horizontal penetration, or negative infinity without vertical overlap.
+   */
   const penetration = (point: Vec3, height: number, box: Box) => {
     if (box.max[1] <= height + 0.15 || box.min[1] >= height + 1.8)
       return -Infinity;
@@ -600,6 +782,13 @@ export function movePlayer(
           if (current <= 0) return true;
           const centerX = (box.min[0] + box.max[0]) / 2,
             centerZ = (box.min[2] + box.max[2]) / 2,
+            /**
+             * Measure squared X/Z separation from the current wall's center for overlap-escape
+             * comparison.
+             *
+             * @param value - Candidate player position
+             * @returns Squared horizontal distance.
+             */
             distance = (value: number[]) =>
               (value[0] - centerX) ** 2 + (value[2] - centerZ) ** 2;
           return distance(point) <= distance(p.position) + 1e-9;

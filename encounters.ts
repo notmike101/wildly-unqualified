@@ -16,6 +16,13 @@ import { wildlifeStep } from "./animal-routines.ts";
 export { type AnimalMemory } from "./animal-context.ts";
 export { animalRoute, localRecoveryPoint } from "./animal-navigation.ts";
 
+/**
+ * Dispatch the existing wildlife decisions and routine steps, maintaining per-resident
+ * memory and resolving nearby bait interactions. Mutates animal and run state.
+ *
+ * @param run - Authoritative run to update
+ * @param dt - Elapsed simulation seconds
+ */
 export function stepAnimals(run: RunState, dt: number): void {
   const extra = run.props
     .filter((p) => !(p.kind === "plank" && p.placed))

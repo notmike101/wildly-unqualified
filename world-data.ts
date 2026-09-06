@@ -15,6 +15,14 @@ export const RESERVE_SPECIES = [
   "woodpecker",
   "mallard",
 ] as const;
+/**
+ * Build a stable species-specific display name from the resident's order within its
+ * species.
+ *
+ * @param world - Blueprint resident inventory
+ * @param id - Resident ID
+ * @returns Display name, or Wildlife for an unknown resident.
+ */
 export function residentName(
   world: Pick<ReserveBlueprint, "residents">,
   id: string,
@@ -36,6 +44,14 @@ export function residentName(
   ];
   return `${names[index % names.length]} ${resident.species}`;
 }
+/**
+ * Describe an existing commission using its bound subjects, species, and objective kind.
+ * Requires valid subject references.
+ *
+ * @param world - Validated reserve blueprint
+ * @param c - Bound commission definition
+ * @returns Player-facing instruction text.
+ */
 export function commissionInstructions(
   world: ReserveBlueprint,
   c: Commission,

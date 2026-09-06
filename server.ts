@@ -41,6 +41,17 @@ import {
   token,
   safePath,
 } from "./server-http.ts";
+/**
+ * Load private room/run state, attach physics, and start the authoritative HTTP/WebSocket
+ * service and timers. Restored outings remain paused; callers must await close to persist
+ * and release resources.
+ *
+ * @param options - Validated server settings, port 0 requests an ephemeral listener for
+ * tests
+ * @returns Listening URL and an asynchronous, retryable shutdown method.
+ * @throws {Error} Configuration, public build, private storage, saved state, physics, or
+ * listener initialization fails.
+ */
 export async function startServer(
   options: ServerConfig,
 ): Promise<{ url: string; close(): Promise<void> }> {
@@ -95,6 +106,12 @@ export async function startServer(
   const sockets = new Map<string, WebSocket>(),
     alive = new WeakSet<WebSocket>();
   const rates = new Map<string, { start: number; count: number }>();
+  /**
+   * Build a stable event key for cue deduplication within the current world.
+   *
+   * @param event - Authoritative run event
+   * @returns Tick/kind/source/position key.
+   */
   const eventId = (event: (typeof run.events)[number]) =>
     `${event.tick}:${event.kind}:${event.player}:${event.point.join(",")}`;
   const heard = new Set(
@@ -109,6 +126,13 @@ export async function startServer(
     admissionBusy = false,
     closed: Promise<void> | undefined,
     mutations = Promise.resolve();
+  /**
+   * Persist replacement credentials before making them visible to admission; always clear the
+   * admission-busy flag.
+   *
+   * @param next - Next complete private room state
+   * @throws {Error} Credential validation or persistence fails.
+   */
   async function commitRoom(next: RoomCredentials) {
     admissionBusy = true;
     try {
@@ -118,6 +142,14 @@ export async function startServer(
       admissionBusy = false;
     }
   }
+  /**
+   * Consume a request from a fixed-window rate bucket, keeping at most 1,024 buckets.
+   *
+   * @param key - Rate bucket key
+   * @param limit - Maximum requests per window
+   * @param windowMs - Window duration in milliseconds, default 1,000
+   * @returns Whether this request remains within the bucket limit.
+   */
   function rate(key: string, limit: number, windowMs = 1000) {
     const now = Date.now(),
       entry = rates.get(key);
@@ -135,6 +167,13 @@ export async function startServer(
     hash: await reserveHash(run.world),
     blueprint: run.world,
   };
+  /**
+   * Serialize a server message to an open socket. Terminates clients with more than 4 MiB
+   * queued to bound backpressure.
+   *
+   * @param socket - Destination WebSocket
+   * @param message - Server message to serialize
+   */
   function send(socket: WebSocket, message: ServerMessage) {
     if (socket.readyState !== WebSocket.OPEN) return;
     if (socket.bufferedAmount > 4 * 1024 * 1024) {
@@ -143,10 +182,19 @@ export async function startServer(
     }
     socket.send(JSON.stringify(message));
   }
+  /**
+   * Create one detached public snapshot and send it to every connected socket.
+   */
   function broadcast() {
     const message: ServerMessage = { type: "snapshot", value: snapshot(run) };
     for (const socket of sockets.values()) send(socket, message);
   }
+  /**
+   * Send a spatial cue only to crew within its hearing radius, with a shorter radius for
+   * shutters.
+   *
+   * @param message - World-scoped cue and source position
+   */
   function cue(message: Extract<ServerMessage, { type: "cue" }>) {
     for (const player of run.players) {
       const socket = sockets.get(player.id);
@@ -158,6 +206,10 @@ export async function startServer(
         send(socket, message);
     }
   }
+  /**
+   * Emit newly observed action and animal-alert cues, retaining bounded event deduplication
+   * and the previous alert set.
+   */
   function emitCues() {
     for (const event of run.events) {
       const id = `${run.worldId}-${eventId(event)}`;
@@ -191,15 +243,31 @@ export async function startServer(
       }
     alerting = next;
   }
+  /**
+   * Send a user-facing notice to all connected crew.
+   *
+   * @param text - Client-safe notice text
+   */
   function notice(text: string) {
     for (const socket of sockets.values())
       send(socket, { type: "notice", text });
   }
+  /**
+   * Remove image buffers absent from the album and persist the current run and remaining
+   * images.
+   *
+   * @returns Completion of the serialized run save.
+   * @throws {Error} Run validation or persistence fails.
+   */
   function flush() {
     const kept = new Set(run.album.map((p) => p.id));
     for (const id of images.keys()) if (!kept.has(id)) images.delete(id);
     return saveRun(dataRoot, run, images);
   }
+  /**
+   * Start a save and notify crew on failure while keeping the server available for storage
+   * repair.
+   */
   function reportSave() {
     void flush().catch(() =>
       notice(
@@ -207,11 +275,24 @@ export async function startServer(
       ),
     );
   }
+  /**
+   * Authenticate the request cookie against the private room session table.
+   *
+   * @param request - Incoming request
+   * @returns The private session record; do not send it directly to clients.
+   * @throws {HTTPError} The session is unknown; status is 401.
+   */
   function session(request: IncomingMessage) {
     const value = room.sessions[token(request)];
     if (!value) throw new HTTPError(401, "Join the room first");
     return value;
   }
+  /**
+   * Shape a private session into the limited admission identity exposed to clients.
+   *
+   * @param s - Authenticated private session
+   * @returns Player ID, host flag, and optional pending flag.
+   */
   function identity(s: ReturnType<typeof session>) {
     return {
       playerId: s.playerId,
@@ -219,16 +300,40 @@ export async function startServer(
       ...(s.pending ? { pending: true } : {}),
     };
   }
+  /**
+   * Require an authenticated, nonpending host session.
+   *
+   * @param request - Incoming request
+   * @returns The authenticated private host session.
+   * @throws {HTTPError} Session is missing (401), or the session is pending or not the host
+   * (403).
+   */
   function host(request: IncomingMessage) {
     const s = session(request);
     if (s.pending || s.playerId !== room.hostId)
       throw new HTTPError(403, "Host access required");
     return s;
   }
+  /**
+   * Require the request Origin header to exactly match the configured public origin.
+   *
+   * @param request - Incoming mutating request or upgrade
+   * @throws {HTTPError} Origin differs from the configured origin; status is 403.
+   */
   function origin(request: IncomingMessage) {
     if (request.headers.origin !== config.origin)
       throw new HTTPError(403, "Incorrect Origin");
   }
+  /**
+   * Serialize asynchronous room mutations. A failed operation rejects its own caller without
+   * poisoning subsequent queued operations.
+   *
+   * @template T - Result type of the queued operation.
+   * @param operation - Asynchronous mutation to run exclusively
+   * @returns This operation's result after earlier mutations settle.
+   * @throws {HTTPError} Shutdown has started; status is 503. Errors from the operation also
+   * propagate.
+   */
   function mutate<T>(operation: () => Promise<T>): Promise<T> {
     const next = mutations.then(() => {
       if (stopping) throw new HTTPError(503, "Server is saving and stopping");
@@ -267,6 +372,15 @@ export async function startServer(
   http.headersTimeout = 10000;
   http.keepAliveTimeout = 5000;
   http.maxRequestsPerSocket = 1000;
+  /**
+   * Dispatch admission, session, photo, and static-file HTTP requests with endpoint-specific
+   * authorization, limits, and path containment checks. Writes the response on success.
+   *
+   * @param request - Incoming HTTP request
+   * @param response - Response to complete
+   * @throws {HTTPError} Request validation, authorization, rate limits, or resource lookup
+   * fails. Storage failures propagate to the outer response handler.
+   */
   async function route(request: IncomingMessage, response: ServerResponse) {
     const path = safePath(request),
       method = request.method;
@@ -635,6 +749,13 @@ export async function startServer(
       ws.ping();
     }
   }, 15000);
+  /**
+   * Pause input, drain mutations, and save before closing sockets, timers, HTTP, and physics.
+   * Concurrent calls share shutdown; save failure leaves the server available for a retry.
+   *
+   * @throws {Error} Saving or server shutdown fails.
+   * @returns Completion of the shared shutdown attempt.
+   */
   async function close() {
     if (closed) return closed;
     closed = (async () => {
@@ -688,6 +809,14 @@ export async function startServer(
   };
 }
 
+/**
+ * Map audible game events to cue kinds, recognizing tin-origin noise as an impact.
+ *
+ * @param event - Event kind and source identifier
+ * @param event.kind - Authoritative action kind
+ * @param event.player - Source player ID, or tin for physical tin noise
+ * @returns Whistle, rattle, impact, or null for a silent event.
+ */
 export function eventCueKind(event: {
   kind: string;
   player: string;

@@ -1,5 +1,13 @@
 /** Retained short synthesized MVP feedback; the native forest mixer lives in audio.ts. */
 let audio: AudioContext | undefined;
+/**
+ * Play the retained short synthesized feedback tone through a shared lazy AudioContext.
+ * Nonpositive volume is silent; this path is separate from the forest audio mixer.
+ *
+ * @param kind - Feedback cue kind
+ * @param volume - Caller-supplied volume multiplier
+ * @throws {Error} AudioContext or oscillator setup fails.
+ */
 export function playSound(
   kind:
     | "shutter"

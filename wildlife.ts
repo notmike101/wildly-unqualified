@@ -8,6 +8,14 @@ import {
 import type { ReserveBlueprint } from "./world.ts";
 import { SUPPORT_MESHES } from "./support-meshes.ts";
 import { WILDLIFE_POINTS, SQUIRREL_CLIMB } from "./wildlife-data.ts";
+/**
+ * Resolve a water resident's calibrated bank pose from its home anchors, landmark yaw, and
+ * resident index. Requires a validated matching blueprint.
+ *
+ * @param world - Validated reserve blueprint
+ * @param id - Water resident ID
+ * @returns New world-space bank pose.
+ */
 export function bankStance(world: ReserveBlueprint, id: string) {
   const resident = world.residents.find((r) => r.id === id)!;
   const pocket = world.pockets.find((p) => p.id === resident.home)!;
@@ -27,6 +35,13 @@ export function bankStance(world: ReserveBlueprint, id: string) {
     rotation: xyz([0, yaw, 0]),
   };
 }
+/**
+ * Rotate a vector by a unit XYZW quaternion without changing the inputs.
+ *
+ * @param p - Vector to rotate
+ * @param q - Unit XYZW quaternion
+ * @returns Rotated vector.
+ */
 export function rotate(p: Vec3, q: Quat): Vec3 {
   const [x, y, z, w] = q,
     [a, b, c] = p;
@@ -41,7 +56,16 @@ export function rotate(p: Vec3, q: Quat): Vec3 {
   ];
 }
 
-/** XYZ, exactly the rotation convention used by the exported rigid hierarchy. */
+/**
+ * Convert XYZ Euler angles using the exact rotation convention of the exported rigid
+ * hierarchy.
+ *
+ * @param components - XYZ Euler angles in radians
+ * @param components.0 - X rotation in radians.
+ * @param components.1 - Y rotation in radians.
+ * @param components.2 - Z rotation in radians.
+ * @returns Unit XYZW quaternion.
+ */
 export function xyz([x, y, z]: Vec3): Quat {
   const a = Math.sin(x / 2),
     b = Math.sin(y / 2),
@@ -56,6 +80,13 @@ export function xyz([x, y, z]: Vec3): Quat {
     d * e * f - a * b * c,
   ];
 }
+/**
+ * Compose quaternions as a times b; for column-vector rotations, b is applied first.
+ *
+ * @param a - Left quaternion
+ * @param b - Right quaternion
+ * @returns Product XYZW quaternion.
+ */
 export function multiply(a: Quat, b: Quat): Quat {
   return [
     a[3] * b[0] + a[0] * b[3] + a[1] * b[2] - a[2] * b[1],
@@ -65,7 +96,14 @@ export function multiply(a: Quat, b: Quat): Quat {
   ];
 }
 
-/** Shared by the actual imported parts and authoritative frozen subject points. */
+/**
+ * Resolve deterministic local part rotations for wildlife-kit species, shared by rendering
+ * and frozen photo geometry.
+ *
+ * @param a - Animal pose, behavior, and progress state
+ * @param tick - Authoritative tick at 60 ticks per second
+ * @returns Part-name map of XYZ Euler rotations in radians.
+ */
 export function wildlifeParts(a: Animal, tick: number): Record<string, Vec3> {
   const t = tick / 60,
     b = a.behavior;
@@ -170,10 +208,25 @@ export function wildlifeParts(a: Animal, tick: number): Record<string, Vec3> {
   return parts;
 }
 
+/**
+ * Apply calibrated body/head pivots and current articulation to wildlife-kit photo samples.
+ *
+ * @param a - Animal state
+ * @param tick - Authoritative shutter/render tick
+ * @returns New model-local samples, or null for species using legacy geometry.
+ */
 export function wildlifeSubjectPoints(a: Animal, tick: number): Vec3[] | null {
   const p = WILDLIFE_POINTS[a.species];
   if (!p) return null;
   const rotations = wildlifeParts(a, tick);
+  /**
+   * Rotate a local point about an authored pivot using XYZ Euler angles.
+   *
+   * @param point - Point to rotate
+   * @param pivot - Rotation pivot
+   * @param rotation - XYZ Euler angles in radians
+   * @returns New point in the same coordinate space.
+   */
   const around = (point: Vec3, pivot: Vec3, rotation: Vec3): Vec3 =>
     rotate(point.map((n, i) => n - pivot[i]) as Vec3, xyz(rotation)).map(
       (n, i) => n + pivot[i],
@@ -184,7 +237,17 @@ export function wildlifeSubjectPoints(a: Animal, tick: number): Vec3[] | null {
   ];
 }
 
-/** Tight visual support geometry inside the deliberately generous carry colliders. */
+/**
+ * Refine broad sight-box hits against measured support triangles where available.
+ * Unrecognized scenery boxes remain opaque; support placement lookup is cached by blueprint
+ * identity.
+ *
+ * @param world - Validated reserve blueprint
+ * @param from - World-space sight origin
+ * @param to - World-space sight target
+ * @param boxes - Broad-phase sight blockers
+ * @returns Whether the finite sight segment is obstructed.
+ */
 export function sightBlocked(
   world: ReserveBlueprint,
   from: Vec3,
@@ -204,8 +267,29 @@ export function sightBlocked(
     if (!support) return true;
     hitSupports.add(support.id);
   }
+  /**
+   * Subtract vector components without modifying either input.
+   *
+   * @param a - First vector
+   * @param b - Vector to subtract
+   * @returns New difference vector a minus b.
+   */
   const sub = (a: Vec3, b: Vec3) => a.map((v, i) => v - b[i]) as Vec3;
+  /**
+   * Compute the scalar product used by triangle intersection tests.
+   *
+   * @param a - First vector
+   * @param b - Second vector
+   * @returns Scalar dot product.
+   */
   const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  /**
+   * Compute the right-handed vector product used by triangle intersection tests.
+   *
+   * @param a - First vector
+   * @param b - Second vector
+   * @returns New cross-product vector a cross b.
+   */
   const cross = (a: Vec3, b: Vec3): Vec3 => [
     a[1] * b[2] - a[2] * b[1],
     a[2] * b[0] - a[0] * b[2],
@@ -214,6 +298,13 @@ export function sightBlocked(
   for (const placement of supports) {
     if (!hitSupports.has(placement.id)) continue;
     const mesh = SUPPORT_MESHES[placement.model];
+    /**
+     * Inverse-transform a world point through the current support placement's translation, yaw,
+     * and scale.
+     *
+     * @param p - World-space point
+     * @returns Support-mesh-local point.
+     */
     const local = (p: Vec3) =>
       rotate(sub(p, placement.position), xyz([0, -placement.yaw, 0])).map(
         (v, i) => v / placement.scale[i],

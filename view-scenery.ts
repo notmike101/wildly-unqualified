@@ -5,6 +5,17 @@ import { type ReserveBlueprint } from "./world.ts";
 import { distance, type Vec3 } from "./shared.ts";
 import { findPart, instanceModel } from "./forest-view.ts";
 import { bankStance, rotate } from "./wildlife.ts";
+/**
+ * Add signs, activity/camera markers, tracks, and branch piles from authored reserve data.
+ * Registers owned materials with the view; shared asset buffers remain shared.
+ *
+ * @param scene - Scene receiving scenery
+ * @param world - Validated reserve blueprint
+ * @param assets - Shared imported model roots
+ * @param ownedMaterials - View-owned material registry for disposal
+ * @param mesh - View helper that creates and owns a primitive mesh
+ * @param field - View helper that clones and mounts a named field asset
+ */
 export function addFieldScenery(
   scene: THREE.Scene,
   world: ReserveBlueprint,
@@ -18,6 +29,14 @@ export function addFieldScenery(
   ) => THREE.Mesh,
   field: (name: string, pos: Vec3, scale?: number) => THREE.Object3D | null,
 ) {
+  /**
+   * Draw a field-society sign to a canvas texture and mount its plane above the authored
+   * position. Registers the material for view disposal.
+   *
+   * @param text - Main sign text
+   * @param position - Authored sign base position
+   * @param rotation - Yaw in radians, default 0
+   */
   function sign(text: string, position: Vec3, rotation = 0) {
     const canvas = document.createElement("canvas");
     canvas.width = 512;

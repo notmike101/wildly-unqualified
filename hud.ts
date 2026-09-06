@@ -28,6 +28,14 @@ import {
 } from "./shared.ts";
 import "./style.css";
 import type { Settings, Keys } from "./client-settings.ts";
+/**
+ * Look up a required page element using the caller's expected element type. The page markup
+ * must supply this ID.
+ *
+ * @template T - Expected DOM element subtype; the markup must satisfy this assertion.
+ * @param id - Required element ID
+ * @returns The existing DOM element; no runtime null or type check is performed.
+ */
 const $ = <T extends HTMLElement = HTMLElement>(id: string) =>
   document.getElementById(id) as T;
 const propNames = {
@@ -36,6 +44,17 @@ const propNames = {
   screen: "observation screen",
   decoy: "wildlife decoy",
 };
+/**
+ * Render connection, crew, equipment prompts, commissions, and outing controls from current
+ * state. Does not issue commands or mutate the snapshot.
+ *
+ * @param latest - Latest snapshot, if installed
+ * @param world - Matching blueprint, if installed
+ * @param localId - Local player ID
+ * @param isHost - Whether the local player is host
+ * @param rtt - Estimated round-trip latency in milliseconds
+ * @param settings - Current preferences and key bindings
+ */
 export function renderHud(
   latest: Snapshot | undefined,
   world: ReserveBlueprint | undefined,
@@ -111,6 +130,13 @@ export function renderHud(
       distance(eye(me), target.point) < distance(eye(me), s.tin.pose.position))
       ? s.props.find((p) => p.id === target.propId)
       : undefined;
+  /**
+   * Turn a configured keyboard code into compact prompt text by stripping Key or Digit
+   * prefixes.
+   *
+   * @param name - Configured action name
+   * @returns Display label for the binding.
+   */
   const key = (name: keyof Keys) =>
     settings.keys[name].replace(/^(Key|Digit)/, "");
   const clue =
@@ -221,6 +247,12 @@ export function renderHud(
     .every((c) => s.completed.includes(c.id));
   $("ready-button").hidden = !complete || s.phase !== "outing";
   $("finish-button").hidden = !isHost || !complete || s.phase !== "outing";
+  /**
+   * Test the six-metre horizontal camp radius used by completion controls.
+   *
+   * @param p - Player to inspect
+   * @returns Whether the player is at camp.
+   */
   const atCamp = (p: Player) =>
     Math.hypot(
       p.position[0] - world!.camp[0],

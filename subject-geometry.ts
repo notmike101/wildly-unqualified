@@ -67,6 +67,14 @@ export const SUBJECT_HEIGHT: Record<Species, number> = {
   heron: 1.56,
   deer: 1.9,
 };
+/**
+ * Resolve deterministic head/neck angles for legacy species from behavior and simulation
+ * tick.
+ *
+ * @param animal - Animal state
+ * @param tick - Authoritative tick at 60 ticks per second
+ * @returns Articulation angles in radians.
+ */
 export function animalArticulation(animal: Animal, tick: number) {
   const time = tick / 60;
   return {
@@ -91,6 +99,14 @@ export function animalArticulation(animal: Animal, tick: number) {
           : 0,
   };
 }
+/**
+ * Resolve articulated local photo samples shared with rendering, preferring calibrated
+ * wildlife-kit samples over legacy species geometry.
+ *
+ * @param animal - Animal state
+ * @param tick - Authoritative shutter/render tick
+ * @returns New model-local sample vectors; callers apply the animal's world pose.
+ */
 export function subjectPoints(animal: Animal, tick: number): Vec3[] {
   const wildlife = wildlifeSubjectPoints(animal, tick);
   if (wildlife) return wildlife;

@@ -59,6 +59,13 @@ export {
 } from "./world-geometry.ts";
 export { reserveHash, validateReserve } from "./world-validation.ts";
 
+/**
+ * Create a deterministic 32-bit seeded pseudorandom stream for layout generation; it is not
+ * suitable for credentials.
+ *
+ * @param seed - Generation seed converted to unsigned 32-bit state
+ * @returns Stateful generator producing numbers in [0, 1).
+ */
 function rng(seed: number) {
   let state = seed >>> 0;
   return () => {
@@ -68,6 +75,14 @@ function rng(seed: number) {
     return ((n ^ (n >>> 14)) >>> 0) / 4294967296;
   };
 }
+/**
+ * Apply Fisher–Yates shuffling to a shallow copy, preserving the input array.
+ *
+ * @template T - Element type preserved by the shuffle.
+ * @param values - Source elements
+ * @param random - Random-number callback yielding values in [0, 1)
+ * @returns Shuffled array with the same element references.
+ */
 function shuffle<T>(values: readonly T[], random: () => number): T[] {
   const a = [...values];
   for (let i = a.length - 1; i > 0; i--) {
@@ -76,6 +91,17 @@ function shuffle<T>(values: readonly T[], random: () => number): T[] {
   }
   return a;
 }
+/**
+ * Construct one deterministic reserve candidate, including habitat geometry, equipment
+ * routes, and bound commissions. Final validation belongs to generateReserve.
+ *
+ * @param seed - Unsigned 32-bit seed
+ * @param id - Stable world ID
+ * @param attempt - Retry index mixed into the generation seed
+ * @returns Mutable candidate blueprint.
+ * @throws {Error} Layout routing or commission binding cannot satisfy the generation
+ * constraints.
+ */
 function build(seed: number, id: string, attempt: number): ReserveBlueprint {
   const random = rng(seed ^ Math.imul(attempt, 0x9e3779b9)),
     w: ReserveBlueprint = {
@@ -126,10 +152,24 @@ function build(seed: number, id: string, attempt: number): ReserveBlueprint {
     ],
     random,
   );
+  /**
+   * Append an initially unlinked navigation node to the candidate blueprint.
+   *
+   * @param id - Unique node ID
+   * @param p - World position retained by the node
+   * @returns The supplied node ID.
+   */
   const addNode = (id: string, p: Vec3) => {
     w.navNodes.push({ id, position: p, links: [] });
     return id;
   };
+  /**
+   * Connect two existing navigation nodes bidirectionally and add a four-metre-wide trail if
+   * the link is new.
+   *
+   * @param a - First existing node ID
+   * @param b - Second existing node ID
+   */
   const link = (a: string, b: string) => {
     const n = w.navNodes.find((n) => n.id === a)!,
       m = w.navNodes.find((n) => n.id === b)!;
@@ -152,6 +192,14 @@ function build(seed: number, id: string, attempt: number): ReserveBlueprint {
         c[2] + Math.floor(random() * 13) - 6,
       ),
       yaw = (Math.floor(random() * 4) * Math.PI) / 2;
+    /**
+     * Transform a habitat-local point through the current pocket's yaw and horizontal position.
+     *
+     * @param x - Local X coordinate
+     * @param y - World Y coordinate
+     * @param z - Local Z coordinate
+     * @returns Rounded world point.
+     */
     const local = (x: number, y: number, z: number) =>
       point(
         p[0] + x * Math.cos(yaw) + z * Math.sin(yaw),
@@ -488,6 +536,14 @@ function build(seed: number, id: string, attempt: number): ReserveBlueprint {
   ];
   return w;
 }
+/**
+ * Replace draft trails and node links with equipment-width paths around water, scenery, and
+ * closed fixtures using a four-metre search grid.
+ *
+ * @param w - Mutable candidate blueprint
+ * @throws {Error} An authored node lacks a clear entrance or a required equipment route
+ * cannot be found.
+ */
 function routeTrails(w: ReserveBlueprint) {
   const obstacles = [
     ...w.waters,
@@ -499,6 +555,12 @@ function routeTrails(w: ReserveBlueprint) {
   w.trails = [];
   for (const n of w.navNodes) n.links = [];
   const nodes = new Map(w.navNodes.map((n) => [n.position.join(","), n]));
+  /**
+   * Reuse a navigation node at an exact coordinate key or append a new junction.
+   *
+   * @param p - World position retained if a junction is created
+   * @returns Existing or newly created mutable node.
+   */
   const node = (p: Vec3) => {
     const key = p.join(",");
     let n = nodes.get(key);
@@ -509,6 +571,12 @@ function routeTrails(w: ReserveBlueprint) {
     }
     return n;
   };
+  /**
+   * Add a bidirectional link and trail unless the nodes are identical or already connected.
+   *
+   * @param a - First mutable node
+   * @param b - Second mutable node
+   */
   const connect = (a: NavNode, b: NavNode) => {
     if (a === b || a.links.includes(b.id)) return;
     a.links.push(b.id);
@@ -525,6 +593,13 @@ function routeTrails(w: ReserveBlueprint) {
       const p: Vec3 = [x, 0, z];
       if (!corridorBlocked(p, p, obstacles)) grid.set(`${x},${z}`, p);
     }
+  /**
+   * Find the nearest unobstructed equipment-grid entrance within 16 metres.
+   *
+   * @param p - Authored navigation point
+   * @returns Selected grid point.
+   * @throws {Error} No equipment entrance is reachable within the search radius.
+   */
   const nearest = (p: Vec3) => {
     const candidates = [...grid.values()]
       .filter((q) => distance(p, q) < 16 && !corridorBlocked(p, q, obstacles))
@@ -538,6 +613,12 @@ function routeTrails(w: ReserveBlueprint) {
   for (const [start, end] of edges) {
     const a = ends.get(start.join(","))!,
       b = ends.get(end.join(","))!,
+      /**
+       * Encode a grid point's horizontal coordinates for path-search maps.
+       *
+       * @param p - Grid point
+       * @returns X/Z coordinate key.
+       */
       key = (p: Vec3) => `${p[0]},${p[2]}`;
     const open = [a],
       scores = new Map([[key(a), 0]]),
@@ -581,6 +662,14 @@ function routeTrails(w: ReserveBlueprint) {
       connect(node(all[i - 1]), node(all[i]));
   }
 }
+/**
+ * Assign the existing commission kinds to compatible residents while satisfying species and
+ * habitat diversity constraints. Replaces the candidate's commissions.
+ *
+ * @param w - Mutable candidate blueprint
+ * @param random - Seeded random callback used for candidate ordering
+ * @throws {Error} No compatible commission combination is found.
+ */
 function bindCommissions(w: ReserveBlueprint, random: () => number) {
   const choices = shuffle(
     w.residents.filter((r) => r.id.endsWith("-0")),
@@ -666,6 +755,15 @@ function bindCommissions(w: ReserveBlueprint, random: () => number) {
             }
   throw new Error("No compatible commissions");
 }
+/**
+ * Try up to eight deterministic layout candidates and return the first fully validated,
+ * frozen blueprint. Saved worlds must retain their blueprint rather than regenerate it.
+ *
+ * @param seed - Unsigned 32-bit generation seed
+ * @param worldId - Stable world identifier
+ * @returns Validated, deeply frozen reserve blueprint.
+ * @throws {Error} Seed/ID validation fails or all eight generation attempts fail.
+ */
 export function generateReserve(
   seed: number,
   worldId: string,

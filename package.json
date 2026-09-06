@@ -8,13 +8,15 @@
   },
   "scripts": {
     "dev": "vite --config vite.config.ts",
-    "build": "tsc --noEmit && vite build --config vite.config.ts",
+    "build": "npm run typecheck && vite build --config vite.config.ts",
     "start": "node server.ts",
     "test": "node --test *.test.ts",
     "test:browser": "node browser.ts",
     "release": "node release.ts",
-    "format": "prettier --write \"*.{ts,html,css,json}\"",
-    "format:check": "prettier --check \"*.{ts,html,css,json}\"",
+    "format": "prettier --write \"*.{ts,mjs,html,css,json}\"",
+    "format:check": "prettier --check \"*.{ts,mjs,html,css,json}\"",
+    "lint": "eslint . --max-warnings 0",
+    "lint:docs": "eslint --config eslint.docs.config.mjs . --max-warnings 0",
     "wu:dev": "npm run dev",
     "wu:build": "npm run build",
     "wu:serve": "npm start",
@@ -22,7 +24,8 @@
     "wu:test:browser": "npm run test:browser",
     "wu:release": "npm run release",
     "wu:format": "npm run format",
-    "wu:format:check": "npm run format:check"
+    "wu:format:check": "npm run format:check",
+    "typecheck": "node node_modules/typescript-native/bin/tsc --noEmit"
   },
   "dependencies": {
     "box3d-wasm": "0.2.0",
@@ -33,10 +36,15 @@
     "@types/node": "26.0.0",
     "@types/three": "0.185.4",
     "@types/ws": "8.18.1",
+    "eslint": "9.39.5",
+    "eslint-config-airbnb-extended": "3.2.0",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-jsdoc": "64.3.6",
     "gltf-validator": "2.0.0-dev.3.10",
     "playwright": "1.63.0",
     "prettier": "3.9.6",
-    "typescript": "7.0.2",
+    "typescript": "6.0.3",
+    "typescript-native": "npm:typescript@7.0.2",
     "vite": "8.2.2"
   }
 }

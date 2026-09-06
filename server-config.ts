@@ -9,10 +9,26 @@ export type ServerConfig = {
   webDir: string;
 };
 const moduleDir = dirname(fileURLToPath(import.meta.url));
+/**
+ * Check lexical path containment using relative paths. This does not resolve symlinks;
+ * server startup separately checks real paths.
+ *
+ * @param root - Candidate parent directory
+ * @param path - Candidate child path
+ * @returns Whether the path equals or is inside the root under this containment check.
+ */
 export const within = (root: string, path: string) => {
   const r = relative(root, path);
   return r === "" || (!r.startsWith("..") && !isAbsolute(r));
 };
+/**
+ * Validate server environment settings and resolve private/public paths relative to the
+ * module. Reject overlapping directories and non-exact HTTP(S) origins.
+ *
+ * @param env - Environment values, including optional WU_* overrides
+ * @returns Normalized bind, origin, and directory configuration.
+ * @throws {Error} Host, port, origin, or private/public directory separation is invalid.
+ */
 export function loadConfig(env: NodeJS.ProcessEnv): ServerConfig {
   const host = env.WU_BIND_HOST ?? "127.0.0.1";
   if (!/^[a-zA-Z0-9.:[\]-]{1,253}$/.test(host))

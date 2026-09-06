@@ -1,6 +1,17 @@
 /** Interpolate a render-only copy; authoritative snapshots and frozen photos are never changed. */
 import * as THREE from "three/webgpu";
 import type { Snapshot } from "./shared.ts";
+/**
+ * Create render-only position copies and interpolate from the prior snapshot. Paused
+ * snapshots and prop holder/placement transitions bypass interpolation; authoritative
+ * inputs remain unchanged.
+ *
+ * @param latest - Newest authoritative snapshot
+ * @param prior - Previous snapshot, if available
+ * @param alpha - Interpolation fraction supplied by the render loop, normally 0 to 1
+ * @returns A render snapshot; only interpolated fields are detached, while unchanged nested
+ * fields may remain shared.
+ */
 export function interpolateSnapshot(
   latest: Snapshot,
   prior: Snapshot | undefined,

@@ -5,6 +5,13 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import type { WorldPlacement } from "./level.ts";
 import { surfaceHeight, type FixtureState, type Vec3 } from "./shared.ts";
 
+/**
+ * Find the first imported partName match, falling back to an ordinary object-name lookup.
+ *
+ * @param root - Scene subtree to search
+ * @param name - Authored part name
+ * @returns Matching scene object, or undefined.
+ */
 export function findPart(root: THREE.Object3D, name: string) {
   let found: THREE.Object3D | undefined;
   root.traverse((o) => {
@@ -13,7 +20,15 @@ export function findPart(root: THREE.Object3D, name: string) {
   return found ?? root.getObjectByName(name);
 }
 
-/** Share mesh buffers while preserving the complete imported part transform. */
+/**
+ * Create instanced meshes sharing imported geometry/materials while preserving each part's
+ * complete world transform. Updates source world matrices before instancing.
+ *
+ * @param model - Imported model root
+ * @param placements - World placements to instantiate
+ * @returns Group of instanced meshes; dispose instance resources without disposing shared
+ * asset buffers.
+ */
 export function instanceModel(
   model: THREE.Object3D,
   placements: WorldPlacement[],
@@ -49,6 +64,15 @@ export function instanceModel(
   return group;
 }
 
+/**
+ * Build terrain, instanced scenery, fixtures, sky, and shadow lighting in the scene. Tracks
+ * generated resources separately from shared imported assets.
+ *
+ * @param scene - Scene receiving the forest root
+ * @param assets - Shared loaded model roots
+ * @param world - Validated reserve blueprint
+ * @returns Fixture update, shadow centering, disposal, and collected asset errors.
+ */
 export function addForest(
   scene: THREE.Scene,
   assets: Map<string, THREE.Group>,
@@ -61,6 +85,12 @@ export function addForest(
   const generatedGeometry = new Set<THREE.BufferGeometry>();
   const primitives: THREE.Mesh[] = [];
   const materials = new Map<number, THREE.MeshStandardMaterial>();
+  /**
+   * Reuse a rough terrain material by color within this forest owner.
+   *
+   * @param color - Hexadecimal RGB color
+   * @returns Shared per-color material owned by this forest.
+   */
   const material = (color: number) => {
     let value = materials.get(color);
     if (!value) {
@@ -69,6 +99,14 @@ export function addForest(
     }
     return value;
   };
+  /**
+   * Create and register a generated terrain primitive for later batching and disposal.
+   *
+   * @param geometry - Generated geometry whose lifetime transfers to the forest
+   * @param color - Hexadecimal RGB color
+   * @param position - World position
+   * @returns Mesh added to the forest root.
+   */
   function mesh(geometry: THREE.BufferGeometry, color: number, position: Vec3) {
     generatedGeometry.add(geometry);
     const object = new THREE.Mesh(geometry, material(color));
@@ -115,6 +153,14 @@ export function addForest(
 
   // The distant floor is below the authored walkable surfaces and water.
   mesh(new THREE.BoxGeometry(700, 1, 700), 0x46573c, [0, -1.55, 0]);
+  /**
+   * Find the highest authored walkable surface at a horizontal location for scenery
+   * placement.
+   *
+   * @param x - World X coordinate
+   * @param z - World Z coordinate
+   * @returns Highest surface height, with -1 as the fallback below the terrain.
+   */
   function ground(x: number, z: number) {
     let y = -1;
     for (const surface of world.walkables) {
@@ -232,6 +278,12 @@ export function addForest(
     pool.scale.set(1.15, 1, 0.7);
   }
 
+  /**
+   * Find a named object among the loaded asset roots.
+   *
+   * @param name - Model object name
+   * @returns Imported model object, or undefined.
+   */
   function findModel(name: string): THREE.Object3D | undefined {
     for (const source of assets.values()) {
       const model = source.getObjectByName(name);
@@ -340,10 +392,20 @@ export function addForest(
   }
   return {
     errors,
+    /**
+     * Set each gate leaf's visual rotation from authoritative fixture state.
+     *
+     * @param route - States indexed by fixture ID
+     */
     update(route: FixtureState) {
       for (const { id, leaf } of gateLeaves)
         leaf.rotation.y = route[id].open ? Math.PI / 2 : 0;
     },
+    /**
+     * Move the directional light and its target together around the current camera region.
+     *
+     * @param point - World position at the center of the shadow region
+     */
     centerShadows(point: Vec3) {
       sun.target.position.set(...point);
       sun.target.updateMatrixWorld();
@@ -353,6 +415,10 @@ export function addForest(
         .add(sun.target.position);
       sun.updateMatrixWorld();
     },
+    /**
+     * Release generated terrain/materials, instance buffers, sky, and shadow resources, then
+     * detach the forest root. Shared imported asset geometry/materials remain cached.
+     */
     dispose() {
       root.traverse((o) => {
         if (o instanceof THREE.InstancedMesh) o.dispose();

@@ -59,6 +59,14 @@ declare global {
   }
 }
 
+/**
+ * Look up a required page element using the caller's expected element type. The page markup
+ * must supply this ID.
+ *
+ * @template T - Expected DOM element subtype; the markup must satisfy this assertion.
+ * @param id - Required element ID
+ * @returns The existing DOM element; no runtime null or type check is performed.
+ */
 const $ = <T extends HTMLElement = HTMLElement>(id: string) =>
   document.getElementById(id) as T;
 const pressed = new Set<string>();
@@ -75,6 +83,12 @@ let world: ReserveBlueprint | undefined,
   installEpoch = 0,
   installingId = "",
   queuedSnapshot: Snapshot | undefined;
+/**
+ * Resolve a commission's display title from the installed world.
+ *
+ * @param id - Commission ID
+ * @returns Commission title, or the supplied ID if no match exists.
+ */
 const commissionTitle = (id: string) =>
   world?.commissions.find((c) => c.id === id)?.title ?? id;
 let latest: Snapshot | undefined,
@@ -106,6 +120,12 @@ const assetErrors: string[] = [];
 let adapterInfo: unknown;
 const heard = new Set<string>();
 Object.defineProperty(window, "wildly", {
+  /**
+   * Expose read-only diagnostic values for the acceptance driver, copying mutable
+   * snapshot/error data and reporting renderer/frame metrics.
+   *
+   * @returns Diagnostic state; the world reference is the installed frozen blueprint.
+   */
   get: () => ({
     snapshot: latest ? structuredClone(latest) : null,
     world: world ?? null,
@@ -131,11 +151,21 @@ Object.defineProperty(window, "wildly", {
   }),
 });
 
+/**
+ * Replace the transient notice text and restart its 6.5-second dismissal timer.
+ *
+ * @param message - User-facing message
+ */
 function notify(message: string) {
   $("notice").textContent = message;
   clearTimeout(noticeTimer);
   noticeTimer = window.setTimeout(() => ($("notice").textContent = ""), 6500);
 }
+/**
+ * Allocate a sequence number and send a simple gameplay command for the installed world.
+ *
+ * @param type - Command kind without input, ping, or favorite-specific fields
+ */
 function command(
   type: Exclude<ClientMessage["type"], "input" | "ping" | "favorite">,
 ) {
@@ -144,6 +174,12 @@ function command(
 type WithoutWorld<T> = T extends { worldId: string }
   ? Omit<T, "worldId">
   : never;
+/**
+ * Attach the installed world ID and send only while the world and socket are ready. Tracks
+ * recent input timestamps for RTT estimation.
+ *
+ * @param message - Client message without its world ID
+ */
 function send(message: WithoutWorld<ClientMessage>) {
   if (!worldReady || !world || socket?.readyState !== WebSocket.OPEN) return;
   socket.send(JSON.stringify({ ...message, worldId: world.id }));
@@ -152,6 +188,12 @@ function send(message: WithoutWorld<ClientMessage>) {
     if (sent.size > 100) sent.delete(sent.keys().next().value!);
   }
 }
+/**
+ * Read current key state and view angles into the wire input shape without incrementing the
+ * sequence.
+ *
+ * @returns Fresh input object using the current sequence.
+ */
 function input(): Input {
   return {
     seq,
@@ -167,11 +209,24 @@ function input(): Input {
     crouch,
   };
 }
+/**
+ * Clear pressed movement keys and, when connected, send an updated input sequence so the
+ * server stops stale movement.
+ */
 function neutralize() {
   pressed.clear();
   if (socket?.readyState === WebSocket.OPEN)
     send({ type: "input", value: { ...input(), seq: ++seq } });
 }
+/**
+ * Apply one 1/60-second movement step using the installed world's geometry and snapshot
+ * equipment limits.
+ *
+ * @param p - Starting predicted player
+ * @param held - Held input for this tick
+ * @param state - Snapshot supplying route and prop state
+ * @returns New predicted player state.
+ */
 function predictStep(p: Player, held: Input, state: Snapshot): Player {
   return movePlayer(
     p,
@@ -188,6 +243,12 @@ function predictStep(p: Player, held: Input, state: Snapshot): Player {
     playerSpeed(p.id, held, state.props),
   );
 }
+/**
+ * Clear movement, release pointer lock, and open a page dialog. Refreshes notebook or
+ * host-reassignment content when applicable.
+ *
+ * @param id - Dialog element ID
+ */
 function showDialog(id: string) {
   neutralize();
   document.exitPointerLock();
@@ -200,6 +261,9 @@ function showDialog(id: string) {
   if (id === "settings")
     void renderReassign(() => ({ isHost, latest }), notify);
 }
+/**
+ * Toggle viewfinder mode and update camera controls and reticle visibility.
+ */
 function toggleCamera() {
   viewfinder = !viewfinder;
   document.body.classList.toggle("camera-view", viewfinder);
@@ -207,16 +271,32 @@ function toggleCamera() {
   $("reticle").hidden = viewfinder;
   $("camera-button").textContent = viewfinder ? "Lower camera" : "Viewfinder";
 }
+/**
+ * Send current view input before requesting an authoritative shutter frame. Does nothing
+ * before admission.
+ */
 function takePhoto() {
   if (!localId) return;
   send({ type: "input", value: { ...input(), seq: ++seq } });
   command("photo");
 }
+/**
+ * Request pointer lock on the renderer canvas after admission.
+ */
 function lookAround() {
   if (!localId) return;
   void renderer.domElement.requestPointerLock();
 }
 
+/**
+ * Install the admitted identity and host controls. Pending sessions poll for slot
+ * assignment; active sessions reveal the HUD and connect the socket.
+ *
+ * @param session - Public admission identity returned by the server
+ * @param session.playerId - Stable admitted player identifier
+ * @param session.host - Whether the player owns the host role
+ * @param session.pending - Whether host slot reassignment is still required
+ */
 async function acceptSession(session: {
   playerId: string;
   host: boolean;
@@ -247,6 +327,12 @@ async function acceptSession(session: {
   $("stop-button").hidden = !isHost;
   openSocket();
 }
+/**
+ * Validate the blueprint identity/hash and asynchronously replace the scene. Epoch checks
+ * discard obsolete loads; failures dispose the candidate view and notify the player.
+ *
+ * @param message - Server world message containing blueprint, ID, and digest
+ */
 async function installWorld(
   message: Extract<ServerMessage, { type: "world" }>,
 ) {
@@ -308,16 +394,28 @@ async function installWorld(
     socket?.close();
   }
 }
+/**
+ * Connect to the same-origin game socket and install handlers for identity, worlds,
+ * snapshots, cues, and photo frames. Stale socket callbacks cannot replace newer connection
+ * state.
+ */
 function openSocket() {
   if (closing) return;
   clearTimeout(retryTimer);
   socket = new WebSocket(
     `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/ws`,
   );
+  /** Show transport connection before the server supplies crew and world state. */
   socket.onopen = () => {
     $("connection").textContent = "Connected · finding crew";
   };
   const connection = socket;
+  /**
+   * Dispatch a server message only while this socket remains the active connection.
+   * Parsing failures become user notices rather than escaping the event handler.
+   *
+   * @param e - WebSocket message carrying server JSON
+   */
   socket.onmessage = (e) => {
     if (socket !== connection) return;
     try {
@@ -353,6 +451,7 @@ function openSocket() {
       notify(`Connection data could not be read: ${String(error)}`);
     }
   };
+  /** Invalidate world loads and prediction after disconnection, then schedule restoration. */
   socket.onclose = () => {
     if (socket !== connection) return;
     ++installEpoch;
@@ -368,10 +467,15 @@ function openSocket() {
       scheduleReconnect();
     }
   };
+  /** Show a transport error; the close handler owns reconnection scheduling. */
   socket.onerror = () => {
     $("connection").textContent = "Connection unavailable";
   };
 }
+/**
+ * Schedule session restoration with bounded exponential backoff. Authorization failures
+ * return to admission; transient failures retry.
+ */
 function scheduleReconnect() {
   if (closing) return;
   clearTimeout(retryTimer);
@@ -394,6 +498,13 @@ function scheduleReconnect() {
     Math.min(10000, 1000 * 2 ** Math.min(4, reconnectAttempt++)),
   );
 }
+/**
+ * Accept snapshots for the installing world, queue them during loading, and reconcile
+ * prediction against authoritative sequences. Updates feedback, RTT, HUD, and exhibition
+ * dialog state.
+ *
+ * @param state - Incoming authoritative snapshot
+ */
 function receive(state: Snapshot) {
   if (state.version !== 3 || state.worldId !== installingId) {
     worldReady = false;
@@ -452,6 +563,9 @@ function receive(state: Snapshot) {
   if (state.phase === "exhibition" && prior?.phase !== "exhibition")
     showDialog("notebook");
 }
+/**
+ * Render HUD state and refresh notebook/map content only while the notebook is open.
+ */
 function updateHud() {
   renderHud(latest, world, localId, isHost, rtt, settings);
   if ($<HTMLDialogElement>("notebook").open) {
@@ -459,6 +573,12 @@ function updateHud() {
     drawMap(latest, world, CREW_COLORS);
   }
 }
+/**
+ * Request the inverse of the local player's current favorite selection for an existing
+ * album record.
+ *
+ * @param photoId - Photo ID in the current album
+ */
 function toggleFavorite(photoId: string) {
   const current = latest?.album.find((p) => p.id === photoId);
   if (current)
@@ -469,6 +589,13 @@ function toggleFavorite(photoId: string) {
       selected: !current.favorites.includes(localId),
     });
 }
+/**
+ * Serialize frozen-frame capture and upload, restoring live rendering after each capture.
+ * Drops obsolete world completions and retains pending frames on failure for retry.
+ *
+ * @param frame - Frozen server-authorized shutter frame
+ * @param verdict - Server scoring result shown beside the preview
+ */
 function queuePhoto(frame: PhotoFrame, verdict: PhotoVerdict) {
   photoChain = photoChain
     .then(async () => {
@@ -539,6 +666,12 @@ function queuePhoto(frame: PhotoFrame, verdict: PhotoVerdict) {
     })
     .catch((e) => notify(String(e)));
 }
+/**
+ * Initialize WebGPU and the render/prediction loop, consume invite fragments, and try
+ * restoring a session. Rendering owns the resize listener for the page lifetime.
+ *
+ * @throws {Error} Graphics initialization fails; the startup caller displays the failure.
+ */
 async function start() {
   const graphics = await initializeGraphics(notify, neutralize);
   ({ renderer, scene, camera, adapterInfo } = graphics);
@@ -599,15 +732,35 @@ async function start() {
       /* A fresh visitor enters an invitation normally. */
     }
 }
+/**
+ * Remove the invite fragment from the current history entry while preserving the path and
+ * query.
+ */
 function historyReplace() {
   window.history.replaceState(null, "", location.pathname + location.search);
 }
 installJoinForm(acceptSession);
 for (const b of document.querySelectorAll<HTMLButtonElement>("[data-close]"))
+  /**
+   * Close the dialog identified by this button's data-close attribute.
+   *
+   * @returns No value after requesting dialog closure.
+   */
   b.onclick = () => $<HTMLDialogElement>(b.dataset.close!).close();
+/**
+ * Open and refresh the notebook from the toolbar.
+ *
+ * @returns No value after opening the dialog.
+ */
 $("notebook-button").onclick = () => showDialog("notebook");
+/**
+ * Open settings and refresh host admission controls from the toolbar.
+ *
+ * @returns No value after opening the dialog.
+ */
 $("settings-button").onclick = () => showDialog("settings");
 $("enter-controls").onclick = lookAround;
+/** Enter pointer-look controls when an admitted player clicks the unlocked viewport. */
 $("viewport").onclick = () => {
   if (localId && !document.pointerLockElement) lookAround();
 };
@@ -621,11 +774,18 @@ for (const [id, type] of [
   ["finish-button", "finish"],
   ["recover-button", "recover"],
 ] as const)
+  /**
+   * Send the gameplay command associated with this toolbar button.
+   *
+   * @returns No value after attempting command dispatch.
+   */
   $(id).onclick = () => command(type);
+/** Request the host's save-and-stop action and show immediate progress feedback. */
 $("stop-button").onclick = () => {
   command("save-and-stop");
   notify("Saving the outing and stopping the server…");
 };
+/** Record an intentional departure, stop reconnect attempts, and reload into admission. */
 $("leave-button").onclick = () => {
   closing = true;
   sessionStorage.setItem("wu-left", "1");
@@ -634,6 +794,11 @@ $("leave-button").onclick = () => {
   socket?.close();
   location.reload();
 };
+/**
+ * Copy the host's private invitation link, reporting request or clipboard failures.
+ *
+ * @returns No value; request and clipboard failures are displayed asynchronously.
+ */
 $("invite-button").onclick = () =>
   void api("/api/invite")
     .then(async (info) => {
@@ -643,6 +808,7 @@ $("invite-button").onclick = () =>
       notify("Private invitation copied. Share it with your crew.");
     })
     .catch((e) => notify(String(e)));
+/** Retry locally retained photo frames or explain how to recover saved pending captures. */
 $("retry-photos").onclick = () => {
   for (const p of pendingFrames.values()) queuePhoto(p.frame, p.verdict);
   if (!pendingFrames.size)

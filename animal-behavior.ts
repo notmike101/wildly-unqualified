@@ -10,10 +10,23 @@ import {
 } from "./shared.ts";
 import { type AnimalMemory } from "./animal-context.ts";
 import { flatDistance, geometry, routeTo } from "./animal-navigation.ts";
+/**
+ * Append a previously unseen observation and retain only the last 40 entries.
+ *
+ * @param run - Authoritative run to update
+ * @param text - Notebook text to retain
+ */
 export function observe(run: RunState, text: string) {
   if (!run.observations.includes(text)) run.observations.push(text);
   run.observations = run.observations.slice(-40);
 }
+/**
+ * Change the animal's goal and retain up to four previous nonempty goals. Repeating the
+ * current goal does nothing.
+ *
+ * @param memory - Animal memory to update
+ * @param name - Next goal identifier
+ */
 export function goal(memory: AnimalMemory, name: string) {
   if (name === memory.goal) return;
   memory.recentGoals = [...memory.recentGoals, memory.goal]
@@ -21,6 +34,17 @@ export function goal(memory: AnimalMemory, name: string) {
     .slice(-4);
   memory.goal = name;
 }
+/**
+ * Select a reachable goal deterministically, avoiding the current goal when alternatives
+ * exist. Updates memory and the animal target; leaves both alone if no candidate is
+ * reachable.
+ *
+ * @param run - Run supplying seed and navigation
+ * @param a - Animal whose target changes
+ * @param memory - Goal history to update
+ * @param candidates - Authored goal identifiers and world points
+ * @param extra - Additional equipment blockers
+ */
 export function choose(
   run: RunState,
   a: Animal,
@@ -43,6 +67,14 @@ export function choose(
     a.target = [...value.point];
   }
 }
+/**
+ * Check recent nearby noise, visible crew, and the heron's proximity to raccoons.
+ *
+ * @param run - Run containing recent events and crew
+ * @param a - Animal being assessed
+ * @param extra - Reserved blocker argument, currently unused
+ * @returns Whether a disturbance currently applies.
+ */
 export function disturbed(run: RunState, a: Animal, extra: Box[]) {
   const point: Vec3 = [
       a.pose.position[0],
@@ -84,6 +116,18 @@ export function disturbed(run: RunState, a: Animal, extra: Box[]) {
       ))
   );
 }
+/**
+ * Try four grounded approaches around a visible lure, checking navigation and equipment
+ * occlusion.
+ *
+ * @param run - Run supplying geometry and props
+ * @param a - Approaching animal
+ * @param point - Lure position in world coordinates
+ * @param extra - Additional navigation blockers
+ * @param separation - Stand-off distance in metres, default 0.85
+ * @param ignoredProp - Prop identifier excluded from lure occlusion
+ * @returns First reachable approach, or null when the lure or all approaches are blocked.
+ */
 export function approachPoint(
   run: RunState,
   a: Animal,
