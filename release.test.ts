@@ -28,6 +28,7 @@ test("portable release contains the exact runtime lock and no credentials or dev
       "server.ts",
       "shared.ts",
       "web",
+      "world.ts",
     ].sort(),
   );
   assert.equal(
@@ -36,7 +37,7 @@ test("portable release contains the exact runtime lock and no credentials or dev
       "utf8",
     ),
     await readFile(join(source, "web-mvp/index.html"), "utf8"),
-    "package the current forest MVP build",
+    "package the current generated-reserve build",
   );
   assert.deepEqual(
     await readFile(

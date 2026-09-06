@@ -128,14 +128,14 @@ export function addForest(
     const xs = [
       original.min[0],
       original.max[0],
-      ...world.waters.flatMap(w => [w.min[0], w.max[0]]),
+      ...world.waters.flatMap((w) => [w.min[0], w.max[0]]),
     ]
       .filter((x) => x >= original.min[0] && x <= original.max[0])
       .sort((a, b) => a - b);
     const zs = [
       original.min[2],
       original.max[2],
-      ...world.waters.flatMap(w => [w.min[2], w.max[2]]),
+      ...world.waters.flatMap((w) => [w.min[2], w.max[2]]),
     ]
       .filter((z) => z >= original.min[2] && z <= original.max[2])
       .sort((a, b) => a - b);
@@ -145,7 +145,10 @@ export function addForest(
         const cx = (xs[xi] + xs[xi - 1]) / 2,
           cz = (zs[zi] + zs[zi - 1]) / 2;
         if (
-          world.waters.some(w => cx > w.min[0] && cx < w.max[0] && cz > w.min[2] && cz < w.max[2])
+          world.waters.some(
+            (w) =>
+              cx > w.min[0] && cx < w.max[0] && cz > w.min[2] && cz < w.max[2],
+          )
         )
           continue;
         const surface = {
@@ -213,12 +216,19 @@ export function addForest(
     ]);
     water.scale.set(width * 0.5, 1, depth * 0.5);
     const waterMaterial = material(0x638f91);
-    waterMaterial.roughness = 0.3; waterMaterial.metalness = 0.25;
+    waterMaterial.roughness = 0.3;
+    waterMaterial.metalness = 0.25;
     water.material = waterMaterial;
   }
 
-  for (const point of world.pockets.flatMap(p => p.anchors.filter(a => a.kind === "wash").map(a => a.point))) {
-    const pool = mesh(new THREE.CylinderGeometry(1, 1, 0.015, 12), 0x638f91, [point[0], point[1] + 0.024, point[2]]);
+  for (const point of world.pockets.flatMap((p) =>
+    p.anchors.filter((a) => a.kind === "wash").map((a) => a.point),
+  )) {
+    const pool = mesh(new THREE.CylinderGeometry(1, 1, 0.015, 12), 0x638f91, [
+      point[0],
+      point[1] + 0.024,
+      point[2],
+    ]);
     pool.scale.set(1.15, 1, 0.7);
   }
 
@@ -251,7 +261,15 @@ export function addForest(
         gate.scale.set(...p.scale);
         root.add(gate);
         const leaf = findPart(gate, "GateLeaf");
-        if (leaf) gateLeaves.push({id: world.fixtures.find(f => f.kind === "gate" && f.position.every((v,a) => v === p.position[a]))!.id, leaf});
+        if (leaf)
+          gateLeaves.push({
+            id: world.fixtures.find(
+              (f) =>
+                f.kind === "gate" &&
+                f.position.every((v, a) => v === p.position[a]),
+            )!.id,
+            leaf,
+          });
         else errors.push("ForestGate has no GateLeaf pivot");
       }
     } else root.add(instanceModel(model, placements));
@@ -298,37 +316,51 @@ export function addForest(
   }
   // Batch generated ground/trail pieces by material and spatial cell, keeping
   // imported model buffers shared and independently culled above.
-  const batches = new Map<string, { material: THREE.Material; parts: THREE.BufferGeometry[] }>();
+  const batches = new Map<
+    string,
+    { material: THREE.Material; parts: THREE.BufferGeometry[] }
+  >();
   for (const object of primitives) {
     object.updateMatrix();
-    const material = object.material as THREE.Material, key = `${material.uuid}:${Math.floor(object.position.x / 48)}:${Math.floor(object.position.z / 48)}`;
+    const material = object.material as THREE.Material,
+      key = `${material.uuid}:${Math.floor(object.position.x / 48)}:${Math.floor(object.position.z / 48)}`;
     const batch = batches.get(key) ?? { material, parts: [] };
     batch.parts.push(object.geometry.clone().applyMatrix4(object.matrix));
-    batches.set(key, batch); object.removeFromParent();
+    batches.set(key, batch);
+    object.removeFromParent();
   }
   for (const batch of batches.values()) {
-    const geometry = mergeGeometries(batch.parts); batch.parts.forEach(g => g.dispose());
+    const geometry = mergeGeometries(batch.parts);
+    batch.parts.forEach((g) => g.dispose());
     if (!geometry) throw Error("Forest geometry could not be batched");
     generatedGeometry.add(geometry);
-    const object = new THREE.Mesh(geometry, batch.material); object.receiveShadow = true; root.add(object);
+    const object = new THREE.Mesh(geometry, batch.material);
+    object.receiveShadow = true;
+    root.add(object);
   }
   return {
     errors,
     update(route: FixtureState) {
-      for (const {id, leaf} of gateLeaves) leaf.rotation.y = route[id].open ? Math.PI / 2 : 0;
+      for (const { id, leaf } of gateLeaves)
+        leaf.rotation.y = route[id].open ? Math.PI / 2 : 0;
     },
     centerShadows(point: Vec3) {
-      sun.target.position.set(...point); sun.target.updateMatrixWorld();
-      sun.position.copy(sky.sunPosition.value).multiplyScalar(105).add(sun.target.position);
+      sun.target.position.set(...point);
+      sun.target.updateMatrixWorld();
+      sun.position
+        .copy(sky.sunPosition.value)
+        .multiplyScalar(105)
+        .add(sun.target.position);
       sun.updateMatrixWorld();
     },
     dispose() {
       root.traverse((o) => {
         if (o instanceof THREE.InstancedMesh) o.dispose();
       });
-      generatedGeometry.forEach(g => g.dispose());
-      materials.forEach(m => m.dispose());
-      sky.geometry.dispose(); sky.material.dispose();
+      generatedGeometry.forEach((g) => g.dispose());
+      materials.forEach((m) => m.dispose());
+      sky.geometry.dispose();
+      sky.material.dispose();
       sun.shadow.dispose();
       root.removeFromParent();
     },

@@ -12,7 +12,11 @@ import { fileURLToPath } from "node:url";
 import type { RunState } from "./game.ts";
 import { parseMessage, surfaceHeight, distance } from "./shared.ts";
 import { fixtureBoxes, fixtureSurfaces } from "./level.ts";
-import { validateReserve, RESERVE_SPECIES, type ReserveBlueprint } from "./world.ts";
+import {
+  validateReserve,
+  RESERVE_SPECIES,
+  type ReserveBlueprint,
+} from "./world.ts";
 
 export type ServerConfig = {
   host: string;
@@ -156,7 +160,8 @@ function player(value: unknown) {
   integer(v.lastSeq);
   bool(v.connected);
   integer(v.inputTick);
-  if (v.lastInput !== null) parseMessage({ type: "input", worldId: "saved-input", value: v.lastInput });
+  if (v.lastInput !== null)
+    parseMessage({ type: "input", worldId: "saved-input", value: v.lastInput });
 }
 function animal(value: unknown) {
   const v = obj(value, [
@@ -183,7 +188,16 @@ function animal(value: unknown) {
     "graze",
     "wash",
     "preen",
-    "hat-reach", "pounce", "nibble", "cache", "gnaw", "groom", "dig", "roost", "tap", "dabble",
+    "hat-reach",
+    "pounce",
+    "nibble",
+    "cache",
+    "gnaw",
+    "groom",
+    "dig",
+    "roost",
+    "tap",
+    "dabble",
   ]);
   pose(v.pose);
   num(v.remaining, -1, 1e8);
@@ -201,25 +215,66 @@ function tin(value: unknown) {
   pose(v.pose);
   vector(v.velocity);
   vector(v.angularVelocity);
-  if (v.holder !== null) id(typeof v.holder === "string" && v.holder.startsWith("animal:") ? v.holder.slice(7) : v.holder);
+  if (v.holder !== null)
+    id(
+      typeof v.holder === "string" && v.holder.startsWith("animal:")
+        ? v.holder.slice(7)
+        : v.holder,
+    );
   integer(v.portions, 0, 4);
   bool(v.open);
 }
 function residentInventory(value: unknown, world: ReserveBlueprint) {
   list(value, 48, animal);
   const animals = value as any[];
-  if (animals.length !== world.residents.length || new Set(animals.map(a => a.id)).size !== animals.length || animals.some(a => !world.residents.some(r => r.id === a.id && r.species === a.species))) throw Error("Invalid animal count or identities");
+  if (
+    animals.length !== world.residents.length ||
+    new Set(animals.map((a) => a.id)).size !== animals.length ||
+    animals.some(
+      (a) =>
+        !world.residents.some((r) => r.id === a.id && r.species === a.species),
+    )
+  )
+    throw Error("Invalid animal count or identities");
 }
 function carrier(value: any, ids: Set<string>, world: ReserveBlueprint) {
   if (value === null || ids.has(value)) return;
-  if (typeof value !== "string" || !value.startsWith("animal:") || !world.residents.some(r => r.id === value.slice(7) && r.species === "raccoon")) throw Error("Missing saved tin holder");
+  if (
+    typeof value !== "string" ||
+    !value.startsWith("animal:") ||
+    !world.residents.some(
+      (r) => r.id === value.slice(7) && r.species === "raccoon",
+    )
+  )
+    throw Error("Missing saved tin holder");
 }
 function stateBounds(v: Record<string, any>, world: ReserveBlueprint) {
-  const points = [...v.players.map((p: any) => p.position), ...v.animals.flatMap((a: any) => [a.pose.position, a.target]), v.tin.pose.position, ...v.props.map((p: any) => p.pose.position), ...v.spills.map((s: any) => s.position), ...v.hats.map((h: any) => h.position)];
-  for (const point of points) if ([0,2].some(axis => point[axis] < world.bounds.min[axis] - 2 || point[axis] > world.bounds.max[axis] + 2) || point[1] < -8 || point[1] > 64) throw Error("Saved position outside world bounds");
+  const points = [
+    ...v.players.map((p: any) => p.position),
+    ...v.animals.flatMap((a: any) => [a.pose.position, a.target]),
+    v.tin.pose.position,
+    ...v.props.map((p: any) => p.pose.position),
+    ...v.spills.map((s: any) => s.position),
+    ...v.hats.map((h: any) => h.position),
+  ];
+  for (const point of points)
+    if (
+      [0, 2].some(
+        (axis) =>
+          point[axis] < world.bounds.min[axis] - 2 ||
+          point[axis] > world.bounds.max[axis] + 2,
+      ) ||
+      point[1] < -8 ||
+      point[1] > 64
+    )
+      throw Error("Saved position outside world bounds");
 }
-function props(value: unknown, playerIds: Set<string>, world: ReserveBlueprint) {
-  const propKinds = new Map(world.props.map(p => [p.id, p.kind]));
+function props(
+  value: unknown,
+  playerIds: Set<string>,
+  world: ReserveBlueprint,
+) {
+  const propKinds = new Map(world.props.map((p) => [p.id, p.kind]));
   list(value, world.props.length, (x) => {
     const v = obj(x, [
       "id",
@@ -247,11 +302,17 @@ function props(value: unknown, playerIds: Set<string>, world: ReserveBlueprint) 
     integer(v.spillUntilTick);
   });
   const values = value as any[];
-  if (values.length !== world.props.length || new Set(values.map((x) => x.id)).size !== world.props.length)
+  if (
+    values.length !== world.props.length ||
+    new Set(values.map((x) => x.id)).size !== world.props.length
+  )
     throw Error("Invalid saved field prop inventory");
 }
 function route(value: unknown, world: ReserveBlueprint) {
-  const states = obj(value, world.fixtures.map(f => f.id));
+  const states = obj(
+    value,
+    world.fixtures.map((f) => f.id),
+  );
   for (const fixture of world.fixtures) {
     const state = obj(states[fixture.id], ["open", "seat"]);
     bool(state.open);
@@ -259,10 +320,28 @@ function route(value: unknown, world: ReserveBlueprint) {
   }
   fixtureBoxes(world.fixtures, states);
 }
-function plankRoute(propValues: any[], routeValue: any, world: ReserveBlueprint) {
-  for (const fixture of world.fixtures.filter(f => f.kind === "crossing")) {
-    const plank = propValues.find(p => p.id === fixture.plankId), state = routeValue[fixture.id], expected = state.seat ? fixture.seats[state.seat] : null;
-    if (!plank || plank.placed !== state.open || (expected && (plank.holders.some(Boolean) || plank.pose.position.some((v: number, a: number) => Math.abs(v - expected.position[a]) > 1e-6) || plank.pose.rotation.some((v: number, a: number) => Math.abs(v - expected.rotation[a]) > 1e-6)))) throw Error("Saved plank and crossing route disagree");
+function plankRoute(
+  propValues: any[],
+  routeValue: any,
+  world: ReserveBlueprint,
+) {
+  for (const fixture of world.fixtures.filter((f) => f.kind === "crossing")) {
+    const plank = propValues.find((p) => p.id === fixture.plankId),
+      state = routeValue[fixture.id],
+      expected = state.seat ? fixture.seats[state.seat] : null;
+    if (
+      !plank ||
+      plank.placed !== state.open ||
+      (expected &&
+        (plank.holders.some(Boolean) ||
+          plank.pose.position.some(
+            (v: number, a: number) => Math.abs(v - expected.position[a]) > 1e-6,
+          ) ||
+          plank.pose.rotation.some(
+            (v: number, a: number) => Math.abs(v - expected.rotation[a]) > 1e-6,
+          )))
+    )
+      throw Error("Saved plank and crossing route disagree");
   }
 }
 function spills(value: unknown) {
@@ -291,7 +370,13 @@ function hats(value: unknown, playerIds: Set<string>, world: ReserveBlueprint) {
     if (!playerIds.has(v.owner) || owners.has(v.owner))
       throw Error("Invalid saved hat owner");
     owners.add(v.owner);
-    one(v.carrier, ["owner", "ground", ...world.residents.filter(r => r.species === "raccoon").map(r => `animal:${r.id}`)]);
+    one(v.carrier, [
+      "owner",
+      "ground",
+      ...world.residents
+        .filter((r) => r.species === "raccoon")
+        .map((r) => `animal:${r.id}`),
+    ]);
     position(v.position);
     integer(v.untilTick);
     integer(v.protectedUntilTick);
@@ -314,10 +399,12 @@ function incidents(v: Record<string, any>, world: ReserveBlueprint) {
         point[2] > b.min[2] - 0.3 &&
         point[2] < b.max[2] + 0.3,
     ) &&
-    [...world.walkables, ...fixtureSurfaces(world.fixtures, v.route)].some((s) => {
-      const height = surfaceHeight(s, point[0], point[2]);
-      return height !== null && Math.abs(point[1] - height) < 0.01;
-    });
+    [...world.walkables, ...fixtureSurfaces(world.fixtures, v.route)].some(
+      (s) => {
+        const height = surfaceHeight(s, point[0], point[2]);
+        return height !== null && Math.abs(point[1] - height) < 0.01;
+      },
+    );
   for (const spill of v.spills) {
     integer(spill.untilTick, v.tick + 1, v.tick + 3600);
     if (!supported(spill.position))
@@ -361,7 +448,11 @@ function incidents(v: Record<string, any>, world: ReserveBlueprint) {
         throw Error("Contradictory saved hat reach");
     }
 }
-function photo(value: unknown, crew: Map<string, number>, world: ReserveBlueprint) {
+function photo(
+  value: unknown,
+  crew: Map<string, number>,
+  world: ReserveBlueprint,
+) {
   const v = obj(value, [
     "id",
     "tick",
@@ -396,7 +487,8 @@ function photo(value: unknown, crew: Map<string, number>, world: ReserveBlueprin
     throw Error("Invalid saved frame crew identity or slot");
   carrier(v.tin.holder, ids, world);
   if (!ids.has(v.photographer)) throw Error("Missing saved frame photographer");
-  if (v.worldId !== world.id || !v.id.startsWith(world.id + "-photo-")) throw Error("Saved frame world mismatch");
+  if (v.worldId !== world.id || !v.id.startsWith(world.id + "-photo-"))
+    throw Error("Saved frame world mismatch");
   props(v.props, ids, world);
   route(v.route, world);
   plankRoute(v.props, v.route, world);
@@ -490,8 +582,10 @@ function validateRun(
     "lastImpactTick",
     "failedSetups",
   ]);
-  if (v.version !== 3) throw Error("Unsupported run version; expected version 3");
-  const world = validateReserve(v.world), assignments = world.commissions.map(c => c.id);
+  if (v.version !== 3)
+    throw Error("Unsupported run version; expected version 3");
+  const world = validateReserve(v.world),
+    assignments = world.commissions.map((c) => c.id);
   v.world = world;
   if (v.worldId !== world.id) throw Error("Saved run world mismatch");
   integer(v.tick);
@@ -515,8 +609,13 @@ function validateRun(
   incidents(v, world);
   stateBounds(v, world);
   integer(v.spareBait, 0, 8);
-  const patches = obj(v.baitPatches, world.pockets.flatMap(p => p.anchors.filter(a => a.kind === "feed").map(a => a.id)));
-  Object.values(patches).forEach(portions => integer(portions, 0, 4));
+  const patches = obj(
+    v.baitPatches,
+    world.pockets.flatMap((p) =>
+      p.anchors.filter((a) => a.kind === "feed").map((a) => a.id),
+    ),
+  );
+  Object.values(patches).forEach((portions) => integer(portions, 0, 4));
   list(v.observations, 128, (x) => text(x, 256));
   list(v.completed, 8, (x) => one(x, assignments));
   if (new Set(v.completed).size !== v.completed.length)
@@ -525,7 +624,9 @@ function validateRun(
     throw Error("Completed assignment was not selected");
   if (
     v.phase === "exhibition" &&
-    !world.commissions.filter(c => c.required).every(c => v.completed.includes(c.id))
+    !world.commissions
+      .filter((c) => c.required)
+      .every((c) => v.completed.includes(c.id))
   )
     throw Error("Exhibition requires every selected assignment");
   list(v.ready, 4, id);
@@ -593,7 +694,8 @@ function validateRun(
     if (
       reaching !== (memory.hatTarget !== null) ||
       (memory.hatTarget !== null &&
-        (world.residents.find(r => r.id === name)?.species !== "raccoon" || !ids.has(memory.hatTarget)))
+        (world.residents.find((r) => r.id === name)?.species !== "raccoon" ||
+          !ids.has(memory.hatTarget)))
     )
       throw Error("Invalid saved hat target");
     if (
@@ -641,7 +743,8 @@ function validateRun(
       "thumbnail",
     ]);
     id(p.id);
-    if (!p.id.startsWith(world.id + "-photo-")) throw Error("Saved photo world mismatch");
+    if (!p.id.startsWith(world.id + "-photo-"))
+      throw Error("Saved photo world mismatch");
     id(p.photographer);
     if (!ids.has(p.photographer)) throw Error("Missing saved photographer");
     integer(p.tick);
@@ -680,8 +783,12 @@ function validateRun(
 }
 function decodeSave(raw: string) {
   const data = obj(JSON.parse(raw));
-  if (data.version === 1 || data.version === 2) throw Error(`Incompatible save version ${data.version}; expected version 3`);
-  if (data.version !== 3) throw Error("Unsupported save version; expected version 3");
+  if (data.version === 1 || data.version === 2)
+    throw Error(
+      `Incompatible save version ${data.version}; expected version 3`,
+    );
+  if (data.version !== 3)
+    throw Error("Unsupported save version; expected version 3");
   obj(data, ["version", "run", "images"]);
   const imageData = obj(data.images);
   if (Object.keys(imageData).length > 64) throw Error("Too many saved images");

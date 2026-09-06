@@ -5,7 +5,19 @@ export type Pose = { position: Vec3; rotation: Quat };
 export type Box = { id: string; min: Vec3; max: Vec3 };
 export type CrewSlot = 0 | 1 | 2 | 3;
 export type Habitat = "woodland" | "clearing" | "wetland";
-export type Species = "raccoon" | "deer" | "heron" | "fox" | "rabbit" | "squirrel" | "beaver" | "otter" | "badger" | "owl" | "woodpecker" | "mallard";
+export type Species =
+  | "raccoon"
+  | "deer"
+  | "heron"
+  | "fox"
+  | "rabbit"
+  | "squirrel"
+  | "beaver"
+  | "otter"
+  | "badger"
+  | "owl"
+  | "woodpecker"
+  | "mallard";
 export type Behavior =
   | "wander"
   | "approach"
@@ -20,7 +32,16 @@ export type Behavior =
   | "graze"
   | "wash"
   | "hat-reach"
-  | "preen" | "pounce" | "nibble" | "cache" | "gnaw" | "groom" | "dig" | "roost" | "tap" | "dabble";
+  | "preen"
+  | "pounce"
+  | "nibble"
+  | "cache"
+  | "gnaw"
+  | "groom"
+  | "dig"
+  | "roost"
+  | "tap"
+  | "dabble";
 export type Assignment =
   | "raccoon-inspect"
   | "heron-display"
@@ -190,7 +211,8 @@ export type ClientMessage = { worldId: string } & (
       seq: number;
     }
   | { type: "ping"; seq: number; point: Vec3 }
-  | { type: "favorite"; seq: number; photoId: string; selected: boolean });
+  | { type: "favorite"; seq: number; photoId: string; selected: boolean }
+);
 export type ServerMessage =
   | { type: "world"; id: string; hash: string; blueprint: ReserveBlueprint }
   | { type: "snapshot"; value: Snapshot }
@@ -418,7 +440,8 @@ function number(v: unknown, min: number, max: number): number {
 }
 export function parseMessage(value: unknown): ClientMessage {
   const m = object(value);
-  if (typeof m.worldId !== "string" || !/^[-_a-zA-Z0-9]{1,64}$/.test(m.worldId)) throw Error("Invalid world ID");
+  if (typeof m.worldId !== "string" || !/^[-_a-zA-Z0-9]{1,64}$/.test(m.worldId))
+    throw Error("Invalid world ID");
   if (m.type === "input") {
     keys(m, ["type", "worldId", "value"]);
     const v = object(m.value);

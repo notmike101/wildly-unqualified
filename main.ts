@@ -7,8 +7,17 @@ import {
   CREW_COLORS,
   CAMERA_FAR,
 } from "./view.ts";
-import { PROP_DEFINITIONS, fixtureBoxes, fixtureSurfaces, fixtureLatch } from "./level.ts";
-import { validateReserve, reserveHash, type ReserveBlueprint } from "./world.ts";
+import {
+  PROP_DEFINITIONS,
+  fixtureBoxes,
+  fixtureSurfaces,
+  fixtureLatch,
+} from "./level.ts";
+import {
+  validateReserve,
+  reserveHash,
+  type ReserveBlueprint,
+} from "./world.ts";
 import {
   distance,
   eye,
@@ -108,8 +117,13 @@ let crouch = false,
   isHost = false,
   closing = false,
   socket: WebSocket | undefined;
-let world: ReserveBlueprint | undefined, worldReady = false, installEpoch = 0, installingId = "", queuedSnapshot: Snapshot | undefined;
-const commissionTitle = (id: string) => world?.commissions.find(c => c.id === id)?.title ?? id;
+let world: ReserveBlueprint | undefined,
+  worldReady = false,
+  installEpoch = 0,
+  installingId = "",
+  queuedSnapshot: Snapshot | undefined;
+const commissionTitle = (id: string) =>
+  world?.commissions.find((c) => c.id === id)?.title ?? id;
 let latest: Snapshot | undefined,
   prior: Snapshot | undefined,
   latestAt = 0,
@@ -184,10 +198,12 @@ function command(
 ) {
   send({ type, seq: ++seq });
 }
-type WithoutWorld<T> = T extends {worldId: string} ? Omit<T, "worldId"> : never;
+type WithoutWorld<T> = T extends { worldId: string }
+  ? Omit<T, "worldId">
+  : never;
 function send(message: WithoutWorld<ClientMessage>) {
   if (!worldReady || !world || socket?.readyState !== WebSocket.OPEN) return;
-  socket.send(JSON.stringify({...message, worldId: world.id}));
+  socket.send(JSON.stringify({ ...message, worldId: world.id }));
   if (message.type === "input") {
     sent.set(message.value.seq, performance.now());
     if (sent.size > 100) sent.delete(sent.keys().next().value!);
@@ -306,33 +322,64 @@ async function acceptSession(session: {
   $("stop-button").hidden = !isHost;
   openSocket();
 }
-async function installWorld(message: Extract<ServerMessage, {type: "world"}>) {
+async function installWorld(
+  message: Extract<ServerMessage, { type: "world" }>,
+) {
   const epoch = ++installEpoch;
-  installingId = message.id; worldReady = false;
-  latest = undefined; prior = undefined; predicted = undefined;
-  history.clear(); sent.clear(); heard.clear(); pressed.clear(); queuedSnapshot = undefined;
-  for (const [id, pending] of pendingFrames) if (pending.frame.worldId !== message.id) pendingFrames.delete(id);
-  $("connection").textContent = "Loading reserve�";
+  installingId = message.id;
+  worldReady = false;
+  latest = undefined;
+  prior = undefined;
+  predicted = undefined;
+  history.clear();
+  sent.clear();
+  heard.clear();
+  pressed.clear();
+  queuedSnapshot = undefined;
+  for (const [id, pending] of pendingFrames)
+    if (pending.frame.worldId !== message.id) pendingFrames.delete(id);
+  $("connection").textContent = "Loading reserve�";
   let nextView: Awaited<ReturnType<typeof createView>> | undefined;
   try {
     const blueprint = validateReserve(message.blueprint);
-    if (message.id !== blueprint.id || await reserveHash(blueprint) !== message.hash) throw Error("Reserve digest or identity mismatch");
+    if (
+      message.id !== blueprint.id ||
+      (await reserveHash(blueprint)) !== message.hash
+    )
+      throw Error("Reserve digest or identity mismatch");
     if (epoch !== installEpoch) return;
     const nextScene = new THREE.Scene();
     nextView = await createView(nextScene, blueprint);
-    if (epoch !== installEpoch) { nextView.dispose(); return; }
+    if (epoch !== installEpoch) {
+      nextView.dispose();
+      return;
+    }
     if (nextView.errors.length) throw Error(nextView.errors.join("; "));
-    view?.dispose(); view = nextView; scene = nextScene; world = blueprint; worldReady = true;
-    camera.position.set(blueprint.camp[0], blueprint.camp[1] + 1.6, blueprint.camp[2]);
+    view?.dispose();
+    view = nextView;
+    scene = nextScene;
+    world = blueprint;
+    worldReady = true;
+    reconnectAttempt = 0;
+    camera.position.set(
+      blueprint.camp[0],
+      blueprint.camp[1] + 1.6,
+      blueprint.camp[2],
+    );
     document.body.dataset.world = blueprint.id;
-    const pending = queuedSnapshot; queuedSnapshot = undefined;
+    const pending = queuedSnapshot;
+    queuedSnapshot = undefined;
     if (pending) receive(pending);
-    for (const {frame, verdict} of pendingFrames.values()) if (frame.worldId === blueprint.id) queuePhoto(frame, verdict);
+    for (const { frame, verdict } of pendingFrames.values())
+      if (frame.worldId === blueprint.id) queuePhoto(frame, verdict);
   } catch (error) {
     nextView?.dispose();
     if (epoch !== installEpoch) return;
-    worldReady = false; assetErrors.push(String(error));
-    notify(`Reserve could not be loaded. Refreshing connection: ${String(error)}`);
+    worldReady = false;
+    assetErrors.push(String(error));
+    notify(
+      `Reserve could not be loaded. Refreshing connection: ${String(error)}`,
+    );
     socket?.close();
   }
 }
@@ -343,7 +390,6 @@ function openSocket() {
     `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/ws`,
   );
   socket.onopen = () => {
-    reconnectAttempt = 0;
     $("connection").textContent = "Connected · finding crew";
   };
   const connection = socket;
@@ -357,7 +403,12 @@ function openSocket() {
       }
       if (m.type === "world") void installWorld(m);
       if (m.type === "notice") notify(m.text);
-      if (m.type === "cue" && worldReady && m.worldId === world?.id && !heard.has(m.id)) {
+      if (
+        m.type === "cue" &&
+        worldReady &&
+        m.worldId === world?.id &&
+        !heard.has(m.id)
+      ) {
         heard.add(m.id);
         if (heard.size > 128) heard.delete(heard.values().next().value!);
         const d = predicted ? distance(eye(predicted), m.position) : 0;
@@ -379,7 +430,11 @@ function openSocket() {
   };
   socket.onclose = () => {
     if (socket !== connection) return;
-    ++installEpoch; worldReady = false; predicted = undefined; latest = undefined; prior = undefined;
+    ++installEpoch;
+    worldReady = false;
+    predicted = undefined;
+    latest = undefined;
+    prior = undefined;
     neutralize();
     history.clear();
     $("connection").textContent = closing ? "Server stopped" : "Reconnecting…";
@@ -415,8 +470,16 @@ function scheduleReconnect() {
   );
 }
 function receive(state: Snapshot) {
-  if (state.version !== 3 || state.worldId !== installingId) { worldReady = false; predicted = undefined; socket?.close(); return; }
-  if (!worldReady || state.worldId !== world?.id) { queuedSnapshot = state; return; }
+  if (state.version !== 3 || state.worldId !== installingId) {
+    worldReady = false;
+    predicted = undefined;
+    socket?.close();
+    return;
+  }
+  if (!worldReady || state.worldId !== world?.id) {
+    queuedSnapshot = state;
+    return;
+  }
   if (latest && state.observations.length > latest.observations.length)
     notify(state.observations.at(-1)!);
   prior = latest;
@@ -472,18 +535,21 @@ function updateHud() {
   const list = $("assignments");
   list.replaceChildren();
   for (const commission of world!.commissions) {
-    const li = document.createElement("li"); li.className = s.completed.includes(commission.id) ? "done" : "";
-    li.textContent = `${commission.required ? "" : "Optional � "}${commission.title}`;
-    const small = document.createElement("small"); small.textContent = commission.instructions; li.append(small); list.append(li);
+    const li = document.createElement("li");
+    li.className = s.completed.includes(commission.id) ? "done" : "";
+    li.textContent = `${commission.required ? "" : "Optional � "}${commission.title}`;
+    const small = document.createElement("small");
+    small.textContent = commission.instructions;
+    li.append(small);
+    list.append(li);
   }
-  const holder =
-    s.tin.holder?.startsWith("animal:")
-      ? "The raccoon has your tin."
-      : s.tin.holder === localId
-        ? "You are carrying the tin."
-        : s.tin.holder
-          ? `${s.players.find((p) => p.id === s.tin.holder)?.name ?? "A friend"} has the tin.`
-          : "Tin placed in the reserve.";
+  const holder = s.tin.holder?.startsWith("animal:")
+    ? "The raccoon has your tin."
+    : s.tin.holder === localId
+      ? "You are carrying the tin."
+      : s.tin.holder
+        ? `${s.players.find((p) => p.id === s.tin.holder)?.name ?? "A friend"} has the tin.`
+        : "Tin placed in the reserve.";
   const me = s.players.find((p) => p.id === localId);
   const carried = heldProp(localId, s.props);
   const occupied = carried?.holders.filter(Boolean).length ?? 0;
@@ -495,9 +561,17 @@ function updateHud() {
     ...walls,
     ...s.props.flatMap((prop) => propBoxes(prop, PROP_DEFINITIONS[prop.kind])),
   ];
-  const gate = world!.fixtures.filter(f => f.kind === "gate").map(f => ({...f, latch: fixtureLatch(f, s.route)})).filter(f => f.latch).sort((a,b) => me ? distance(eye(me), a.latch!) - distance(eye(me), b.latch!) : 0)[0], latch = gate?.latch;
+  const gate = world!.fixtures
+      .filter((f) => f.kind === "gate")
+      .map((f) => ({ ...f, latch: fixtureLatch(f, s.route) }))
+      .filter((f) => f.latch)
+      .sort((a, b) =>
+        me ? distance(eye(me), a.latch!) - distance(eye(me), b.latch!) : 0,
+      )[0],
+    latch = gate?.latch;
   const gateReachable =
-    !!me && !!latch &&
+    !!me &&
+    !!latch &&
     distance(eye(me), latch) <= 2 &&
     !rayBlocked(eye(me), latch, [
       ...world!.walls,
@@ -525,14 +599,20 @@ function updateHud() {
     settings.keys[name].replace(/^(Key|Digit)/, "");
   const clue =
     me &&
-    world!.commissions.map(c => ({title: c.title, position: world!.pockets.find(p => p.id === c.pocket)!.position})).filter(
-      (c) =>
-        distance(c.position, me.position) <= 3 &&
-        !rayBlocked(eye(me), c.position, reachWalls),
-    ).sort(
-      (a, b) =>
-        distance(a.position, me.position) - distance(b.position, me.position),
-    )[0];
+    world!.commissions
+      .map((c) => ({
+        title: c.title,
+        position: world!.pockets.find((p) => p.id === c.pocket)!.position,
+      }))
+      .filter(
+        (c) =>
+          distance(c.position, me.position) <= 3 &&
+          !rayBlocked(eye(me), c.position, reachWalls),
+      )
+      .sort(
+        (a, b) =>
+          distance(a.position, me.position) - distance(b.position, me.position),
+      )[0];
   const interact = carried
     ? `Place ${propNames[carried.kind]}`
     : s.tin.holder === localId
@@ -580,7 +660,14 @@ function updateHud() {
                 ) <= 5 &&
                 (s.tin.portions < 4 || s.spareBait < 8)
               ? "Refill field supplies"
-              : me && world!.pockets.some(p => p.anchors.some(a => a.kind === "feed" && distance(me.position, a.point) < 2.5))
+              : me &&
+                  world!.pockets.some((p) =>
+                    p.anchors.some(
+                      (a) =>
+                        a.kind === "feed" &&
+                        distance(me.position, a.point) < 2.5,
+                    ),
+                  )
                 ? "Bait local feeding patch"
                 : "Rattle tin"
           : "Whistle";
@@ -599,7 +686,9 @@ function updateHud() {
       ? "Gather at camp. The host begins when at least two friends are here."
       : s.phase === "exhibition"
         ? "A very questionable success. Open the notebook and choose your favorites."
-        : world!.commissions.filter(c => c.required).every(c => s.completed.includes(c.id))
+        : world!.commissions
+              .filter((c) => c.required)
+              .every((c) => s.completed.includes(c.id))
           ? `All six required commissions recorded. Return to camp for the exhibition · ${s.ready.length}/${s.players.filter((p) => p.connected).length} ready.`
           : `${Math.floor(s.seconds / 60)}:${String(Math.floor(s.seconds) % 60).padStart(2, "0")} in the field · Woodland → clearing → wetland. Prepare a route and bring the crew home.`;
   $("start-button").hidden = !(isHost && s.phase === "camp");
@@ -611,11 +700,16 @@ function updateHud() {
     !s.paused || s.phase === "camp" || s.phase === "exhibition";
   $("pause-reason").textContent = s.pauseReason;
   $("pause-button").hidden = !isHost || s.phase !== "outing";
-  const complete = world!.commissions.filter(c => c.required).every(c => s.completed.includes(c.id));
+  const complete = world!.commissions
+    .filter((c) => c.required)
+    .every((c) => s.completed.includes(c.id));
   $("ready-button").hidden = !complete || s.phase !== "outing";
   $("finish-button").hidden = !isHost || !complete || s.phase !== "outing";
   const atCamp = (p: Player) =>
-    Math.hypot(p.position[0] - world!.camp[0], p.position[2] - world!.camp[2]) <= 6;
+    Math.hypot(
+      p.position[0] - world!.camp[0],
+      p.position[2] - world!.camp[2],
+    ) <= 6;
   const ready = $<HTMLButtonElement>("ready-button");
   ready.textContent = s.ready.includes(localId)
     ? "Ready for exhibition ✓"
@@ -651,7 +745,15 @@ function updateHud() {
     wash: "washing food",
     preen: "preening",
     "hat-reach": "reaching for a hat",
-    pounce: "pouncing", nibble: "nibbling", cache: "caching", gnaw: "gnawing", groom: "grooming", dig: "digging", roost: "roosting", tap: "tapping", dabble: "dabbling",
+    pounce: "pouncing",
+    nibble: "nibbling",
+    cache: "caching",
+    gnaw: "gnawing",
+    groom: "grooming",
+    dig: "digging",
+    roost: "roosting",
+    tap: "tapping",
+    dabble: "dabbling",
   };
   $("camera-hint").textContent = me
     ? s.animals
@@ -772,7 +874,10 @@ function drawMap() {
   const c = $<HTMLCanvasElement>("map").getContext("2d")!;
   c.fillStyle = "#e3ddbf";
   c.fillRect(0, 0, 360, 260);
-  const scale = Math.min(336 / (world.bounds.max[0] - world.bounds.min[0]), 236 / (world.bounds.max[2] - world.bounds.min[2]));
+  const scale = Math.min(
+    336 / (world.bounds.max[0] - world.bounds.min[0]),
+    236 / (world.bounds.max[2] - world.bounds.min[2]),
+  );
   const point = (p: number[]) => [180 + p[0] * scale, 130 + p[2] * scale];
   c.strokeStyle = "#b0a16e";
   c.lineWidth = 3;
@@ -786,11 +891,30 @@ function drawMap() {
     c.stroke();
   }
   c.fillStyle = "#7f9f8f";
-  for (const water of world.waters) { const a = point(water.min), b = point(water.max); c.fillRect(a[0], a[1], b[0] - a[0], b[1] - a[1]); }
+  for (const water of world.waters) {
+    const a = point(water.min),
+      b = point(water.max);
+    c.fillRect(a[0], a[1], b[0] - a[0], b[1] - a[1]);
+  }
   c.font = "9px system-ui";
-  const labels: [string, Vec3][] = [["CAMP", world.camp], ...world.stations.map(s => ["SUPPLIES", s.position] as [string, Vec3]), ...world.pockets.map(p => [p.id.toUpperCase() + " " + p.habitat, p.position] as [string, Vec3])];
-  for (const [name, p] of labels) { const [x,y] = point(p); c.fillStyle = "#4b6144"; c.fillText(name, x - 18, y - 8); }
-  for (const node of world.navNodes.filter(n => n.id.includes("-camera-"))) { const [x,y] = point(node.position); c.fillStyle = "#ad955b"; c.fillRect(x-1,y-1,2,2); }
+  const labels: [string, Vec3][] = [
+    ["CAMP", world.camp],
+    ...world.stations.map((s) => ["SUPPLIES", s.position] as [string, Vec3]),
+    ...world.pockets.map(
+      (p) =>
+        [p.id.toUpperCase() + " " + p.habitat, p.position] as [string, Vec3],
+    ),
+  ];
+  for (const [name, p] of labels) {
+    const [x, y] = point(p);
+    c.fillStyle = "#4b6144";
+    c.fillText(name, x - 18, y - 8);
+  }
+  for (const node of world.navNodes.filter((n) => n.id.includes("-camera-"))) {
+    const [x, y] = point(node.position);
+    c.fillStyle = "#ad955b";
+    c.fillRect(x - 1, y - 1, 2, 2);
+  }
   latest.players
     .filter((p) => p.connected)
     .forEach((p) => {
@@ -810,7 +934,8 @@ function drawMap() {
 function queuePhoto(frame: PhotoFrame, verdict: PhotoVerdict) {
   photoChain = photoChain
     .then(async () => {
-      if (!latest || !worldReady || !world || frame.worldId !== world.id) return;
+      if (!latest || !worldReady || !world || frame.worldId !== world.id)
+        return;
       const captureEpoch = installEpoch;
       const start = performance.now();
       const blob = await capturePhoto(
@@ -818,7 +943,8 @@ function queuePhoto(frame: PhotoFrame, verdict: PhotoVerdict) {
         scene,
         frame,
         world,
-        () => { view.centerShadows(frame.camera.position);
+        () => {
+          view.centerShadows(frame.camera.position);
           view.update(
             {
               ...latest!,
@@ -834,9 +960,13 @@ function queuePhoto(frame: PhotoFrame, verdict: PhotoVerdict) {
             },
             frame.photographer,
             true,
-          ); },
+          );
+        },
         () => {
-          if (latest && worldReady) { view.update(latest, localId); view.centerShadows(camera.position.toArray() as Vec3); }
+          if (latest && worldReady) {
+            view.update(latest, localId);
+            view.centerShadows(camera.position.toArray() as Vec3);
+          }
         },
       );
       if (captureEpoch !== installEpoch || frame.worldId !== world?.id) return;

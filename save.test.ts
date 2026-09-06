@@ -16,8 +16,12 @@ import {
 } from "./game.ts";
 import type { Spill } from "./shared.ts";
 
-function applyCommand(run: ReturnType<typeof createRun>, id: string, input: Record<string, unknown>) {
-  return applyWorldCommand(run, id, {worldId: run.worldId, ...input});
+function applyCommand(
+  run: ReturnType<typeof createRun>,
+  id: string,
+  input: Record<string, unknown>,
+) {
+  return applyWorldCommand(run, id, { worldId: run.worldId, ...input });
 }
 
 test("captured props, hat, gate and articulation remain exact after live changes and restart", async (t) => {
@@ -75,22 +79,35 @@ test("mid-reach and stolen hats persist their actual theft/drop/protection clock
   addPlayer(run, "a", "A");
   addPlayer(run, "b", "B");
   applyCommand(run, "a", { type: "start", seq: 1 });
-  const commission = run.world.commissions.find(c => c.kind === "behavior" && run.world.residents.find(r => r.id === c.subjects[0])!.species === "deer")!,
-    deer = run.animals.find(a => a.id === commission.subjects[0])!,
-    anchor = run.world.pockets.flatMap(p => p.anchors).find(a => a.id === commission.anchor)!.point,
+  const commission = run.world.commissions.find(
+      (c) =>
+        c.kind === "behavior" &&
+        run.world.residents.find((r) => r.id === c.subjects[0])!.species ===
+          "deer",
+    )!,
+    deer = run.animals.find((a) => a.id === commission.subjects[0])!,
+    anchor = run.world.pockets
+      .flatMap((p) => p.anchors)
+      .find((a) => a.id === commission.anchor)!.point,
     photographer = run.players[0];
-  deer.pose.position = [...anchor]; deer.behavior = "graze";
-  photographer.position = [anchor[0], anchor[1], anchor[2] + 5]; photographer.pitch = -0.12;
-  assert.ok(applyCommand(run, "a", {type: "photo", seq: 2})!.verdict.credits.includes(commission.id));
+  deer.pose.position = [...anchor];
+  deer.behavior = "graze";
+  photographer.position = [anchor[0], anchor[1], anchor[2] + 5];
+  photographer.pitch = -0.12;
+  assert.ok(
+    applyCommand(run, "a", { type: "photo", seq: 2 })!.verdict.credits.includes(
+      commission.id,
+    ),
+  );
   run.route.gate.open = true;
-  const r = run.animals.find(a => a.species === "raccoon")!;
+  const r = run.animals.find((a) => a.species === "raccoon")!;
   run.players[0].position = [r.pose.position[0], 0, r.pose.position[2] + 1];
   for (let i = 0; i < 30; i++) advanceRun(run, 1 / 60);
   assert.equal(r.behavior, "hat-reach");
   const remaining = r.remaining;
   await saveRun(dir, run, new Map());
   run = (await loadRun(dir))!.run;
-  assert.equal(run.animals.find(a => a.id === r.id)!.remaining, remaining);
+  assert.equal(run.animals.find((a) => a.id === r.id)!.remaining, remaining);
   applyCommand(run, "a", { type: "resume", seq: run.players[0].lastSeq + 1 });
   for (let i = 0; i < 65; i++) advanceRun(run, 1 / 60);
   assert.equal(run.hats[0].carrier, `animal:${r.id}`);
@@ -131,13 +148,24 @@ test("live and frozen incidents reject contradictory owners, states and far-futu
       (s.spills = [
         {
           id: "spill-1",
-          position: [base.world.waters[0].min[0] + 1, 0, base.world.waters[0].min[2] + 1],
+          position: [
+            base.world.waters[0].min[0] + 1,
+            0,
+            base.world.waters[0].min[2] + 1,
+          ],
           portions: 1,
           untilTick: s.tick + 60,
         },
       ]),
     (s) =>
-      Object.assign(s.hats[0], { carrier: "ground", position: [base.world.waters[0].min[0] + 1, 0, base.world.waters[0].min[2] + 1] }),
+      Object.assign(s.hats[0], {
+        carrier: "ground",
+        position: [
+          base.world.waters[0].min[0] + 1,
+          0,
+          base.world.waters[0].min[2] + 1,
+        ],
+      }),
     (s) =>
       (s.spills = [
         {
@@ -223,8 +251,14 @@ test("live and frozen incidents reject contradictory owners, states and far-futu
       );
     }
   for (const change of [
-    (s: any) => (s.animalMemory[s.animals.find((a: any) => a.species === "raccoon").id].hatTarget = "missing"),
-    (s: any) => (s.animalMemory[s.animals.find((a: any) => a.species === "raccoon").id].hatTarget = "a"),
+    (s: any) =>
+      (s.animalMemory[
+        s.animals.find((a: any) => a.species === "raccoon").id
+      ].hatTarget = "missing"),
+    (s: any) =>
+      (s.animalMemory[
+        s.animals.find((a: any) => a.species === "raccoon").id
+      ].hatTarget = "a"),
     (s: any) => (s.animals[0].behavior = "hat-reach"),
   ]) {
     const run = structuredClone(base);
@@ -232,22 +266,26 @@ test("live and frozen incidents reject contradictory owners, states and far-futu
     await assert.rejects(saveRun(dir, run, new Map()));
   }
   const run = structuredClone(base),
-    r = run.animals.find(a => a.species === "raccoon")!;
+    r = run.animals.find((a) => a.species === "raccoon")!;
   applyCommand(run, "a", { type: "start", seq: 1 });
   run.players[0].position = [r.pose.position[0], 0, r.pose.position[2] + 1];
   for (let i = 0; i < 12; i++) advanceRun(run, 1 / 60);
   assert.equal(r.behavior, "hat-reach");
-  run.animalMemory[run.animals.find(a => a.species === "raccoon")!.id].hatTarget = "b";
+  run.animalMemory[
+    run.animals.find((a) => a.species === "raccoon")!.id
+  ].hatTarget = "b";
   await assert.rejects(
     saveRun(dir, run, new Map()),
     "hat reach memory must name the actual target owner",
   );
-  run.animalMemory[run.animals.find(a => a.species === "raccoon")!.id].hatTarget = "a";
+  run.animalMemory[
+    run.animals.find((a) => a.species === "raccoon")!.id
+  ].hatTarget = "a";
   for (const frozen of [false, true]) {
     const invalid = structuredClone(run);
     if (frozen) {
       const frame = structuredClone(makePhotoFrame(invalid, "a"));
-      frame.animals.find(a => a.id === r.id)!.pose.position = [0, 0, 0];
+      frame.animals.find((a) => a.id === r.id)!.pose.position = [0, 0, 0];
       invalid.pendingPhotos[frame.id] = frame;
       invalid.album = [
         {
@@ -261,7 +299,8 @@ test("live and frozen incidents reject contradictory owners, states and far-futu
           thumbnail: "pending",
         },
       ];
-    } else invalid.animals.find(a => a.id === r.id)!.pose.position = [0, 0, 0];
+    } else
+      invalid.animals.find((a) => a.id === r.id)!.pose.position = [0, 0, 0];
     await assert.rejects(
       saveRun(dir, invalid, new Map()),
       `distant raccoon, frozen ${frozen}`,
@@ -284,13 +323,17 @@ test("disconnect during a reach safely cancels the target and remains saveable",
   addPlayer(run, "a", "A");
   addPlayer(run, "b", "B");
   applyCommand(run, "a", { type: "start", seq: 1 });
-  const r = run.animals.find(a => a.species === "raccoon")!;
+  const r = run.animals.find((a) => a.species === "raccoon")!;
   run.players[0].position = [r.pose.position[0], 0, r.pose.position[2] + 1];
   for (let i = 0; i < 12; i++) advanceRun(run, 1 / 60);
   assert.equal(r.behavior, "hat-reach");
   disconnectPlayer(run, "a");
   assert.notEqual(r.behavior, "hat-reach");
-  assert.equal(run.animalMemory[run.animals.find(a => a.species === "raccoon")!.id].hatTarget, null);
+  assert.equal(
+    run.animalMemory[run.animals.find((a) => a.species === "raccoon")!.id]
+      .hatTarget,
+    null,
+  );
   await saveRun(dir, run, new Map());
 });
 
@@ -589,7 +632,10 @@ test("inconsistent world, identity, inventory and photo references are rejected 
       run.props[0].pose.position[0] = run.world.bounds.max[0] + 3;
     },
     (run: ReturnType<typeof createRun>) => {
-      run.route[run.world.fixtures.find(f => f.kind === "crossing")!.id] = {open: true, seat: "left"};
+      run.route[run.world.fixtures.find((f) => f.kind === "crossing")!.id] = {
+        open: true,
+        seat: "left",
+      };
     },
     (run: ReturnType<typeof createRun>) => {
       run.props.find((prop) => prop.kind === "plank")!.placed = true;
@@ -627,4 +673,73 @@ test("inconsistent world, identity, inventory and photo references are rejected 
     await assert.rejects(saveRun(dataDir, run, new Map()));
   }
   assert.equal((await loadRun(dataDir))!.run.tin.holder, null);
+});
+
+test("maximum combined schema-3 photo payload fits with one blueprint and rejects a sixty-fifth photo", async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), "wu-max-payload-"));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const run = createRun(2, "maximum-photo-world");
+  for (const id of ["a", "b", "c", "d"]) addPlayer(run, id, id.toUpperCase());
+  const jpeg = Buffer.from(
+    "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/2wBDAQMDAwQDBAgEBAgQCwkLEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBD/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAn/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFAEBAAAAAAAAAAAAAAAAAAAAAP/EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAMAwEAAhEDEQA/AJVAA//Z",
+    "base64",
+  );
+  const comment = Buffer.alloc(65536 - jpeg.length);
+  comment[0] = 255;
+  comment[1] = 254;
+  comment.writeUInt16BE(comment.length - 2, 2);
+  const maximum = Buffer.concat([
+    jpeg.subarray(0, 2),
+    comment,
+    jpeg.subarray(2),
+  ]);
+  assert.equal(maximum.length, 65536);
+  assert.equal(validJPEG(maximum), true);
+  for (const ready of [0, 32, 64]) {
+    run.album = [];
+    run.pendingPhotos = {};
+    const images = new Map<string, Uint8Array>();
+    for (let i = 0; i < 64; i++) {
+      run.nextPhoto = i + 1;
+      const frame = makePhotoFrame(run, "a");
+      const thumbnail = i < ready ? "ready" : "pending";
+      run.album.push({
+        id: frame.id,
+        photographer: "a",
+        tick: frame.tick,
+        credits: [],
+        assists: ["b", "c", "d"],
+        favorites: ["a", "b", "c", "d"],
+        incident: null,
+        thumbnail,
+      });
+      if (thumbnail === "ready") images.set(frame.id, maximum);
+      else run.pendingPhotos[frame.id] = frame;
+    }
+    run.nextPhoto = 65;
+    await saveRun(dir, run, images);
+    const raw = await readFile(join(dir, "run.json"), "utf8");
+    assert.ok(Buffer.byteLength(raw) <= 8 * 1024 * 1024);
+    assert.equal(raw.match(/"placements":/g)?.length, 1);
+    const restored = (await loadRun(dir))!;
+    assert.equal(restored.run.album.length, 64);
+    assert.equal(restored.images.size, ready);
+    t.diagnostic(
+      `${ready} JPEGs + ${64 - ready} frozen frames: ${Buffer.byteLength(raw)} bytes; blueprint ${Buffer.byteLength(JSON.stringify(run.world))} bytes`,
+    );
+    const extra = makePhotoFrame(run, "a");
+    run.album.push({
+      id: extra.id,
+      photographer: "a",
+      tick: extra.tick,
+      credits: [],
+      assists: [],
+      favorites: [],
+      incident: null,
+      thumbnail: "pending",
+    });
+    run.pendingPhotos[extra.id] = extra;
+    await assert.rejects(saveRun(dir, run, images), /many|array|list|length/i);
+    assert.equal(await readFile(join(dir, "run.json"), "utf8"), raw);
+  }
 });

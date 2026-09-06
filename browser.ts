@@ -97,7 +97,9 @@ const { startServer } = await import(
 const serverOptions = {
   host: "127.0.0.1",
   port: Number(process.env.WU_TEST_PORT ?? 4320),
-  origin: process.env.WU_TEST_URL ?? `http://127.0.0.1:${process.env.WU_TEST_PORT ?? 4320}`,
+  origin:
+    process.env.WU_TEST_URL ??
+    `http://127.0.0.1:${process.env.WU_TEST_PORT ?? 4320}`,
   webDir: resolve(evidence, "web"),
   dataDir: resolve(evidence, "data"),
 };
@@ -128,12 +130,18 @@ if (resumedFrom) {
 }
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 let activeWorld: ReserveBlueprint | undefined;
-const reserve = () => { if (!activeWorld) throw Error("Generated world not loaded"); return activeWorld; };
-const routeBoxes = (state: FixtureState) => fixtureBoxes(reserve().fixtures, state);
-const routeSurfaces = (state: FixtureState) => fixtureSurfaces(reserve().fixtures, state);
+const reserve = () => {
+  if (!activeWorld) throw Error("Generated world not loaded");
+  return activeWorld;
+};
+const routeBoxes = (state: FixtureState) =>
+  fixtureBoxes(reserve().fixtures, state);
+const routeSurfaces = (state: FixtureState) =>
+  fixtureSurfaces(reserve().fixtures, state);
 const snapshot = async (p: Page) => {
   const state = await p.evaluate(() => window.wildly.snapshot!);
-  if (state.worldId !== activeWorld?.id) activeWorld = (await p.evaluate(() => window.wildly.world)) ?? undefined;
+  if (state.worldId !== activeWorld?.id)
+    activeWorld = (await p.evaluate(() => window.wildly.world)) ?? undefined;
   if (state.worldId !== reserve().id) throw Error("Driver world mismatch");
   return state;
 };
@@ -561,7 +569,10 @@ async function travel(p: Page, target: Vec3) {
   const node = [...reserve().navNodes].sort(
     (a, b) => flat(a.position, target) - flat(b.position, target),
   )[0];
-  const path = animalRoute(player.position, node.id, {world: reserve(), route: state.route});
+  const path = animalRoute(player.position, node.id, {
+    world: reserve(),
+    route: state.route,
+  });
   log.push({ diagnosticRoute: path, player: player.name, target });
   for (const point of path) await walk(p, point, 0.4);
   await walk(p, target);
@@ -830,9 +841,11 @@ try {
   const initial = await snapshot(host);
   assert.equal(new Set(initial.players.map((p) => p.slot)).size, count);
   const world = reserve();
-  const woodland = world.pockets.find(p => p.habitat === "woodland")!.position,
-    clearing = world.pockets.find(p => p.habitat === "clearing")!.position,
-    wetland = world.pockets.find(p => p.habitat === "wetland")!.position;
+  const woodland = world.pockets.find(
+      (p) => p.habitat === "woodland",
+    )!.position,
+    clearing = world.pockets.find((p) => p.habitat === "clearing")!.position,
+    wetland = world.pockets.find((p) => p.habitat === "wetland")!.position;
   if (!resumedFrom) {
     const fieldCase = initial.props.find((p) => p.kind === "case")!;
     const handles = PROP_DEFINITIONS.case.handles.map((p) =>
@@ -964,7 +977,7 @@ try {
     await checkpoint("case-spill-recovered");
     console.log("Shared carry, individual release and stable set-down passed.");
     await Promise.all([walk(host, [-46, 0, 34]), walk(friend, [-45, 0, 35.5])]);
-    const latch = reserve().fixtures.find(f => f.kind === "gate")!.latch!;
+    const latch = reserve().fixtures.find((f) => f.kind === "gate")!.latch!;
     await walk(host, [latch[0], 0, latch[2] + 1.1]);
     await face(host, latch);
     await action(host, "KeyE");
@@ -1059,7 +1072,9 @@ try {
     ];
     await checkpoint("equipment-complete");
     coverage.seed = world.seed;
-    coverage.assignments = world.commissions.filter(c => c.required).map(c => c.id);
+    coverage.assignments = world.commissions
+      .filter((c) => c.required)
+      .map((c) => c.id);
 
     // A live raccoon with no food lure gives its readable reach cue before theft.
     await travel(host, [woodland[0] - 3, 0, woodland[2] + 2]);
@@ -1084,8 +1099,8 @@ try {
       "ordinary proximity causes a telegraphed borrowed hat",
     );
     await checkpoint("hat-borrowed");
-    const stolen = (await snapshot(host)).hats.find(
-      (h) => h.carrier.startsWith("animal:"),
+    const stolen = (await snapshot(host)).hats.find((h) =>
+      h.carrier.startsWith("animal:"),
     )!;
     await face(host, stolen.position);
     await hold(host, "KeyS", 1200);
@@ -1119,8 +1134,8 @@ try {
       await walk(friend, r.pose.position, 0.65);
       await sleep(1500);
     }
-    const secondHat = (await snapshot(host)).hats.find(
-      (h) => h.carrier.startsWith("animal:"),
+    const secondHat = (await snapshot(host)).hats.find((h) =>
+      h.carrier.startsWith("animal:"),
     );
     assert.ok(
       secondHat,
@@ -1182,9 +1197,10 @@ try {
     await pickupTin(host);
     await pickupDecoy(friend);
     await checkpoint("resumed-and-reclaimed-equipment");
-    const woodlandAssignment = world.commissions.filter(c => c.required).map(c => c.id).find((a) =>
-      a.startsWith("raccoon"),
-    )!;
+    const woodlandAssignment = world.commissions
+      .filter((c) => c.required)
+      .map((c) => c.id)
+      .find((a) => a.startsWith("raccoon"))!;
     if (!(await snapshot(host)).completed.includes(woodlandAssignment)) {
       await Promise.all([
         travel(host, [woodland[0] - 3, 0, woodland[2] + 3]),
@@ -1207,10 +1223,15 @@ try {
   }
 
   async function woodlandPhoto() {
-    const assignment = world.commissions.filter(c => c.required).map(c => c.id).find((a) => a.startsWith("raccoon"))!;
+    const assignment = world.commissions
+      .filter((c) => c.required)
+      .map((c) => c.id)
+      .find((a) => a.startsWith("raccoon"))!;
     const lurePoint =
       assignment === "raccoon-wash"
-        ? world.pockets.flatMap(p => p.anchors).find(a => a.kind === "wash")!.point
+        ? world.pockets
+            .flatMap((p) => p.anchors)
+            .find((a) => a.kind === "wash")!.point
         : ([woodland[0] - 3, 0, woodland[2] + 1] as Vec3);
     // The photographer is in place before the helper starts the bounded behavior.
     await aim(friend, [
@@ -1256,7 +1277,10 @@ try {
       (a, b) => flat(a.position, target) - flat(b.position, target),
     )[0];
     const path = [
-      ...animalRoute(player.position, node.id, {world: reserve(), route: state.route}),
+      ...animalRoute(player.position, node.id, {
+        world: reserve(),
+        route: state.route,
+      }),
       target,
     ];
     for (const waypoint of path) {
@@ -1304,7 +1328,10 @@ try {
       .slice(2)
       .map((p, i) => travel(p, [clearing[0] + 7 + i * 2, 0, clearing[2] + 7])),
   ]);
-  const deerAssignment = world.commissions.filter(c => c.required).map(c => c.id).find((a) => a.startsWith("deer"))!;
+  const deerAssignment = world.commissions
+    .filter((c) => c.required)
+    .map((c) => c.id)
+    .find((a) => a.startsWith("deer"))!;
   await habitatViews("clearing", clearing);
   await aim(host, [clearing[0], 1.1, clearing[2] + 7]);
   await host.screenshot({ path: resolve(evidence, "crew-sun-view.png") });
@@ -1377,7 +1404,10 @@ try {
       .slice(2)
       .map((p, i) => travel(p, [wetland[0] + 3 + i * 2, 0, wetland[2] + 10])),
   ]);
-  const heronAssignment = world.commissions.filter(c => c.required).map(c => c.id).find((a) => a.startsWith("heron"))!;
+  const heronAssignment = world.commissions
+    .filter((c) => c.required)
+    .map((c) => c.id)
+    .find((a) => a.startsWith("heron"))!;
   await habitatViews("wetland", wetland);
   if (heronAssignment === "heron-preen")
     await portrait(friend, "heron", heronAssignment, 40);

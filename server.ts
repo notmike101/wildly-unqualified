@@ -165,7 +165,8 @@ export async function startServer(
   await access(dataRoot, constants.W_OK);
   let room = await loadRoom(dataRoot);
   const loaded = await loadRun(dataRoot),
-    run = loaded?.run ?? createRun(randomBytes(4).readUInt32LE(0), randomUUID()),
+    run =
+      loaded?.run ?? createRun(randomBytes(4).readUInt32LE(0), randomUUID()),
     images = loaded?.images ?? new Map<string, Uint8Array>();
   if (!loaded && room.hostId !== null)
     throw Error(
@@ -188,7 +189,9 @@ export async function startServer(
   const rates = new Map<string, { start: number; count: number }>();
   const eventId = (event: (typeof run.events)[number]) =>
     `${event.tick}:${event.kind}:${event.player}:${event.point.join(",")}`;
-  const heard = new Set(run.events.map(event => `${run.worldId}-${eventId(event)}`));
+  const heard = new Set(
+    run.events.map((event) => `${run.worldId}-${eventId(event)}`),
+  );
   let alerting = new Set(
     run.animals
       .filter((animal) => animal.behavior === "alert")
@@ -218,7 +221,12 @@ export async function startServer(
     }
     return ++entry.count <= limit;
   }
-  const worldMessage = { type: "world" as const, id: run.worldId, hash: await reserveHash(run.world), blueprint: run.world };
+  const worldMessage = {
+    type: "world" as const,
+    id: run.worldId,
+    hash: await reserveHash(run.world),
+    blueprint: run.world,
+  };
   function send(socket: WebSocket, message: ServerMessage) {
     if (socket.readyState !== WebSocket.OPEN) return;
     if (socket.bufferedAmount > 4 * 1024 * 1024) {
@@ -266,7 +274,7 @@ export async function startServer(
         if (!alerting.has(animal.id))
           cue({
             type: "cue",
-          worldId: run.worldId,
+            worldId: run.worldId,
             id: `${run.worldId}-alert-${run.tick}-${animal.id}`,
             kind: "alert",
             source: animal.id,
@@ -631,7 +639,7 @@ export async function startServer(
               send(ws, { type: "photo", ...result });
               cue({
                 type: "cue",
-          worldId: run.worldId,
+                worldId: run.worldId,
                 id: result.frame.id,
                 kind: "shutter",
                 source: s.playerId,

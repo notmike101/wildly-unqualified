@@ -13,8 +13,12 @@ import {
   snapshot,
 } from "./game.ts";
 
-function applyCommand(run: ReturnType<typeof createRun>, id: string, input: Record<string, unknown>) {
-  return applyWorldCommand(run, id, {worldId: run.worldId, ...input});
+function applyCommand(
+  run: ReturnType<typeof createRun>,
+  id: string,
+  input: Record<string, unknown>,
+) {
+  return applyWorldCommand(run, id, { worldId: run.worldId, ...input });
 }
 
 test("native impacts name the actual case and an unrelated dropped tin cannot spill its stock", async () => {
@@ -280,7 +284,8 @@ test("authoritative Box3D impacts startle the heron and pause freezes the native
   addPlayer(run, "a", "A");
   addPlayer(run, "b", "B");
   applyCommand(run, "a", { type: "start", seq: 1 });
-  run.tin.pose = pose([PATCH[0], 2, PATCH[2] + 4]);
+  const heron = run.animals.find((a) => a.species === "heron")!;
+  run.tin.pose = pose([heron.pose.position[0], 2, heron.pose.position[2] + 4]);
   run.tin.angularVelocity = [0, 1, 0.5];
   run.tinRevision++;
   const physics = await attachPhysics(run);
@@ -304,7 +309,7 @@ test("authoritative Box3D impacts startle the heron and pause freezes the native
       run.events.some((e) => e.kind === "noise" && e.player === "tin"),
       "a native contact must reach creature rules",
     );
-    assert.ok(["alert", "retreat", "settle"].includes(run.animals[1].behavior));
+    assert.ok(["alert", "retreat", "settle"].includes(heron.behavior));
     assert.ok(run.tin.pose.position[1] > 0.1 && run.tin.pose.position[1] < 0.3);
     run.players[0].position = [
       run.tin.pose.position[0],

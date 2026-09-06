@@ -16,6 +16,7 @@ import {
   type Animal,
   type Box,
   type Vec3,
+  type Walkable,
 } from "./shared.ts";
 
 export type AnimalMemory = {
@@ -28,35 +29,91 @@ export type AnimalMemory = {
 };
 type Navigation = Pick<RunState, "world" | "route">;
 const anchorsFor = (run: RunState, a: Animal) => {
-  const resident = run.world.residents.find(r => r.id === a.id)!;
-  return run.world.pockets.find(p => p.id === resident.home)!.anchors.filter(anchor => resident.anchors.includes(anchor.id));
+  const resident = run.world.residents.find((r) => r.id === a.id)!;
+  return run.world.pockets
+    .find((p) => p.id === resident.home)!
+    .anchors.filter((anchor) => resident.anchors.includes(anchor.id));
 };
-const homeFor = (run: RunState, a: Animal): Vec3 => anchorsFor(run, a).find(anchor => anchor.kind === "ground")?.point ?? run.world.residents.find(r => r.id === a.id)!.spawn;
-const anchorFor = (run: RunState, a: Animal, kind: string): Vec3 => anchorsFor(run, a).find(anchor => anchor.kind === kind)?.point ?? homeFor(run, a);
+const homeFor = (run: RunState, a: Animal): Vec3 =>
+  anchorsFor(run, a).find((anchor) => anchor.kind === "ground")?.point ??
+  run.world.residents.find((r) => r.id === a.id)!.spawn;
+const anchorFor = (run: RunState, a: Animal, kind: string): Vec3 =>
+  anchorsFor(run, a).find((anchor) => anchor.kind === kind)?.point ??
+  homeFor(run, a);
 const flatDistance = (a: Vec3, b: Vec3) => Math.hypot(a[0] - b[0], a[2] - b[2]);
-const ground = (point: Vec3, run: Navigation): Vec3 | null => {
-  const heights = [...run.world.walkables, ...fixtureSurfaces(run.world.fixtures, run.route)]
-    .map((s) => surfaceHeight(s, point[0], point[2]))
-    .filter((h): h is number => h !== null);
-  return heights.length ? [point[0], Math.max(...heights), point[2]] : null;
+const geometryCache = new WeakMap<
+  Navigation["world"],
+  Map<
+    string,
+    { walls: Box[]; surfaces: Walkable[]; routes: Map<string, Vec3[]> }
+  >
+>();
+function geometry(run: Navigation) {
+  let cache = geometryCache.get(run.world);
+  if (!cache) {
+    cache = new Map();
+    geometryCache.set(run.world, cache);
+  }
+  const key = JSON.stringify(run.route);
+  let value = cache.get(key);
+  if (!value) {
+    value = {
+      routes: new Map(),
+      walls: [
+        ...run.world.walls,
+        ...fixtureBoxes(run.world.fixtures, run.route),
+      ],
+      surfaces: [
+        ...run.world.walkables,
+        ...fixtureSurfaces(run.world.fixtures, run.route),
+      ],
+    };
+    cache.set(key, value);
+  }
+  return value;
+}
+const ground = (
+  point: Vec3,
+  run: Navigation,
+  surfaces = geometry(run).surfaces,
+): Vec3 | null => {
+  let height = -Infinity;
+  for (const surface of surfaces) {
+    const y = surfaceHeight(surface, point[0], point[2]);
+    if (y !== null) height = Math.max(height, y);
+  }
+  return height === -Infinity ? null : [point[0], height, point[2]];
 };
 // ponytail: a 30cm animal radius and authored graph suit these three actors; use species hulls if larger wildlife is added.
 const radius = 0.3;
 function clear(from: Vec3, to: Vec3, run: Navigation, extra: Box[] = []) {
-  const walls = [...run.world.walls, ...fixtureBoxes(run.world.fixtures, run.route), ...extra].filter(
+  const current = geometry(run),
+    minX = Math.min(from[0], to[0]),
+    maxX = Math.max(from[0], to[0]),
+    minZ = Math.min(from[2], to[2]),
+    maxZ = Math.max(from[2], to[2]);
+  const surfaces = current.surfaces.filter(
+    (s) =>
+      s.max[0] >= minX &&
+      s.min[0] <= maxX &&
+      s.max[2] >= minZ &&
+      s.min[2] <= maxZ,
+  );
+  const walls = [...current.walls, ...extra].filter(
     (b) =>
       b.max[0] + radius >= Math.min(from[0], to[0]) &&
       b.min[0] - radius <= Math.max(from[0], to[0]) &&
       b.max[2] + radius >= Math.min(from[2], to[2]) &&
       b.min[2] - radius <= Math.max(from[2], to[2]),
   );
-  const count = Math.max(1, Math.ceil(flatDistance(from, to) / 0.15));
-  let previous = ground(from, run);
+  const count = Math.max(1, Math.ceil(flatDistance(from, to) / 0.05));
+  let previous = ground(from, run, surfaces);
   if (!previous) return false;
   for (let i = 0; i <= count; i++) {
     const point = ground(
       from.map((n, axis) => n + ((to[axis] - n) * i) / count) as Vec3,
       run,
+      surfaces,
     );
     if (
       !point ||
@@ -76,9 +133,14 @@ function clear(from: Vec3, to: Vec3, run: Navigation, extra: Box[] = []) {
   }
   return true;
 }
-const graphCache = new WeakMap<Navigation["world"], Map<string, Map<string, string[]>>>();
+const graphCache = new WeakMap<
+  Navigation["world"],
+  Map<string, Map<string, string[]>>
+>();
 function graph(run: Navigation) {
-  const key = JSON.stringify(run.route), cache = graphCache.get(run.world) ?? new Map<string, Map<string, string[]>>();
+  const key = JSON.stringify(run.route),
+    cache =
+      graphCache.get(run.world) ?? new Map<string, Map<string, string[]>>();
   graphCache.set(run.world, cache);
   let value = cache.get(key);
   if (!value) {
@@ -101,7 +163,21 @@ function routeTo(
   run: Navigation,
   extra: Box[] = [],
 ): Vec3[] {
+  if (!clear(from, from, run, extra) || !clear(target, target, run, extra))
+    return [];
   if (clear(from, target, run, extra)) return [ground(target, run)!];
+  const cache = geometry(run).routes,
+    query = JSON.stringify([from, target, extra]),
+    cached = cache.get(query);
+  if (cached) return cached.map((p) => [...p]);
+  const remember = (points: Vec3[]) => {
+    if (cache.size >= 256) cache.delete(cache.keys().next().value!);
+    cache.set(
+      query,
+      points.map((p) => [...p]),
+    );
+    return points;
+  };
   const nodes = run.world.navNodes,
     links = graph(run),
     costs = new Map<string, number>(),
@@ -138,11 +214,11 @@ function routeTo(
       }
     }
   }
-  if (!end) return [];
+  if (!end) return remember([]);
   const result = [ground(target, run)!];
   for (let id: string | null = end; id; id = previous.get(id) ?? null)
     result.unshift(ground(nodes.find((n) => n.id === id)!.position, run)!);
-  return result;
+  return remember(result);
 }
 export function animalRoute(
   from: Vec3,
@@ -272,7 +348,10 @@ function disturbed(run: RunState, a: Animal, extra: Box[]) {
       a.pose.position[1] + 1,
       a.pose.position[2],
     ],
-    boxes = [...run.world.walls, ...fixtureBoxes(run.world.fixtures, run.route)];
+    boxes = [
+      ...run.world.walls,
+      ...fixtureBoxes(run.world.fixtures, run.route),
+    ];
   return (
     run.events.some(
       (e) =>
@@ -312,6 +391,22 @@ function approachPoint(
   separation = 0.85,
   ignoredProp?: string,
 ): Vec3 | null {
+  const eyes: Vec3 = [
+      a.pose.position[0],
+      a.pose.position[1] + 0.5,
+      a.pose.position[2],
+    ],
+    lure: Vec3 = [point[0], Math.max(0.5, point[1]), point[2]];
+  if (
+    rayBlocked(eyes, lure, geometry(run).walls) ||
+    propRayBlocked(
+      eyes,
+      lure,
+      run.props.filter((p) => p.id !== ignoredProp),
+      PROP_DEFINITIONS,
+    )
+  )
+    return null;
   const angle = Math.atan2(
     a.pose.position[2] - point[2],
     a.pose.position[0] - point[0],
@@ -323,7 +418,6 @@ function approachPoint(
       point[2] + Math.sin(angle + turn) * separation,
     ];
     if (
-      routeTo(a.pose.position, candidate, run, extra).length &&
       !rayBlocked(
         [candidate[0], 0.5, candidate[2]],
         [point[0], Math.max(0.5, point[1]), point[2]],
@@ -334,7 +428,8 @@ function approachPoint(
         [point[0], Math.max(0.5, point[1]), point[2]],
         run.props.filter((p) => p.id !== ignoredProp),
         PROP_DEFINITIONS,
-      )
+      ) &&
+      routeTo(a.pose.position, candidate, run, extra).length
     )
       return candidate;
   }
@@ -347,7 +442,9 @@ function raccoonStep(
   dt: number,
   extra: Box[],
 ) {
-  const home = homeFor(run, a), wash = anchorFor(run, a, "wash"), stash = anchorFor(run, a, "rest");
+  const home = homeFor(run, a),
+    wash = anchorFor(run, a, "wash"),
+    stash = anchorFor(run, a, "rest");
   if (run.tin.holder === `animal:${a.id}`) {
     m.hatTarget = null;
     const whistle = [...run.events]
@@ -542,7 +639,9 @@ function raccoonStep(
       !run.tin.holder &&
       flatDistance(a.pose.position, run.tin.pose.position) < 1.5
     ) {
-      const target = routeTo(a.pose.position, stash, run, extra).length ? stash : home;
+      const target = routeTo(a.pose.position, stash, run, extra).length
+        ? stash
+        : home;
       run.tin.holder = `animal:${a.id}`;
       run.tinRevision++;
       a.behavior = "carry";
@@ -603,8 +702,31 @@ function raccoonStep(
   a.behavior = "wander";
   a.remaining = Math.max(0, a.remaining - dt);
   if (a.remaining) return;
-  if (!anchorsFor(run, a).some(anchor => anchor.id === m.goal) || flatDistance(a.pose.position, a.target) < 0.2) {
-    choose(run, a, m, anchorsFor(run, a).filter(anchor => ["ground", "rest", "retreat"].includes(anchor.kind)).map(anchor => ({id: anchor.id, point: anchor.point})), extra);
+  if (
+    !anchorsFor(run, a).some((anchor) => anchor.id === m.goal) ||
+    flatDistance(a.pose.position, a.target) < 0.2
+  ) {
+    const resident = run.world.residents.find((r) => r.id === a.id)!,
+      pocket = run.world.pockets.find((p) => p.id === resident.home)!,
+      feed = pocket.anchors.find((a) => a.kind === "feed"),
+      sharesHerons = run.world.residents.some(
+        (r) => r.home === resident.home && r.species === "heron",
+      );
+    choose(
+      run,
+      a,
+      m,
+      anchorsFor(run, a)
+        .filter(
+          (anchor) =>
+            ["ground", "wash", "rest", "retreat"].includes(anchor.kind) &&
+            (!sharesHerons ||
+              !feed ||
+              flatDistance(anchor.point, feed.point) >= RULES.shyRadius + 1),
+        )
+        .map((anchor) => ({ id: anchor.id, point: anchor.point })),
+      extra,
+    );
   }
   if (walk(run, a, a.target, 1.1, dt, extra)) a.remaining = 2;
 }
@@ -622,7 +744,7 @@ export function stepAnimals(run: RunState, dt: number): void {
     if (a.species !== "deer" && a.species !== "heron") continue;
     const habitat = a.species === "deer" ? "clearing" : "wetland",
       home = homeFor(run, a),
-      feed = anchorsFor(run, a).find(anchor => anchor.kind === "feed"),
+      feed = anchorsFor(run, a).find((anchor) => anchor.kind === "feed"),
       noisy = disturbed(run, a, extra);
     if (noisy && !["alert", "retreat"].includes(a.behavior)) {
       a.behavior = "alert";

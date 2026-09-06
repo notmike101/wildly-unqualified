@@ -17,12 +17,20 @@ import { WebSocket } from "ws";
 import { startServer } from "./server.ts";
 import * as Server from "./server.ts";
 import { loadRoom, loadRun, saveRun } from "./save.ts";
-import { createRun, addPlayer, applyCommand as applyWorldCommand } from "./game.ts";
+import {
+  createRun,
+  addPlayer,
+  applyCommand as applyWorldCommand,
+} from "./game.ts";
 
 const origin = "http://127.0.0.1:4310";
 
-function applyCommand(run: ReturnType<typeof createRun>, id: string, input: Record<string, unknown>) {
-  return applyWorldCommand(run, id, {worldId: run.worldId, ...input});
+function applyCommand(
+  run: ReturnType<typeof createRun>,
+  id: string,
+  input: Record<string, unknown>,
+) {
+  return applyWorldCommand(run, id, { worldId: run.worldId, ...input });
 }
 
 test("only explicit equipment contacts and native tin contacts route to impact cues", () => {
@@ -116,10 +124,13 @@ function connect(url: string, cookie: string, requestOrigin = origin) {
   socket.on("message", (raw) => messages.push(JSON.parse(raw.toString())));
   return { socket, messages };
 }
-function encode(client: ReturnType<typeof connect>, value: Record<string, unknown>) {
-  const worldId = client.messages.find(m => m.type === "world")?.id;
+function encode(
+  client: ReturnType<typeof connect>,
+  value: Record<string, unknown>,
+) {
+  const worldId = client.messages.find((m) => m.type === "world")?.id;
   assert.ok(worldId, "world negotiation precedes gameplay");
-  return JSON.stringify({worldId, ...value});
+  return JSON.stringify({ worldId, ...value });
 }
 async function until(predicate: () => boolean, ms = 3000) {
   const end = Date.now() + ms;
@@ -169,7 +180,8 @@ test("nearby friends hear distinct whistle and rattle cues once, without reconne
       length = Math.hypot(dx, dz);
     // At 0.65m the case handle is closer to the eye than the ground tin.
     if (length < 0.4) break;
-    first.socket.send(encode(first, {
+    first.socket.send(
+      encode(first, {
         type: "input",
         value: {
           seq: seq++,
@@ -184,7 +196,8 @@ test("nearby friends hear distinct whistle and rattle cues once, without reconne
     );
     await new Promise((resolve) => setTimeout(resolve, 80));
   }
-  first.socket.send(encode(first, {
+  first.socket.send(
+    encode(first, {
       type: "input",
       value: {
         seq: seq++,
@@ -303,7 +316,8 @@ test("real sockets require origin and session, share movement, and reserve four 
     .at(-1)
     .value.players.find((p: any) => p.id === host.identity.playerId)
     .position[0];
-  first.socket.send(encode(first, {
+  first.socket.send(
+    encode(first, {
       type: "input",
       value: {
         seq: 1,
@@ -460,7 +474,9 @@ test("authenticated favorites stay shared in the ended exhibition and across res
     seq: 2,
   })!.frame;
   // Arranged completed goals isolate end/favorite authority; this is not an outing claim.
-  saved.run.completed = [...saved.run.world.commissions.filter(c => c.required).map(c => c.id)];
+  saved.run.completed = [
+    ...saved.run.world.commissions.filter((c) => c.required).map((c) => c.id),
+  ];
   applyCommand(saved.run, host.identity.playerId, {
     type: "ready-end",
     seq: 3,
@@ -486,7 +502,8 @@ test("authenticated favorites stay shared in the ended exhibition and across res
     second.socket.terminate();
   });
   await until(() => second.messages.some((m) => m.type === "snapshot"));
-  first.socket.send(encode(first, {
+  first.socket.send(
+    encode(first, {
       type: "favorite",
       seq: 5,
       photoId: frame.id,
@@ -500,7 +517,8 @@ test("authenticated favorites stay shared in the ended exhibition and across res
         m.value.album[0].favorites.includes(host.identity.playerId),
     ),
   );
-  second.socket.send(encode(second, {
+  second.socket.send(
+    encode(second, {
       type: "favorite",
       seq: 2,
       photoId: frame.id,
@@ -528,7 +546,8 @@ test("authenticated favorites stay shared in the ended exhibition and across res
   assert.equal(restored.phase, "exhibition");
   assert.equal(restored.paused, true);
   assert.deepEqual(restored.album[0].favorites, selection);
-  restarted.socket.send(encode(restarted, {
+  restarted.socket.send(
+    encode(restarted, {
       type: "favorite",
       seq: 3,
       photoId: frame.id,
@@ -564,12 +583,26 @@ test("restart and relocation retain rule-earned photo credit, pending capture, b
   run.hostId = "host";
   run.phase = "outing";
   run.tin.portions = 2;
-  run.baitPatches[run.world.pockets.flatMap(p => p.anchors).find(a => a.kind === "feed")!.id] = 1;
-  const commission = run.world.commissions.find(c => c.kind === "behavior" && run.world.residents.find(r => r.id === c.subjects[0])!.species === "deer")!,
-    subject = run.animals.find(a => a.id === commission.subjects[0])!,
-    anchor = run.world.pockets.flatMap(p => p.anchors).find(a => a.id === commission.anchor)!.point;
-  run.players[0].position = [anchor[0],anchor[1],anchor[2]+5]; run.players[0].pitch = -0.12;
-  subject.pose.position = [...anchor]; subject.behavior = "graze"; subject.remaining = 4.25;
+  run.baitPatches[
+    run.world.pockets
+      .flatMap((p) => p.anchors)
+      .find((a) => a.kind === "feed")!.id
+  ] = 1;
+  const commission = run.world.commissions.find(
+      (c) =>
+        c.kind === "behavior" &&
+        run.world.residents.find((r) => r.id === c.subjects[0])!.species ===
+          "deer",
+    )!,
+    subject = run.animals.find((a) => a.id === commission.subjects[0])!,
+    anchor = run.world.pockets
+      .flatMap((p) => p.anchors)
+      .find((a) => a.id === commission.anchor)!.point;
+  run.players[0].position = [anchor[0], anchor[1], anchor[2] + 5];
+  run.players[0].pitch = -0.12;
+  subject.pose.position = [...anchor];
+  subject.behavior = "graze";
+  subject.remaining = 4.25;
   run.tin.open = true;
   run.seconds = 123;
   const captured = applyCommand(run, "host", { type: "photo", seq: 1 });
@@ -608,9 +641,19 @@ test("restart and relocation retain rule-earned photo credit, pending capture, b
   const restored = client.messages.find((m) => m.type === "snapshot").value;
   assert.equal(restored.paused, true);
   assert.equal(restored.seconds, 123);
-  assert.equal(restored.animals.find((a: any) => a.id === subject.id).remaining, 4.25);
+  assert.equal(
+    restored.animals.find((a: any) => a.id === subject.id).remaining,
+    4.25,
+  );
   assert.equal(restored.tin.portions, 2);
-  assert.equal(restored.baitPatches[run.world.pockets.flatMap(p => p.anchors).find(a => a.kind === "feed")!.id], 1);
+  assert.equal(
+    restored.baitPatches[
+      run.world.pockets
+        .flatMap((p) => p.anchors)
+        .find((a) => a.kind === "feed")!.id
+    ],
+    1,
+  );
   assert.deepEqual(restored.animals, originalAnimals);
   const pending = await admit(server.url, room.joinSecret, "New guest");
   assert.equal(pending.response.status, 202);
@@ -707,7 +750,8 @@ test("restart and relocation retain rule-earned photo credit, pending capture, b
   });
   const latest = () =>
     guestClient.messages.filter((m) => m.type === "snapshot").at(-1).value;
-  client.socket.send(encode(client, { ...favorite(2, true), playerId: "guest" }),
+  client.socket.send(
+    encode(client, { ...favorite(2, true), playerId: "guest" }),
   );
   await until(() =>
     client.messages.some(
@@ -842,7 +886,14 @@ test("restart and relocation retain rule-earned photo credit, pending capture, b
   assert.equal(saved.run.seconds, 123);
   assert.equal(saved.run.paused, true);
   assert.equal(saved.run.tin.portions, 2);
-  assert.equal(saved.run.baitPatches[run.world.pockets.flatMap(p => p.anchors).find(a => a.kind === "feed")!.id], 1);
+  assert.equal(
+    saved.run.baitPatches[
+      run.world.pockets
+        .flatMap((p) => p.anchors)
+        .find((a) => a.kind === "feed")!.id
+    ],
+    1,
+  );
   assert.deepEqual(saved.run.animals, originalAnimals);
   assert.deepEqual(saved.run.completed, [commission.id]);
   assert.deepEqual(saved.run.album[0].credits, [commission.id]);
@@ -860,7 +911,8 @@ test("restart and relocation retain rule-earned photo credit, pending capture, b
     .filter((m) => m.type === "snapshot")
     .at(-1)
     .value.players.find((p: any) => p.id === "host");
-  recoveredHost.socket.send(encode(recoveredHost, { type: "resume", seq: lastHost.lastSeq + 1 }),
+  recoveredHost.socket.send(
+    encode(recoveredHost, { type: "resume", seq: lastHost.lastSeq + 1 }),
   );
   await until(() =>
     recoveredGuest.messages.some(
@@ -869,20 +921,61 @@ test("restart and relocation retain rule-earned photo credit, pending capture, b
   );
 });
 
-test("authenticated join negotiates one hashed world before state and rejects stale input", async t => {
+test("authenticated join negotiates one hashed world before state and rejects stale input", async (t) => {
   const { reserveHash } = await import("./world.ts");
-  const server = await fixture(t), room = await loadRoom(server.dataDir), host = await admit(server.url, room.hostSecret, "Host"), client = connect(server.url, host.cookie);
+  const server = await fixture(t),
+    room = await loadRoom(server.dataDir),
+    host = await admit(server.url, room.hostSecret, "Host"),
+    client = connect(server.url, host.cookie);
   t.after(() => client.socket.terminate());
-  await until(() => client.messages.some(m => m.type === "snapshot"));
-  assert.deepEqual(client.messages.slice(0, 3).map(m => m.type), ["welcome", "world", "snapshot"]);
+  await until(() => client.messages.some((m) => m.type === "snapshot"));
+  assert.deepEqual(
+    client.messages.slice(0, 3).map((m) => m.type),
+    ["welcome", "world", "snapshot"],
+  );
   const world = client.messages[1];
   assert.equal(world.id, world.blueprint.id);
   assert.equal(await reserveHash(world.blueprint), world.hash);
   assert.equal(client.messages[2].value.worldId, world.id);
   assert.equal("world" in client.messages[2].value, false);
-  client.socket.send(encode(client, {type: "input", worldId: "old-reserve", value: {seq: 1, x: 1,z:0,yaw:0,pitch:0,run:false,crouch:false}}));
-  await until(() => client.messages.some(m => m.type === "notice" && /world/i.test(m.text)));
-  client.socket.send(encode(client, {type: "input", value: {seq: 1,x:0,z:0,yaw:0,pitch:0,run:false,crouch:false}}));
-  await until(() => client.messages.some(m => m.type === "snapshot" && m.value.players.some((p: any) => p.lastSeq === 1)));
-  assert.equal(client.messages.filter(m => m.type === "world").length, 1);
+  client.socket.send(
+    encode(client, {
+      type: "input",
+      worldId: "old-reserve",
+      value: {
+        seq: 1,
+        x: 1,
+        z: 0,
+        yaw: 0,
+        pitch: 0,
+        run: false,
+        crouch: false,
+      },
+    }),
+  );
+  await until(() =>
+    client.messages.some((m) => m.type === "notice" && /world/i.test(m.text)),
+  );
+  client.socket.send(
+    encode(client, {
+      type: "input",
+      value: {
+        seq: 1,
+        x: 0,
+        z: 0,
+        yaw: 0,
+        pitch: 0,
+        run: false,
+        crouch: false,
+      },
+    }),
+  );
+  await until(() =>
+    client.messages.some(
+      (m) =>
+        m.type === "snapshot" &&
+        m.value.players.some((p: any) => p.lastSeq === 1),
+    ),
+  );
+  assert.equal(client.messages.filter((m) => m.type === "world").length, 1);
 });

@@ -70,9 +70,13 @@ test("forest instances keep each authored transform and the model's local branch
 
 test("generated brook wash pools remain visible above the trail surface", () => {
   const scene = new THREE.Scene();
-  const world = generateReserve(1, "forest-test"), forest = addForest(scene, new Map(), world);
+  const world = generateReserve(1, "forest-test"),
+    forest = addForest(scene, new Map(), world);
   scene.updateMatrixWorld(true);
-  const points = world.pockets.flatMap(p => p.anchors).filter(a => a.kind === "wash").map(a => a.point);
+  const points = world.pockets
+    .flatMap((p) => p.anchors)
+    .filter((a) => a.kind === "wash")
+    .map((a) => a.point);
   try {
     for (const point of points) {
       const ray = new THREE.Raycaster(
