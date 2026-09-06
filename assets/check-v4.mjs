@@ -2,15 +2,17 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
-import {Box3, Vector3} from 'three';
+import {Box3, Vector3, Raycaster} from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {validateBytes} from 'gltf-validator';
 
 const source = new URL('./', import.meta.url);
 const manifest = JSON.parse(await readFile(new URL('manifest-v4.json', source), 'utf8'));
 const representatives = process.argv.includes('--representatives');
-const names = representatives ? ['Fox', 'Squirrel', 'Owl'] : Object.keys(manifest.contract);
-assert.equal(Object.keys(manifest.contract).length, 13, 'contract must include nine animals and four habitat props');
+const animalsOnly = process.argv.includes('--animals');
+const inventory = ['Fox','Rabbit','Squirrel','Beaver','Otter','Badger','Owl','Woodpecker','Mallard','BeaverLodge','BranchPile','BadgerDen','SquirrelCache'];
+const names = representatives ? ['Fox', 'Squirrel', 'Owl'] : animalsOnly ? inventory.slice(0,9) : inventory;
+assert.deepEqual(Object.keys(manifest.contract).sort(), [...inventory].sort(), 'exact nine animals and four habitat props');
 assert.equal(manifest.version, 4);
 const near = (a, b, label) => a.forEach((v, i) => assert.ok(Math.abs(v - b[i]) < 0.00015, `${label}[${i}]: ${v} != ${b[i]}`));
 for (const [file, hash] of Object.entries(manifest.sources ?? {}))
@@ -61,6 +63,20 @@ for (const name of names) {
     assert.equal(semantic.get(part).parent.userData.partName, parent, `${name}/${part} animated parent`);
   for (const part of contract.parts.filter(part => part.startsWith('Photo')))
     assert.ok(bounds.clone().expandByScalar(0.02).containsPoint(semantic.get(part).getWorldPosition(new Vector3())), `${name}/${part} on photographed geometry`);
+  if (semantic.has('PhotoHead')) {
+    const head = semantic.get('Head'); const point = semantic.get('PhotoHead');
+    const before = point.getWorldPosition(new Vector3());
+    head.rotation.y += 0.5; scene.updateMatrixWorld(true);
+    assert.ok(point.getWorldPosition(new Vector3()).distanceTo(before) > 0.001, `${name} photo head follows articulated head`);
+    head.rotation.y -= 0.5; scene.updateMatrixWorld(true);
+    near(point.getWorldPosition(new Vector3()).toArray(), before.toArray(), `${name} articulation restores`);
+  }
+  if (name === 'BadgerDen' || name === 'BeaverLodge') {
+    assert.equal(new Raycaster(new Vector3(0,0.22,-2), new Vector3(0,0,1),0,4).intersectObject(root,true).length,0, `${name} actual hollow entrance`);
+    assert.ok(expected.colliders.length >= 3, `${name} open-shell collision proxies`);
+    for (const collider of expected.colliders)
+      assert.ok(!(collider.min[0] < 0.25 && collider.max[0] > -0.25 && collider.min[1] < 0.4), `${name} proxy leaves low central passage open`);
+  }
   console.log(`${name}: real GLTFLoader geometry, grounded metres, pivots, semantics and validator passed (${triangles} triangles)`);
 }
-console.log(`${names.length} v4 roots verified${representatives ? ' (representative milestone only)' : ''}`);
+console.log(`${names.length} v4 roots verified${representatives ? ' (representative milestone only)' : animalsOnly ? ' (animals milestone only)' : ''}`);
