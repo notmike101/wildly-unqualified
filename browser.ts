@@ -10,7 +10,7 @@ import {
   rename,
 } from "node:fs/promises";
 import { resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   chromium,
   type Browser,
@@ -56,13 +56,13 @@ assert.ok([2, 4].includes(count) && [0, 150].includes(latency));
 const evidence = resolve(output, `outing-${count}p-${latency}ms-${Date.now()}`);
 await mkdir(evidence, { recursive: true });
 await copyFile(
-  resolve("wildly-unqualified/browser.ts"),
+  fileURLToPath(import.meta.url),
   resolve(evidence, "outing-driver.ts"),
 );
 await cp(
   resumedFrom && process.env.WU_RESUME_CURRENT_RUNTIME !== "1"
     ? resolve(resumedFrom, "web")
-    : resolve("wildly-unqualified/web-mvp"),
+    : fileURLToPath(new URL("./web-mvp", import.meta.url)),
   resolve(evidence, "web"),
   {
     recursive: true,

@@ -1,6 +1,16 @@
 {
-  "extends": "../tsconfig.json",
-  "compilerOptions": { "erasableSyntaxOnly": true },
-  "include": ["*.ts", "../_environment/smoke-test/box3d.d.ts"],
-  "exclude": ["web", "data"]
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "skipLibCheck": true,
+    "types": ["node", "vite/client"],
+    "erasableSyntaxOnly": true
+  },
+  "include": ["*.ts"],
+  "exclude": ["web", "web-mvp", "data", "node_modules", ".worktrees"]
 }

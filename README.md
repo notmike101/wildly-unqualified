@@ -4,7 +4,22 @@
 
 The [forest checkpoint](MVP-CHECKPOINT-2026-09-05.md) tracks the three-species, four-commission outing: shared equipment, a physical washout crossing, reactive animals, recoverable mischief, mature canopy and atmospheric sky. Independent reviews pass. One two-player and two distinct four-player outing chains completed in visible browsers, including HTTPS/WSS with 150 ms added delay. Saved-world continuations and driver failures are retained in the evidence. The final production package, visible forest/crew/notebook checks and local migration pass. The accepted prototype, its release and private outing remain preserved separately.
 
-The first playable target is a **20–30-minute outing for 2–4 friends on separate internet connections**. Those two scope decisions are confirmed by the user. The larger 60–120-minute expedition remains a possible later product, not the first delivery or an established playtime.
+The delivered MVP targeted a **20–30-minute outing for 2–4 friends on separate internet connections**. The approved [generated-reserves expansion](docs/superpowers/specs/2026-09-05-wildly-unqualified-generated-reserves-design.md) now targets **40–60 minutes**, a predominantly dense forest, 12 species and 36–48 individual animals. Those expansion features are planned, not part of the baseline below.
+
+This game has its own private repository, [notmike101/wildly-unqualified](https://github.com/notmike101/wildly-unqualified). It includes game source, tests, assets and Blender sources. Parent research, other concepts, local evidence and private saves remain outside the repository. Historical links to those local materials will not resolve in an independent clone.
+
+## Build this repository
+
+Use Node 26.5 or later within major 26. From this game's repository root:
+
+```sh
+npm ci
+npm run build
+npm test
+npm run release
+```
+
+The release command prints a new portable directory under `.artifacts/wildly-unqualified/releases`. `npm run test:browser` runs the existing visible gameplay driver; it owns port 4316, so do not run it against an occupied play server. The historical `wu:*` script names remain available. Private game data, installed dependencies and generated builds are ignored by Git; back up the entire private data directory separately.
 
 - [Observed verification](VERIFICATION.md): actual tests, screenshots and remaining gates.
 - [Visible four-player prototype playtest and user feedback](PLAYTEST-2026-09-05.md), [teamwork/mischief research](../../research/wildly-unqualified-teamwork-and-mischief.md), [approved MVP direction](docs/superpowers/specs/2026-09-05-wildly-unqualified-mvp-design.md), [implementation plan](docs/superpowers/plans/2026-09-05-wildly-unqualified-mvp.md) and [39-model forest library](assets/BRIEF-v3.md).
@@ -26,16 +41,16 @@ The clean [portable release](../.artifacts/wildly-unqualified/releases/forest-mv
 
 ## Run a separate local development room
 
-Build from the shared `games` directory, then use separate private data and port 4314 so the running internet room stays available:
+Build from this game's repository root, then use separate private data and port 4314 so an existing internet room stays available:
 
 ```powershell
 npm.cmd run wu:build
-$env:WU_DATA_DIR = '../.artifacts/wildly-unqualified/forest-mvp-private-data'
+$env:WU_DATA_DIR = '.artifacts/forest-mvp-private-data'
 $env:WU_WEB_DIR = 'web-mvp'
 $env:WU_BIND_HOST = '127.0.0.1'
 $env:WU_PORT = '4314'
 $env:WU_PUBLIC_ORIGIN = 'http://127.0.0.1:4314'
-node wildly-unqualified/server.ts
+node server.ts
 ```
 
 Use the locally created `room.json` host credential to enter. Copy the guest invite from Settings; independent browser profiles represent different players. At least two connected players are required to start a new outing. The full outing driver uses port 4316, so stop the running MVP room cleanly before repeating that driver. The [server runbook](SERVER.md) covers production installation and HTTPS/WSS configuration.
@@ -79,7 +94,7 @@ Movement keys, sensitivity, invert-Y and volume can be changed in Settings. Impo
 
 The authoritative Node server owns movement, native Box3D equipment physics, animal rules, photo credit and saves. The browser captures actual 640×360 JPEGs from immutable server frames, including equipment, hats and route state. A bounded shared album and per-player favorites survive reconnects and restart. Configurable paths/origin and an allowlisted production release support the later home-server move; that machine is inaccessible and unverified here.
 
-The [verification record](VERIFICATION.md) separates current forest acceptance from historical prototype results. All three current outing chains completed four commissions, returned the connected crew, finished the exhibition and retained shared favorites through restart. They produced 18 actual 640×360 JPEGs in total. The final rules gate passes 111 tests. During wildlife setup, the third and fourth agents often waited; the same tin escort and quiet photography strategy remained prominent across seeds. **Actual 20–30-minute duration, enjoyment, balanced human cooperation and human sessions on separate internet connections have not been established.** No store/repository publication, purchase, commit or push has occurred.
+The [verification record](VERIFICATION.md) separates current forest acceptance from historical prototype results. All three current outing chains completed four commissions, returned the connected crew, finished the exhibition and retained shared favorites through restart. They produced 18 actual 640×360 JPEGs in total. The final rules gate passes 111 tests. During wildlife setup, the third and fourth agents often waited; the same tin escort and quiet photography strategy remained prominent across seeds. **Actual 20–30-minute duration, enjoyment, balanced human cooperation and human sessions on separate internet connections have not been established.** The game source and Blender assets are now versioned in the private game-only GitHub repository. Store publication and purchases remain outside the current work.
 
 The business direction remains one purchase per player, with ordinary hosting included. The private browser prototype tests gameplay and internet connectivity before downloadable packaging or store integration. The existing $100/month subscription, free/open-source tools and unpaid owner time remain the cost basis; no paid runtime AI or outsourced labor is assumed.
 

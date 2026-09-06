@@ -1,0 +1,42 @@
+{
+  "name": "wildly-unqualified",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=26.5.0 <27"
+  },
+  "scripts": {
+    "dev": "vite --config vite.config.ts",
+    "build": "tsc --noEmit && vite build --config vite.config.ts",
+    "start": "node server.ts",
+    "test": "node --test *.test.ts",
+    "test:browser": "node browser.ts",
+    "release": "node release.ts",
+    "format": "prettier --write \"*.{ts,html,css,json}\"",
+    "format:check": "prettier --check \"*.{ts,html,css,json}\"",
+    "wu:dev": "npm run dev",
+    "wu:build": "npm run build",
+    "wu:serve": "npm start",
+    "wu:test": "npm test",
+    "wu:test:browser": "npm run test:browser",
+    "wu:release": "npm run release",
+    "wu:format": "npm run format",
+    "wu:format:check": "npm run format:check"
+  },
+  "dependencies": {
+    "box3d-wasm": "0.2.0",
+    "three": "0.185.1",
+    "ws": "8.21.3"
+  },
+  "devDependencies": {
+    "@types/node": "26.0.0",
+    "@types/three": "0.185.4",
+    "@types/ws": "8.18.1",
+    "gltf-validator": "2.0.0-dev.3.10",
+    "playwright": "1.63.0",
+    "prettier": "3.9.6",
+    "typescript": "7.0.2",
+    "vite": "8.2.2"
+  }
+}

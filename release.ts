@@ -10,7 +10,7 @@ import { resolve, dirname, relative } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const gameDir = dirname(fileURLToPath(import.meta.url)),
-  root = resolve(gameDir, "..");
+  root = gameDir;
 const runtime = [
   "server.ts",
   "save.ts",

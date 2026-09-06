@@ -27,7 +27,7 @@ The MVP builder creates immutable timestamped directories named `forest-mvp-1-*`
 | `WU_DATA_DIR`        | `data` beside `server.ts`                         | Private credentials, world, images and backups. Must be outside the served web tree.                   |
 | `WU_WEB_DIR`         | `web` beside `server.ts`                          | Compiled game files.                                                                                   |
 
-For local development, set `WU_DATA_DIR` to `../.artifacts/wildly-unqualified/data` so generated private data stays in the existing artifact tree. For a portable install, use a private writable location and back it up. Permissions are requested as owner-only on systems supporting POSIX modes; on Windows keep the directory in an account-private location with appropriate ACLs. Do not share it through a web/file server.
+For local development from this game's repository, set `WU_DATA_DIR` to `.artifacts/data` so generated private data stays in the ignored artifact tree. Existing private directories outside the repository remain valid when explicitly configured. For a portable install, use a private writable location and back it up. Permissions are requested as owner-only on systems supporting POSIX modes; on Windows keep the directory in an account-private location with appropriate ACLs. Do not share it through a web/file server.
 
 `GET /healthz` returns only readiness, build and save-schema versions. It does not reveal room state or credentials. Startup fails if the web build is missing, data storage is unavailable, versions are unsupported, or saved data is invalid without a usable backup.
 
