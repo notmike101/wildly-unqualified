@@ -9,9 +9,61 @@ import {
   walkTo,
   cameraApproach,
   input,
+  until,
 } from "./expedition-test-helpers.ts";
 
 const DT = 1 / 60;
+
+for (const species of ["fox", "owl", "woodpecker", "otter"] as const)
+  test(`${species} leaves a disturbed action and retries locally after an ordinary whistle`, () => {
+    const run = crew(7),
+      a = run.animals.find((a) => a.species === species)!;
+    cameraApproach(run, a.id);
+    const wanted = {
+      fox: "pounce",
+      owl: "roost",
+      woodpecker: "tap",
+      otter: "surface",
+    }[species];
+    if (species === "otter") {
+      const resident = run.world.residents.find((r) => r.id === a.id)!;
+      const water = run.world.pockets
+        .find((p) => p.id === resident.home)!
+        .anchors.find((a) => a.kind === "water")!.point;
+      const pool = run.world.waters.find((w) =>
+        water.every((v, i) => v >= w.min[i] && v <= w.max[i]),
+      )!;
+      const observer = run.players[0].position,
+        side =
+          Math.abs(observer[0] - water[0]) > Math.abs(observer[2] - water[2])
+            ? 2
+            : 0;
+      const bank = [...water] as Vec3;
+      bank[1] = 0;
+      bank[side] =
+        observer[side] < water[side]
+          ? pool.min[side] - 2.5
+          : pool.max[side] + 2.5;
+      const corner = [...observer] as Vec3;
+      corner[side] = bank[side];
+      walkTo(run, corner);
+      walkTo(run, bank);
+    }
+    until(run, () => a.behavior === wanted && a.remaining > 2, 150);
+    command(run, "use");
+    until(run, () => a.behavior !== wanted, 0.5);
+    assert.ok(
+      ["alert", "freeze", "fly", "swim"].includes(a.behavior),
+      `no visible response: ${a.behavior}`,
+    );
+    until(run, () => a.behavior === wanted, 150);
+    assert.ok(
+      distance(
+        a.pose.position,
+        run.world.residents.find((r) => r.id === a.id)!.spawn,
+      ) < 25,
+    );
+  });
 type Sample = { tick: number; behavior: string; position: Vec3 };
 
 function observeFamily(t: TestContext, species: "fox" | "squirrel" | "otter") {

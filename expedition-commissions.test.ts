@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { distance, type Vec3 } from "./shared.ts";
-import { evaluatePhoto } from "./game.ts";
+import { distance, eye, type Vec3 } from "./shared.ts";
+import { evaluatePhoto, advanceRun } from "./game.ts";
+import { subjectPoints } from "./level.ts";
+import { rotate } from "./wildlife.ts";
 import {
   crew,
   cameraApproach,
@@ -9,7 +11,133 @@ import {
   aim,
   command,
   aimPoint,
+  input,
+  walkTo,
 } from "./expedition-test-helpers.ts";
+
+test("the bound raccoon's borrowed hat can be photographed and recovered through ordinary actions", (t) => {
+  const run = crew(7),
+    c = run.world.commissions.find((c) => c.kind === "incident")!,
+    a = run.animals.find((a) => a.id === c.subjects[0])!;
+  cameraApproach(run, a.id);
+  // Read-only approach guidance selects the exposed side of the bound animal,
+  // rather than walking through a neighbour's one-hat interaction radius.
+  const neighbors = run.animals.filter(
+    (other) => other.species === "raccoon" && other.id !== a.id,
+  );
+  const center = [...a.pose.position] as Vec3;
+  const angles = Array.from({ length: 32 }, (_, i) => (i * Math.PI) / 16);
+  const score = (angle: number) =>
+    Math.min(
+      ...neighbors.map((other) =>
+        distance(
+          [center[0] + Math.cos(angle), 0, center[2] + Math.sin(angle)],
+          other.pose.position,
+        ),
+      ),
+    );
+  const toward = angles.sort((a, b) => score(b) - score(a))[0];
+  let angle = Math.atan2(
+    run.players[0].position[2] - center[2],
+    run.players[0].position[0] - center[0],
+  );
+  const delta = Math.atan2(Math.sin(toward - angle), Math.cos(toward - angle));
+  const steps = Math.max(1, Math.ceil(Math.abs(delta) / 0.2));
+  for (let i = 0; i <= steps; i++) {
+    const at = angle + (delta * i) / steps;
+    walkTo(run, [
+      center[0] + Math.cos(at) * 4,
+      0,
+      center[2] + Math.sin(at) * 4,
+    ]);
+  }
+  for (
+    let i = 0;
+    i < 60 * 150 && !run.hats.some((h) => h.carrier === `animal:${a.id}`);
+    i++
+  ) {
+    const p = run.players[0].position,
+      dx = a.pose.position[0] - p[0],
+      dz = a.pose.position[2] - p[2],
+      d = Math.hypot(dx, dz),
+      speed = d > 1 ? Math.min(1, (d - 0.9) * 2) : 0;
+    input(
+      run,
+      (dx / Math.max(d, 1e-9)) * speed,
+      (dz / Math.max(d, 1e-9)) * speed,
+    );
+    advanceRun(run, 1 / 60);
+    const otherHat = run.hats.find(
+      (h) =>
+        h.carrier !== "owner" &&
+        h.carrier !== `animal:${a.id}` &&
+        distance(eye(run.players[0]), h.position) < 1.7,
+    );
+    if (otherHat) command(run, "interact");
+  }
+  const hat = run.hats.find((h) => h.carrier === `animal:${a.id}`);
+  t.diagnostic(
+    JSON.stringify({
+      tick: run.tick,
+      player: run.players[0].position,
+      animal: a,
+      hat: run.hats,
+    }),
+  );
+  assert.ok(
+    hat,
+    "a close ordinary observer causes the bound raccoon's one shared hat incident",
+  );
+  aimPoint(
+    run,
+    a.pose.position.map(
+      (v, i) => (v + hat.position[i]) / 2 + (i === 1 ? 0.15 : 0),
+    ) as Vec3,
+  );
+  const result = command(run, "photo")!;
+  assert.ok(result.verdict.credits.includes(c.id), result.verdict.reason);
+  const cropped = structuredClone(result.frame);
+  const points = subjectPoints(a, run.tick).map(
+    (p) =>
+      rotate(p, a.pose.rotation).map((v, i) => v + a.pose.position[i]) as Vec3,
+  );
+  const framed = (point: Vec3, pitch: number) => {
+    const [dx, dy, dz] = point.map((v, i) => v - cropped.camera.position[i]),
+      yaw = cropped.camera.yaw;
+    const depth =
+      -Math.sin(yaw) * Math.cos(pitch) * dx +
+      Math.sin(pitch) * dy -
+      Math.cos(yaw) * Math.cos(pitch) * dz;
+    const up =
+      Math.sin(yaw) * Math.sin(pitch) * dx +
+      Math.cos(pitch) * dy +
+      Math.cos(yaw) * Math.sin(pitch) * dz;
+    const right = Math.cos(yaw) * dx - Math.sin(yaw) * dz;
+    return (
+      depth > 0.1 &&
+      Math.abs(up / (depth * Math.tan(Math.PI / 6))) < 1 &&
+      Math.abs(right / ((depth * Math.tan(Math.PI / 6) * 16) / 9)) < 1
+    );
+  };
+  const pitch = Array.from({ length: 241 }, (_, i) => -1.2 + i * 0.01).find(
+    (p) =>
+      points.filter((point) => framed(point, p)).length >= 2 &&
+      !framed(hat.position, p),
+  );
+  assert.notEqual(
+    pitch,
+    undefined,
+    "a real camera tilt can crop the hat while retaining the raccoon",
+  );
+  cropped.camera.pitch = pitch!;
+  assert.ok(
+    !evaluatePhoto(cropped, run.world).credits.includes(c.id),
+    "a cropped-out hat is not a mishap photograph",
+  );
+  command(run, "interact");
+  assert.equal(hat.carrier, "owner", "ordinary E returns the same hat");
+  assert.ok(hat.protectedUntilTick > run.tick);
+});
 
 test("an actual new-species action earns its bound behavior commission through the ordinary shutter", () => {
   const run = crew(7);

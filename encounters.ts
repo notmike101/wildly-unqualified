@@ -21,7 +21,7 @@ import {
   type Pose,
 } from "./shared.ts";
 import { SQUIRREL_CLIMB, ARCH_STANCES } from "./wildlife-data.ts";
-import { multiply, rotate, xyz } from "./wildlife.ts";
+import { multiply, rotate, xyz, bankStance } from "./wildlife.ts";
 
 export type AnimalMemory = {
   goal: string;
@@ -817,18 +817,10 @@ function routineStages(run: RunState, a: Animal): RoutineStage[] {
     ];
   } else if (["otter", "beaver", "mallard"].includes(a.species)) {
     const water = anchor("water"),
-      bank = [...anchor(a.species === "otter" ? "rest" : "feed")] as Vec3;
-    const yaw = run.world.placements.find(
-      (p) => p.id === resident.home + "-landmark",
-    )!.yaw;
+      stance = bankStance(run.world, a.id),
+      bank = stance.position;
     // Separate small feeding stances allow both members of a calm pair to act
     // together. They stay inside the bound patch and use normal ground walking.
-    const bankOffset = rotate(
-      [(index - 1.5) * 0.65, 0, a.species === "mallard" ? 1.1 : 0],
-      xyz([0, yaw, 0]),
-    );
-    bank[0] += bankOffset[0];
-    bank[2] += bankOffset[2];
     const pool = run.world.waters.find((w) =>
       water.every((v, i) => v >= w.min[i] && v <= w.max[i]),
     )!;
@@ -880,6 +872,7 @@ function routineStages(run: RunState, a: Animal): RoutineStage[] {
       },
       { ...stage(outside, "swim", "freeze", 0.2), path: [...path].reverse() },
     ];
+    if (a.species === "beaver") stages[0].rotation = stance.rotation;
   } else if (a.species === "squirrel" || a.species === "owl") {
     const arch = run.world.placements.find(
       (p) => p.id === resident.home + "-perch-arch",
@@ -947,9 +940,18 @@ function routineStages(run: RunState, a: Animal): RoutineStage[] {
       (v, i) => v + snag.position[i],
     ) as Vec3;
     const rotation = xyz([0, snag.yaw + [-0.18, -0.3, -0.42, -0.42][index], 0]);
+    const away = rotate(
+      [0, local[1] + 1.2, local[2] + 1.4],
+      xyz([0, snag.yaw, 0]),
+    ).map((v, i) => v + snag.position[i]) as Vec3;
     stages = [
       { ...stage(p, "fly", "tap", 8), rotation },
-      { ...stage(p, "fly", "perch", 3), rotation },
+      { ...stage(away, "fly", "fly", 0.2), path: [pose(away)] },
+      {
+        ...stage(p, "fly", "tap", 8),
+        path: [{ position: p, rotation }],
+        rotation,
+      },
     ];
   }
   cache.set(a.id, stages);
@@ -979,6 +981,13 @@ function wildlifeStep(
       run.tin.open &&
       run.tin.portions > 0 &&
       flatDistance(run.tin.pose.position, feed) < 3 &&
+      !run.world.waters.some(
+        (w) =>
+          a.pose.position[0] > w.min[0] &&
+          a.pose.position[0] < w.max[0] &&
+          a.pose.position[2] > w.min[2] &&
+          a.pose.position[2] < w.max[2],
+      ) &&
       !disturbed(run, a, extra)
     ) {
       m.goal = "feeding-setup";
@@ -1010,11 +1019,30 @@ function wildlifeStep(
   const index = Number(stageText) % stages.length,
     s = stages[index];
   let cursor = Number(pointText);
+  const noisy = disturbed(run, a, extra);
   if (
-    disturbed(run, a, extra) &&
-    a.pose.position[1] < 0.5 &&
-    s.move !== "swim"
+    noisy &&
+    ["owl", "woodpecker"].includes(a.species) &&
+    a.remaining >= 0 &&
+    ["roost", "tap"].includes(a.behavior)
   ) {
+    m.goal = "routine:1:0";
+    a.remaining = -1;
+    a.behavior = "fly";
+    return;
+  }
+  if (
+    noisy &&
+    s.move === "swim" &&
+    a.remaining >= 0 &&
+    ["surface", "dabble"].includes(a.behavior)
+  ) {
+    m.goal = "routine:3:0";
+    a.remaining = -1;
+    a.behavior = "swim";
+    return;
+  }
+  if (noisy && a.pose.position[1] < 0.5 && s.move !== "swim") {
     m.habituatedUntilTick = run.tick + 120;
     a.behavior = a.species === "rabbit" ? "freeze" : "alert";
     return;

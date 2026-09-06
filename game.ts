@@ -1627,6 +1627,18 @@ export function evaluatePhoto(
     ];
   const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2],
     scale = Math.tan((c.fov * Math.PI) / 360);
+  const pointVisible = (point: Vec3, boxes = occluders) => {
+    const d = point.map((v, i) => v - c.position[i]) as Vec3,
+      depth = dot(d, f);
+    return (
+      depth > 0.1 &&
+      Math.abs(dot(d, right) / ((depth * scale * 16) / 9)) <= 1 &&
+      Math.abs(dot(d, up) / (depth * scale)) <= 1 &&
+      !sightBlocked(world, c.position, point, boxes) &&
+      !tinBlocks(frame, c.position, point) &&
+      !propRayBlocked(c.position, point, frame.props, PROP_DEFINITIONS)
+    );
+  };
   const reasons: string[] = [];
   const framed: { animal: Animal; center: number; reason: string | null }[] =
     [];
@@ -1838,12 +1850,20 @@ export function evaluatePhoto(
         return nearby(a.pose.position, anchor.point, 12);
       if (commission.kind === "incident")
         return (
-          frame.hats.some((h) => h.carrier === `animal:${a.id}`) ||
+          frame.hats.some(
+            (h) => h.carrier === `animal:${a.id}` && pointVisible(h.position),
+          ) ||
           frame.spills.some(
             (s) =>
               s.portions > 0 &&
               s.untilTick > frame.tick &&
-              nearby(s.position, a.pose.position, 2),
+              a.behavior === "investigate" &&
+              nearby(s.position, a.pose.position, 2) &&
+              pointVisible([
+                s.position[0],
+                s.position[1] + 0.04,
+                s.position[2],
+              ]),
           )
         );
       if (commission.kind === "composition") {
@@ -1865,22 +1885,7 @@ export function evaluatePhoto(
         for (const x of [min[0], max[0]])
           for (const y of [min[1], max[1]])
             for (const z of [min[2], max[2]]) {
-              const point: Vec3 = [x, y, z],
-                d = point.map((v, i) => v - c.position[i]) as Vec3,
-                depth = dot(d, f);
-              if (
-                depth > 0.1 &&
-                Math.abs(dot(d, right) / ((depth * scale * 16) / 9)) <= 1 &&
-                Math.abs(dot(d, up) / (depth * scale)) <= 1 &&
-                !rayBlocked(c.position, point, other) &&
-                !propRayBlocked(
-                  c.position,
-                  point,
-                  frame.props,
-                  PROP_DEFINITIONS,
-                )
-              )
-                count++;
+              if (pointVisible([x, y, z], other)) count++;
             }
         return count >= 3;
       }

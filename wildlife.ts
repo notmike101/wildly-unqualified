@@ -8,6 +8,25 @@ import {
 import type { ReserveBlueprint } from "./world.ts";
 import { SUPPORT_MESHES } from "./support-meshes.ts";
 import { WILDLIFE_POINTS, SQUIRREL_CLIMB } from "./wildlife-data.ts";
+export function bankStance(world: ReserveBlueprint, id: string) {
+  const resident = world.residents.find((r) => r.id === id)!;
+  const pocket = world.pockets.find((p) => p.id === resident.home)!;
+  const anchor = pocket.anchors.find(
+    (a) => a.kind === (resident.species === "otter" ? "rest" : "feed"),
+  )!;
+  const yaw = world.placements.find(
+    (p) => p.id === resident.home + "-landmark",
+  )!.yaw;
+  const index = Number(id.split("-").at(-1));
+  const offset = rotate(
+    [(index - 1.5) * 0.65, 0, resident.species === "mallard" ? 1.1 : 0],
+    xyz([0, yaw, 0]),
+  );
+  return {
+    position: anchor.point.map((v, i) => v + offset[i]) as Vec3,
+    rotation: xyz([0, yaw, 0]),
+  };
+}
 export function rotate(p: Vec3, q: Quat): Vec3 {
   const [x, y, z, w] = q,
     [a, b, c] = p;
@@ -108,7 +127,7 @@ export function wildlifeParts(a: Animal, tick: number): Record<string, Vec3> {
     }
   } else if (a.species === "beaver") {
     if (b === "gnaw") {
-      parts.Head = [0.12 + Math.sin(t * 12) * 0.07, 0, 0];
+      parts.Head = [-0.35 + Math.sin(t * 12) * 0.04, 0, 0];
       parts.LegFL = [-0.3, 0, 0];
       parts.LegFR = [-0.3, 0, 0];
     }
@@ -133,9 +152,13 @@ export function wildlifeParts(a: Animal, tick: number): Record<string, Vec3> {
       parts.WingR = [0, 0, 0.9 - Math.sin(t * 12) * 0.45];
     }
   } else if (a.species === "woodpecker") {
-    parts.FootL = [0.95, 0, 0];
-    parts.FootR = [0.95, 0, 0];
+    parts.FootL = [b === "fly" ? 0 : 0.95, 0, 0];
+    parts.FootR = [b === "fly" ? 0 : 0.95, 0, 0];
     parts.Head = [b === "tap" ? 0.67 + 0.09 * Math.cos(t * 14) : 0.76, 0, 0];
+    if (b === "fly") {
+      parts.WingL = [0, 0, -0.7 + Math.sin(t * 18) * 0.4];
+      parts.WingR = [0, 0, 0.7 - Math.sin(t * 18) * 0.4];
+    }
   } else if (a.species === "mallard") {
     if (b === "dabble") parts.Head = [-0.4 + Math.sin(t * 4) * 0.12, 0, 0];
     if (b === "preen") parts.Head = [0.15, 0.9, 0];
