@@ -8,6 +8,7 @@ import { createAudio } from "./audio.ts";
 // scheduling and I/O requested by production; it does not establish audibility.
 class Param {
   value = 1;
+  ramps: { value: number; time: number }[] = [];
   setValueAtTime(value: number) {
     assert.ok(Number.isFinite(value));
     this.value = value;
@@ -15,9 +16,11 @@ class Param {
   setTargetAtTime(value: number) {
     this.setValueAtTime(value);
   }
-  linearRampToValueAtTime(value: number) {
+  linearRampToValueAtTime(value: number, time: number) {
+    this.ramps.push({ value, time });
     this.setValueAtTime(value);
   }
+  cancelAndHoldAtTime() {}
   cancelScheduledValues() {}
 }
 class Node {
@@ -33,6 +36,16 @@ class Node {
 }
 class Gain extends Node {
   gain = new Param();
+}
+class Compressor extends Node {
+  threshold = new Param();
+  knee = new Param();
+  ratio = new Param();
+  attack = new Param();
+  release = new Param();
+}
+class Shaper extends Node {
+  curve: Float32Array | null = null;
 }
 class Panner extends Node {
   positionX = new Param();
@@ -71,6 +84,8 @@ class Context {
   gains: Gain[] = [];
   sources: Source[] = [];
   panners: Panner[] = [];
+  compressors: Compressor[] = [];
+  shapers: Shaper[] = [];
   listener = Object.fromEntries(
     [
       "positionX",
@@ -100,6 +115,16 @@ class Context {
   createPanner() {
     const n = new Panner();
     this.panners.push(n);
+    return n;
+  }
+  createDynamicsCompressor() {
+    const n = new Compressor();
+    this.compressors.push(n);
+    return n;
+  }
+  createWaveShaper() {
+    const n = new Shaper();
+    this.shapers.push(n);
     return n;
   }
   async decodeAudioData(bytes: ArrayBuffer) {
@@ -190,6 +215,92 @@ test("settings clamp finite levels, master mute is absolute, music defaults off"
     c.gains.slice(0, 4).map((g) => g.gain.value),
     [0, 1, 0, 0],
   );
+  a.dispose();
+});
+
+test("mix protection bounds native transfer while master remains after its tails", async () => {
+  const a = setup();
+  await a.unlock();
+  const c = Context.instances[0];
+  assert.equal(c.compressors.length, 1);
+  assert.equal(c.shapers.length, 1);
+  const compressor = c.compressors[0],
+    shaper = c.shapers[0];
+  assert.ok(c.gains.slice(1, 4).every((g) => g.links[0] === compressor));
+  assert.equal(compressor.links[0], shaper);
+  assert.equal(shaper.links[0], c.gains[0]);
+  assert.equal(c.gains[0].links[0], c.destination);
+  const curve = shaper.curve!;
+  assert.ok(Math.max(...curve) <= 0.951 && Math.min(...curve) >= -0.951);
+  assert.equal(curve[(curve.length - 1) / 2], 0);
+  assert.equal(curve[((curve.length - 1) * 5) / 8], 0.25);
+  a.dispose();
+  assert.ok(compressor.disconnected && shaper.disconnected);
+});
+
+test("water fades to zero before stop, and repeated departure cannot extend release", async () => {
+  const a = setup();
+  a.environment({ habitat: "wetland", waterDistance: 0 });
+  await a.unlock();
+  await settle();
+  const c = Context.instances[0];
+  const water = c.sources.find((s) => s.buffer?.label.endsWith("water.wav"))!;
+  a.environment({ habitat: "wetland", waterDistance: 18 });
+  assert.equal(water.stopped, false);
+  assert.equal(water.disconnected, false);
+  const gain = water.links[0] as Gain;
+  assert.deepEqual(gain.gain.ramps, [{ value: 0, time: 0.12 }]);
+  a.environment({ habitat: "wetland", waterDistance: 100 });
+  assert.equal(gain.gain.ramps.length, 1);
+  c.currentTime = 0.12;
+  await new Promise((r) => setTimeout(r, 180));
+  assert.equal(water.stopped, true);
+  assert.equal(water.disconnected, true);
+  a.dispose();
+});
+
+test("pause discards compressor look-ahead without replacing context or ceiling", async () => {
+  const a = setup();
+  await a.unlock();
+  const c = Context.instances[0],
+    first = c.compressors[0];
+  a.pause(true);
+  assert.equal(first.disconnected, true);
+  assert.equal(c.compressors.length, 2);
+  assert.equal(c.shapers.length, 1);
+  assert.ok(
+    c.gains.slice(1, 4).every((g) => g.links.at(-1) === c.compressors[1]),
+  );
+  a.pause(false);
+  await settle();
+  assert.equal(c.compressors.length, 2);
+  assert.equal(Context.instances.length, 1);
+  a.dispose();
+});
+
+test("water reentry cancels release on the same voice; pause cancels pending cleanup", async () => {
+  const a = setup();
+  a.environment({ habitat: "wetland", waterDistance: 0 });
+  await a.unlock();
+  await settle();
+  const c = Context.instances[0];
+  const water = c.sources.find((s) => s.buffer?.label.endsWith("water.wav"))!;
+  a.environment({ habitat: "wetland", waterDistance: 18 });
+  a.environment({ habitat: "wetland", waterDistance: 1 });
+  await new Promise((r) => setTimeout(r, 180));
+  assert.equal(water.stopped, false);
+  assert.equal(
+    c.sources.filter((s) => s.buffer?.label.endsWith("water.wav")).length,
+    1,
+  );
+  a.environment({ habitat: "wetland", waterDistance: 18 });
+  a.pause(true);
+  assert.ok(c.sources.every((s) => s.stopped));
+  a.pause(false);
+  a.environment({ habitat: "wetland", waterDistance: 0 });
+  await settle();
+  await new Promise((r) => setTimeout(r, 180));
+  assert.equal(c.sources.filter((s) => s.loop && !s.stopped).length, 2);
   a.dispose();
 });
 test("duplicate IDs load and play once; tin differs from shutter and wood", async () => {
