@@ -16,8 +16,8 @@ Plan: [2026-09-06-generated-reserves.md](2026-09-06-generated-reserves.md). Spec
 - [x] Task 1: validated procedural world data; independent review approved after four focused fixes.
 - [x] Task 2: nine animal models and habitat props in visible Blender; independent review approved. Actual in-game actions/photos remain Tasks 4–5.
 - [x] Task 3: native audio module and licensed samples; independent review approved. Production integration and listening remain Task 7.
-- [ ] Task 4: authoritative generated world end to end — integration underway.
-- [ ] Task 5: complete species/commission/co-op loop.
+- [x] Task 4: authoritative generated world end to end; independent source and visible-client review approved.
+- [ ] Task 5: complete species/commission/co-op loop — implementation underway.
 - [ ] Task 6: bounded albums and safe next reserve.
 - [ ] Task 7: integrated audible soundscape.
 - [ ] Task 8: visible acceptance, portable release and private milestone backup.
@@ -37,8 +37,25 @@ Plan: [2026-09-06-generated-reserves.md](2026-09-06-generated-reserves.md). Spec
 - `95568ff`: partial migration of authoritative state, navigation, world negotiation, rendering and schema-3 saves. The save/socket/generated-runtime group passed **31/31** and the exact private checkpoint is pushed. Existing photo/navigation test fixtures are still being migrated; the full typecheck, suite, build and visible-client gate are not yet complete.
 - Prior-MVP comparison baseline: one visible hardware WebGPU viewport at 1280×720 and DPR 1, 30.008 seconds of ordinary walking, 3,601 raw frame intervals and 53.45 metres of sampled movement. Median interval 8.30 ms; p95/p99 8.50 ms. This measures display-paced callbacks for the earlier forest/population, not expanded-world performance. All 24 preserved runtime/web hashes matched afterward; temporary browsers/listener were closed.
 - Native browser decoding passed for all 36 sound assets at 48 kHz, with 19.37 MiB decoded PCM. It exposed overlapping-effect overload and an abrupt water stop, including an ordinary walking-speed case.
-- `e07b4b3` on the private audio branch repairs those module defects and passed independent review. Twenty focused tests, TypeScript, formatting and actual production-graph capture passed: sampled output stayed at or below 0.95; water faded before stopping; reentry reused its source; mute and resume-tail captures were silent. This checkpoint is pushed but awaits integration into the expedition branch while the runtime owner works. Gameplay audio controls, spatial checks and real listening remain open.
+- `e07b4b3` on the private audio branch repairs those module defects and passed independent review. Twenty focused tests, TypeScript, formatting and actual production-graph capture passed: sampled output stayed at or below 0.95; water faded before stopping; reentry reused its source; mute and resume-tail captures were silent. Integrated and pushed as `aa4d941`, with all twenty audio tests and TypeScript passing in the combined checkout. Gameplay audio controls, spatial checks and real listening remain open.
 - A quiet 12-second module audition is available in local evidence; user feedback was requested. No listening approval or full sound-integration completion is assumed.
+
+## Generated runtime milestone
+
+- `9059220` completed the runtime regression migration with **155/155 tests** and the production build passing. Independent review found three important defects: ground hats were reclaimed too early, failed model requests stayed cached, and later gate movement could invalidate an existing ground incident during saving.
+- `473c3ce` fixes all three with focused regressions. The settled suite passed **159/159**, followed by formatting, production build and the portable release check. Independent source and fault-recovery review approved the corrections; `b938e2d` marks the completed task without an additional source change.
+- A visible production-client fault check recovered in the same tab after three bad world hashes and a transient model HTTP 503. Backoff increased across failed installs, reset after success, and sent no gameplay commands before the world was ready.
+- Two visible production clients completed an ordinary-input inspection through camp, clearing, wetland and dense interior. All five captures had zero asset errors; no page errors were recorded. Inspected dense views show continuous overhead crowns and a clear shaded route. Temporary browsers and port 4320 were closed; the original port 4316 room remains preserved.
+- Short scene diagnostics ranged from 357–1,087 draw calls and 9.2–12.2 ms rolling p95 frame intervals. These are inspection samples, not the controlled expansion benchmark. The existing bundle-size advisory remains for final performance review.
+- Generated identities, fixtures, movement, native physics, rendering, frozen photos and schema-3 persistence now share the same validated blueprint. Task 4 credits only the tested legacy subset; the full new wildlife and six-plus-two objective loop remain Task 5.
+
+## Wildlife preparation and next work
+
+- Actual exported meshes were calibrated in foreground Blender for woodpecker feet/beak contact, owl and squirrel crown stances, a squirrel approach surface and three swimming waterlines. Source scenes and exports were preserved. These measurements guide implementation; moving poses and gameplay JPEGs remain to be verified.
+- Three focused tests now demonstrate the missing ground-pounce, climbing/cache and swim/groom families through ordinary player inputs and real simulation ticks. Their expected failures are retained; production implementation begins from the accepted `aa4d941` baseline in the isolated `feat/species-routines` branch.
+- Task 5 also addresses repeated animals crowding a shared wash spot and makes exact bound photo subjects identifiable during ordinary play.
+- A genuine generated world at seed 4891 contains the maximum 48 residents across all twelve species. It will be used for later combined payload and performance gates; the earlier maximum-JPEG test had 43 residents.
+- Human outing duration, enjoyment, the full objectives, next-reserve transactions, integrated listening and final portable-release acceptance remain open.
 
 ## Rulings
 
