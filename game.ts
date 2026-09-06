@@ -109,7 +109,7 @@ function updateHats(run: RunState) {
     const owner = run.players.find((p) => p.id === hat.owner),
       r = run.animals.find((a) => `animal:${a.id}` === hat.carrier);
     if (!owner) continue; // Invalid removed owners are rejected by persistence.
-    if (!owner.connected || !r) {
+    if (!owner.connected || (hat.carrier.startsWith("animal:") && !r)) {
       hat.carrier = "owner";
       hat.untilTick = 0;
     }

@@ -35,7 +35,6 @@ const anchorsFor = (run: RunState, a: Animal) => {
     .anchors.filter((anchor) => resident.anchors.includes(anchor.id));
 };
 const homeFor = (run: RunState, a: Animal): Vec3 =>
-  anchorsFor(run, a).find((anchor) => anchor.kind === "ground")?.point ??
   run.world.residents.find((r) => r.id === a.id)!.spawn;
 const anchorFor = (run: RunState, a: Animal, kind: string): Vec3 =>
   anchorsFor(run, a).find((anchor) => anchor.kind === kind)?.point ??

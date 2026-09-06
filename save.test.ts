@@ -15,6 +15,57 @@ import {
   disconnectPlayer,
 } from "./game.ts";
 import type { Spill } from "./shared.ts";
+import { fixtureLatch } from "./level.ts";
+import { localRecoveryPoint } from "./encounters.ts";
+
+test("closing a gate over an existing ground incident preserves save and restore", async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), "wu covered incident "));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const run = createRun(9, "covered-incident"),
+    p = addPlayer(run, "a", "A");
+  addPlayer(run, "b", "B");
+  applyCommand(run, p.id, { type: "start", seq: 1 });
+  const gate = run.world.fixtures.find((f) => f.kind === "gate")!;
+  let latch = fixtureLatch(gate, run.route)!;
+  p.position = [latch[0], 0, latch[2] + 0.5];
+  applyCommand(run, p.id, { type: "interact", seq: 2 });
+  assert.equal(run.route[gate.id].open, true);
+  const box = gate.closedBoxes[0],
+    point: [number, number, number] = [
+      (box.min[0] + box.max[0]) / 2,
+      0,
+      (box.min[2] + box.max[2]) / 2,
+    ];
+  assert.deepEqual(localRecoveryPoint(run, point), point);
+  run.spills = [
+    {
+      id: "spill-covered",
+      position: point,
+      portions: 1,
+      untilTick: run.tick + 3600,
+    },
+  ];
+  run.spareBait--;
+  run.hats[0].carrier = "ground";
+  run.hats[0].position = [...point];
+  await saveRun(dir, run, new Map());
+  latch = fixtureLatch(gate, run.route)!;
+  p.position = [latch[0], 0, latch[2] + 0.5];
+  applyCommand(run, p.id, { type: "interact", seq: 3 });
+  assert.equal(run.route[gate.id].open, false);
+  await saveRun(dir, run, new Map());
+  const restored = (await loadRun(dir))!.run;
+  assert.deepEqual(restored.spills, run.spills);
+  assert.deepEqual(restored.hats, run.hats);
+  assert.equal(restored.route[gate.id].open, false);
+  const solid = run.world.walls.find((b) => b.id === "boundary-east")!;
+  run.spills[0].position = [
+    (solid.min[0] + solid.max[0]) / 2,
+    0,
+    (solid.min[2] + solid.max[2]) / 2,
+  ];
+  await assert.rejects(saveRun(dir, run, new Map()), /ground support/);
+});
 
 function applyCommand(
   run: ReturnType<typeof createRun>,

@@ -501,7 +501,11 @@ test("authenticated favorites stay shared in the ended exhibition and across res
     first.socket.terminate();
     second.socket.terminate();
   });
-  await until(() => second.messages.some((m) => m.type === "snapshot"));
+  await until(() =>
+    [first, second].every((client) =>
+      client.messages.some((m) => m.type === "snapshot"),
+    ),
+  );
   first.socket.send(
     encode(first, {
       type: "favorite",

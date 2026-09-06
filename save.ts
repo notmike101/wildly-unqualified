@@ -390,7 +390,8 @@ function incidents(v: Record<string, any>, world: ReserveBlueprint) {
       throw Error("Only the case has a spill guard");
   }
   const supported = (point: any) =>
-    ![...world.walls, ...fixtureBoxes(world.fixtures, v.route)].some(
+    // A movable leaf can close over a previously valid incident.
+    !world.walls.some(
       (b) =>
         b.max[1] > point[1] + 0.16 &&
         b.min[1] < point[1] + 1.7 &&

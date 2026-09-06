@@ -639,3 +639,59 @@ test("saved encounter memory is bounded, exact, referenced and preserves the see
     await assert.rejects(saveRun(dir, invalid, new Map()));
   }
 });
+
+test("legacy residents retain individual calm homes instead of converging on one species point", () => {
+  const run = crew(9),
+    deer = run.animals.filter((a) => a.species === "deer");
+  step(run, 40);
+  for (let i = 0; i < deer.length; i++)
+    for (let j = i + 1; j < deer.length; j++) {
+      assert.ok(
+        distance(deer[i].pose.position, deer[j].pose.position) > 0.5,
+        `${deer[i].id} overlaps ${deer[j].id}`,
+      );
+      assert.notDeepEqual(deer[i].target, deer[j].target);
+    }
+});
+
+test("an ordinary dropped hat stays on reachable ground through ticks, restore and recovery", async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), "wu-ground-hat-"));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const live = crew(9),
+    r = live.animals.find((a) => a.species === "raccoon")!,
+    owner = live.players[0];
+  owner.position = [r.pose.position[0], 0, r.pose.position[2] + 1];
+  step(live, 1.5);
+  const hat = live.hats.find((h) => h.owner === owner.id)!;
+  assert.equal(hat.carrier, `animal:${r.id}`);
+  owner.position = [...live.world.camp];
+  for (let i = 0; i < 1900 && hat.carrier !== "ground"; i++)
+    advanceRun(live, 1 / 60);
+  assert.equal(hat.carrier, "ground");
+  const at = [...hat.position],
+    protection = hat.protectedUntilTick;
+  await saveRun(dir, live, new Map());
+  const restored = (await loadRun(dir))!.run;
+  addPlayer(restored, "a", "A");
+  addPlayer(restored, "b", "B");
+  applyCommand(restored, "a", {
+    type: "resume",
+    seq: restored.players[0].lastSeq + 1,
+  });
+  for (const run of [live, restored]) {
+    step(run, 0.5);
+    const ground = run.hats.find((h) => h.owner === "a")!;
+    assert.equal(ground.carrier, "ground");
+    assert.deepEqual(ground.position, at);
+    const ally = run.players.find((p) => p.id === "b")!;
+    ally.position = [
+      ground.position[0],
+      ground.position[1],
+      ground.position[2] + 0.5,
+    ];
+    applyCommand(run, "b", { type: "interact", seq: ally.lastSeq + 1 });
+    assert.equal(ground.carrier, "owner");
+    assert.equal(ground.owner, "a");
+    assert.equal(ground.protectedUntilTick, protection);
+  }
+});

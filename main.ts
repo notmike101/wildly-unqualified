@@ -338,7 +338,7 @@ async function installWorld(
   queuedSnapshot = undefined;
   for (const [id, pending] of pendingFrames)
     if (pending.frame.worldId !== message.id) pendingFrames.delete(id);
-  $("connection").textContent = "Loading reserve�";
+  $("connection").textContent = "Loading reserve...";
   let nextView: Awaited<ReturnType<typeof createView>> | undefined;
   try {
     const blueprint = validateReserve(message.blueprint);
@@ -537,7 +537,7 @@ function updateHud() {
   for (const commission of world!.commissions) {
     const li = document.createElement("li");
     li.className = s.completed.includes(commission.id) ? "done" : "";
-    li.textContent = `${commission.required ? "" : "Optional � "}${commission.title}`;
+    li.textContent = `${commission.required ? "" : "Optional: "}${commission.title}`;
     const small = document.createElement("small");
     small.textContent = commission.instructions;
     li.append(small);
@@ -905,10 +905,29 @@ function drawMap() {
         [p.id.toUpperCase() + " " + p.habitat, p.position] as [string, Vec3],
     ),
   ];
+  const used: { x: number; y: number; width: number }[] = [];
   for (const [name, p] of labels) {
-    const [x, y] = point(p);
+    const [x, y] = point(p),
+      width = c.measureText(name).width;
+    const positions = [-8, 16, -22, 30].flatMap((dy) =>
+      [x - 18, x + 8, x - width - 8].map((dx) => ({
+        x: Math.max(2, Math.min(358 - width, dx)),
+        y: Math.max(12, Math.min(256, y + dy)),
+        width,
+      })),
+    );
+    const at =
+      positions.find((a) =>
+        used.every(
+          (b) =>
+            a.x + a.width + 4 < b.x ||
+            b.x + b.width + 4 < a.x ||
+            Math.abs(a.y - b.y) > 11,
+        ),
+      ) ?? positions[0];
+    used.push(at);
     c.fillStyle = "#4b6144";
-    c.fillText(name, x - 18, y - 8);
+    c.fillText(name, at.x, at.y);
   }
   for (const node of world.navNodes.filter((n) => n.id.includes("-camera-"))) {
     const [x, y] = point(node.position);

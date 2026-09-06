@@ -43,10 +43,13 @@ export function alignLocalCarry(
 }
 
 const assetLoads = new Map<string, ReturnType<GLTFLoader["loadAsync"]>>();
-function loadAsset(name: string, loader: GLTFLoader) {
+export function loadAsset(name: string, loader: GLTFLoader) {
   let promise = assetLoads.get(name);
   if (!promise) {
-    promise = loader.loadAsync(`/models/${name}.glb`);
+    promise = loader.loadAsync(`/models/${name}.glb`).catch((error) => {
+      if (assetLoads.get(name) === promise) assetLoads.delete(name);
+      throw error;
+    });
     assetLoads.set(name, promise);
   }
   return promise;

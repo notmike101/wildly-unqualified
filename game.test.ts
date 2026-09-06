@@ -948,8 +948,10 @@ test("player separation never pushes a supported body into the washout", () => {
   const run = crew(),
     a = run.players[0],
     b = run.players[1];
-  a.position = [-14.01, -0.99875, 2];
-  b.position = [-14.72, -0.91, 2];
+  const water = run.world.waters[0],
+    z = (water.min[2] + water.max[2]) / 2;
+  a.position = [water.min[0] - 0.01, 0, z];
+  b.position = [water.min[0] - 0.72, 0, z];
   applyCommand(run, "a", {
     type: "input",
     value: {
@@ -976,7 +978,10 @@ test("player separation never pushes a supported body into the washout", () => {
   });
   advanceRun(run, 1 / 60);
   assert.ok(
-    [...WALKABLES, ...fixtureSurfaces(run.world.fixtures, run.route)].some(
+    [
+      ...run.world.walkables,
+      ...fixtureSurfaces(run.world.fixtures, run.route),
+    ].some(
       (surface) =>
         surfaceHeight(surface, a.position[0], a.position[2]) !== null,
     ),
@@ -1122,7 +1127,7 @@ test("rattle brings inspection before theft; whistle diverts the same carried ti
   const run = crew(),
     r = run.animals.find((a) => a.species === "raccoon")!;
   const clearing = anchor(run, "raccoon", "ground"),
-    stash = anchor(run, "raccoon", "ground");
+    stash = run.world.residents.find((a) => a.id === r.id)!.spawn;
   r.pose = pose(clearing);
   place(run, [clearing[0], 0.25, clearing[2] + 3]);
   run.players[0].position = [clearing[0], 0, clearing[2] + 4];
@@ -1554,8 +1559,11 @@ test("a linked generated encounter preserves tin identity through theft, pause, 
   command(run, "a", "interact");
   assert.equal(tin.holder, "a");
   a.position = [pairAnchor[0], 0, pairAnchor[2] + 1];
-  command(run, "a", "use");
-  assert.equal(run.baitPatches[pairCommission.anchor!], 1);
+  for (let portion = 0; portion < 4; portion++) {
+    command(run, "a", "use");
+    if (portion < 3) step(run, 3.1);
+  }
+  assert.equal(run.baitPatches[pairCommission.anchor!], 4);
   a.position = [...run.world.camp];
   until(() => h.behavior === "feed" && h.remaining <= 3, 25);
   a.position = pairPoint(34, 0, -29.8);
@@ -1571,7 +1579,8 @@ test("a linked generated encounter preserves tin identity through theft, pause, 
     JSON.stringify(captured.verdict),
   );
   assert.equal(run.tin, tin);
-  assert.equal(tin.portions, 3);
+  assert.equal(tin.portions, 0);
+  until(() => run.baitPatches[pairCommission.anchor!] === 0, 15);
   assert.equal(run.baitPatches[pairCommission.anchor!], 0);
   assert.ok(run.album.at(-1)!.assists.includes("a"));
   assert.ok(run.observations.some((s) => /quiet|noise|inspect/i.test(s)));
