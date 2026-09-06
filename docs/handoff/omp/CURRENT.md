@@ -1,18 +1,15 @@
 # Resume point
 
-Status: handoff prepared; no game fixes performed by the orchestrator in this pass.
+Status: packet 00 verified by OMP session; no game edits yet.
 
-Start packet: tasks/00-bootstrap.md, then tasks/01-encounters.md.
-Prepared worker: D:/friendslop-games/games/wildly-unqualified/.worktrees/omp-01-wildlife
-Branch: work/omp-01-wildlife
-Required source ancestor: b16f00ed549e8dac0f26400d3dadd34e00e29f6a.
-Read the actual HEAD with git; handoff commits add documentation/tool setup only.
+Completed: checkout verified (clean, branch work/omp-01-wildlife, HEAD 87d4abbb93a73d149c41ad8d530df8dca66cf163, b16f00ed549e8dac0f26400d3dadd34e00e29f6a ancestor, private origin notmike101). tsc --noEmit exit 0. Drafts 7/7 hashes OK. Five Superpowers skills live in session; blender_lab MCP config present, live bridge unproven (non-blocking). See results/00.md.
 
-Known baseline: 190/196 passing; six distinct failures documented in references/wildlife-validation-findings.md. Do not stop to ask about this known red baseline; reproducing/fixing it is authorized. The saved routine parser concern is unproven and belongs to packet 03.
+Next packet: tasks/01-encounters.md in this same worktree (packet 01 works in the prepared checkout; new worktree only from packet 02 onward).
 
-Completed game implementation packets: none. Packet 00 shell preparation was performed by the orchestrator; OMP session/tool discovery still needs the receiving session.
-Last setup verification at 4676c2762f5854d0005f719bbcc781fb273fa114: setup initial/repeat and non-worker refusal passed; seven draft hashes preserved through checkout; npm ci and npx tsc --noEmit exited 0. See results/SETUP.md. No game tests or gameplay were rerun in this handoff pass.
-Original dirty source: preserved separately in .worktrees/routines, never edit it. drafts/ contains hashed unverified copies.
-Next action: confirm branch/ancestry/privacy and OMP skill/MCP discovery from packet 00, then run node --test encounters.test.ts for packet 01. Pinned packages and local .omp files are already prepared here; do not repeat installation unless missing or the lockfile changes. Blender bridge connectivity remains unproven; it does not block code tests.
+Next exact command: `node --test encounters.test.ts` from D:/friendslop-games/games/wildly-unqualified/.worktrees/omp-01-wildlife.
 
-Replace this file with a <=300-word resume point at every checkpoint. Link results/NN.md for detail; include next exact command, owned worktree, branch, verified commit, actual tests, pending work and owned processes. Do not put secrets here.
+Known red baseline: six distinct failures (references/wildlife-validation-findings.md); packet 01 owns the two encounters failures (wash precondition ~6s, moved-decoy investigation ~3s). Do not claim full-suite green.
+
+Original dirty source: .worktrees/routines, never edit. drafts/ = hashed unverified references only.
+
+Owned processes: none. No secrets in this file.
