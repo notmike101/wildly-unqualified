@@ -1,20 +1,13 @@
+/** Authoritative run lifecycle, commands, and fixed-step orchestration. */
 import {
   PROP_DEFINITIONS,
   RULES,
-  SUBJECT_HEIGHT,
-  subjectPoints,
   TIN_HALF,
-  PROP_CENTER_HEIGHT,
   fixtureBoxes,
   fixtureSurfaces,
   fixtureLatch,
 } from "./level.ts";
-import {
-  generateReserve,
-  residentName,
-  commissionInstructions,
-  type ReserveBlueprint,
-} from "./world.ts";
+import { generateReserve } from "./world.ts";
 import {
   distance,
   eye,
@@ -31,11 +24,6 @@ import {
   playerSpeed,
   propPoint,
   propBoxes,
-  propRayBlocked,
-  type Animal,
-  type Assignment,
-  type Box,
-  type ClientMessage,
   type CrewSlot,
   type FieldProp,
   type PhotoFrame,
@@ -47,45 +35,36 @@ import {
   type Vec3,
 } from "./shared.ts";
 import { createPhysics } from "./physics.ts";
-import { sightBlocked } from "./wildlife.ts";
+import { stepAnimals, localRecoveryPoint } from "./encounters.ts";
 import {
-  stepAnimals,
-  localRecoveryPoint,
-  type AnimalMemory,
-} from "./encounters.ts";
+  type RunState,
+  nearby,
+  flat,
+  observe,
+  player,
+  event,
+} from "./game-state.ts";
+import {
+  yawPose,
+  quatAngle,
+  slerp,
+  alignLocalX,
+  gripOffset,
+  clearGrips,
+  sweepProp,
+  releaseProp,
+  recoverProp,
+  propRecoverable,
+} from "./equipment.ts";
+import { evaluatePhoto } from "./photo.ts";
+import { rotate } from "./wildlife.ts";
+export { type RunState } from "./game-state.ts";
+export { evaluatePhoto } from "./photo.ts";
 
-type Action = {
-  kind:
-    "rattle" | "whistle" | "noise" | "impact" | "bait" | "recover" | "place";
-  player: string;
-  point: Vec3;
-  tick: number;
-};
-export type RunState = Snapshot & {
-  world: ReserveBlueprint;
-  pendingPhotos: Record<string, PhotoFrame>;
-  hostId: string | null;
-  events: Action[];
-  cooldowns: Record<string, { use: number; photo: number }>;
-  animalMemory: Record<string, AnimalMemory>;
-  decisionSeconds: number;
-  nextPhoto: number;
-  tinRevision: number;
-  lastImpactTick: number;
-  failedSetups: number;
-};
-const nearby = (a: Vec3, b: Vec3, r: number) =>
-  Math.hypot(a[0] - b[0], a[2] - b[2]) <= r;
-const flat = (p: Vec3): Vec3 => [p[0], 0, p[2]];
 const carryState = new WeakMap<
   RunState,
   Map<string, { blocked: number; ignore: boolean }>
 >();
-const gripState = new WeakMap<RunState, Map<string, Vec3>>();
-const observe = (run: RunState, text: string) => {
-  if (!run.observations.includes(text)) run.observations.push(text);
-  run.observations = run.observations.slice(-40);
-};
 function spillCase(run: RunState, prop: FieldProp) {
   if (
     prop.kind !== "case" ||
@@ -142,32 +121,11 @@ function updateHats(run: RunState) {
       ];
   }
 }
-const animal = (run: RunState, species: "raccoon" | "heron") =>
-  run.animals.find((a) => a.species === species)!;
-function player(run: RunState, id: string) {
-  const p = run.players.find((p) => p.id === id && p.connected);
-  if (!p) throw Error("Player is disconnected");
-  return p;
-}
 function neutralize(run: RunState) {
   for (const p of run.players) {
     p.lastInput = null;
     p.inputTick = run.tick;
   }
-}
-function event(
-  run: RunState,
-  kind: Action["kind"],
-  p: Player | null,
-  point: Vec3,
-) {
-  run.events.push({
-    kind,
-    player: p?.id ?? "tin",
-    point: [...point],
-    tick: run.tick,
-  });
-  run.events = run.events.slice(-128);
 }
 function safe(
   run: RunState,
@@ -192,276 +150,6 @@ function safe(
         point[2] > b.min[2] - 0.45 &&
         point[2] < b.max[2] + 0.45,
     )
-  );
-}
-const overlap = (a: Box, b: Box) =>
-  a.min.every(
-    (value, axis) => value < b.max[axis] && a.max[axis] > b.min[axis],
-  );
-const yawOf = (value: Pose) => {
-  const [x, y, z, w] = value.rotation;
-  return Math.atan2(2 * (w * y + x * z), 1 - 2 * (y * y + z * z));
-};
-const yawPose = (position: Vec3, yaw: number): Pose => ({
-  position: [...position],
-  rotation: [0, Math.sin(yaw / 2), 0, Math.cos(yaw / 2)],
-});
-const angleDelta = (from: number, to: number) =>
-  Math.atan2(Math.sin(to - from), Math.cos(to - from));
-const quatAngle = (a: Quat, b: Quat) =>
-  2 *
-  Math.acos(
-    Math.min(1, Math.abs(a.reduce((sum, value, i) => sum + value * b[i], 0))),
-  );
-const slerp = (a: Quat, b: Quat, t: number): Quat => {
-  let dot = a.reduce((sum, value, i) => sum + value * b[i], 0),
-    end = b;
-  if (dot < 0) {
-    dot = -dot;
-    end = b.map((value) => -value) as Quat;
-  }
-  if (dot > 0.9995) {
-    const mixed = a.map((value, i) => value + (end[i] - value) * t) as Quat,
-      length = Math.hypot(...mixed);
-    return mixed.map((value) => value / length) as Quat;
-  }
-  const angle = Math.acos(Math.min(1, dot)),
-    scale = Math.sin(angle),
-    startWeight = Math.sin((1 - t) * angle) / scale,
-    endWeight = Math.sin(t * angle) / scale;
-  return a.map((value, i) => value * startWeight + end[i] * endWeight) as Quat;
-};
-const alignLocalX = (direction: Vec3): Quat => {
-  const length = Math.hypot(...direction),
-    [x, y, z] = direction.map((value) => value / length) as Vec3;
-  if (x < -0.999999) return [0, 1, 0, 0];
-  const q: Quat = [0, -z, y, 1 + x],
-    magnitude = Math.hypot(...q);
-  return q.map((value) => value / magnitude) as Quat;
-};
-function terrainLift(run: RunState, prop: FieldProp, value: Pose) {
-  const surfaces = [
-    ...run.world.walkables,
-    ...(prop.kind === "plank" && prop.placed
-      ? []
-      : fixtureSurfaces(run.world.fixtures, run.route)),
-  ];
-  return Math.max(
-    0,
-    ...PROP_DEFINITIONS[prop.kind].solids.flatMap((solid) => {
-      const half = solid.size.map((size) => size / 2) as Vec3;
-      return [-1, 0, 1].flatMap((x) =>
-        [-1, 0, 1].map((z) => {
-          const point = propPoint(
-              [
-                solid.center[0] + x * half[0],
-                solid.center[1] - half[1],
-                solid.center[2] + z * half[2],
-              ],
-              value,
-            ),
-            heights = surfaces
-              .map((surface) => surfaceHeight(surface, point[0], point[2]))
-              .filter((height): height is number => height !== null);
-          return heights.length ? Math.max(...heights) - point[1] : 0;
-        }),
-      );
-    }),
-  );
-}
-function propClear(run: RunState, prop: FieldProp, value: Pose, outer = false) {
-  const definition = PROP_DEFINITIONS[prop.kind],
-    shape = outer
-      ? {
-          ...definition,
-          solids: [
-            {
-              center: definition.bounds[0].map(
-                (n, i) => (n + definition.bounds[1][i]) / 2,
-              ) as Vec3,
-              size: definition.bounds[0].map(
-                (n, i) => definition.bounds[1][i] - n,
-              ) as Vec3,
-            },
-          ],
-        }
-      : definition,
-    test = { ...prop, pose: value },
-    crossing = run.world.fixtures.find((f) => f.plankId === prop.id),
-    deck = crossing?.openSurfaces[0],
-    spansOwnWater = (wall: Box) =>
-      !!deck &&
-      run.world.waters.some((w) => w.id === wall.id) &&
-      wall.min[0] < deck.max[0] &&
-      wall.max[0] > deck.min[0] &&
-      wall.min[2] < deck.max[2] &&
-      wall.max[2] > deck.min[2] &&
-      Math.abs(angleDelta(yawOf(value), crossing!.yaw)) < 1e-6 &&
-      propBoxes(test, shape).every(
-        (b) => b.min[2] >= deck.min[2] - 1e-6 && b.max[2] <= deck.max[2] + 1e-6,
-      ),
-    blockers = [
-      ...run.world.walls.filter((wall) => !spansOwnWater(wall)),
-      ...fixtureBoxes(run.world.fixtures, run.route),
-      ...run.props
-        .filter((p) => p !== prop)
-        .flatMap((p) => propBoxes(p, PROP_DEFINITIONS[p.kind])),
-    ];
-  return (
-    terrainLift(run, prop, value) <= 0.05 &&
-    !propBoxes(test, shape).some((box) =>
-      blockers.some((wall) => overlap(box, wall)),
-    )
-  );
-}
-const gripKey = (prop: FieldProp, handle: number, id: string) =>
-  `${prop.id}\0${handle}\0${id}`;
-const gripOffset = (
-  run: RunState,
-  prop: FieldProp,
-  handle: number,
-  p: Player,
-) => {
-  const grips = gripState.get(run) ?? new Map<string, Vec3>();
-  gripState.set(run, grips);
-  const key = gripKey(prop, handle, p.id),
-    existing = grips.get(key);
-  if (existing) return existing;
-  const point = propPoint(
-      PROP_DEFINITIONS[prop.kind].handles[handle],
-      prop.pose,
-    ),
-    offset = point.map((value, axis) => value - p.position[axis]) as Vec3;
-  grips.set(key, offset);
-  return offset;
-};
-const clearGrips = (run: RunState, prop: FieldProp, id?: string) => {
-  const grips = gripState.get(run);
-  if (!grips) return;
-  for (const key of grips.keys())
-    if (key.startsWith(`${prop.id}\0`) && (!id || key.endsWith(`\0${id}`)))
-      grips.delete(key);
-};
-function sweepProp(run: RunState, prop: FieldProp, desired: Pose) {
-  const from = prop.pose,
-    rotation = quatAngle(from.rotation, desired.rotation),
-    travel = distance(from.position, desired.position),
-    steps = Math.max(
-      1,
-      Math.ceil(Math.max(travel / 0.1, rotation / (Math.PI / 36))),
-    );
-  let result = structuredClone(from),
-    hit = false;
-  for (let i = 1; i <= steps; i++) {
-    const t = i / steps,
-      next: Pose = {
-        position: from.position.map(
-          (n, axis) => n + (desired.position[axis] - n) * t,
-        ) as Vec3,
-        rotation: slerp(from.rotation, desired.rotation, t),
-      },
-      lift = terrainLift(run, prop, next);
-    if (lift > 0.15) {
-      hit = true;
-      break;
-    }
-    next.position[1] += Math.max(0, lift);
-    if (!propClear(run, prop, next, true)) {
-      hit = true;
-      break;
-    }
-    result = next;
-  }
-  return { pose: result, hit };
-}
-function seatPlank(run: RunState, prop: FieldProp) {
-  const yaw = yawOf(prop.pose),
-    fixture = run.world.fixtures.find((f) => f.plankId === prop.id),
-    seat = Object.entries(fixture?.seats ?? {})
-      .filter(
-        ([, value]) => distance(prop.pose.position, value.position) <= 0.75,
-      )
-      .filter(
-        ([, value]) =>
-          Math.abs(angleDelta(yaw, yawOf(value))) <= (20 * Math.PI) / 180,
-      )
-      .sort(
-        (a, b) =>
-          distance(prop.pose.position, a[1].position) -
-          distance(prop.pose.position, b[1].position),
-      )[0];
-  if (!seat) return false;
-  prop.pose = structuredClone(seat[1]);
-  prop.velocity = [0, 0, 0];
-  prop.angularVelocity = [0, 0, 0];
-  prop.holders = [null, null];
-  prop.placed = true;
-  run.route[fixture!.id] = { open: true, seat: seat[0] };
-  return true;
-}
-function releaseProp(
-  run: RunState,
-  prop: FieldProp,
-  id: string,
-  place: boolean,
-) {
-  if (place && prop.kind === "plank" && seatPlank(run, prop)) {
-    clearGrips(run, prop);
-    return;
-  }
-  clearGrips(run, prop, place ? undefined : id);
-  prop.holders = prop.holders.map((holder) =>
-    holder === id || place ? null : holder,
-  ) as [string | null, string | null];
-  if (prop.holders.some(Boolean)) return;
-  prop.placed = false;
-  prop.velocity = [0, 0, 0];
-  prop.angularVelocity = place ? [0, 0, 0] : [0, 0.6, 0.35];
-}
-function recoverProp(run: RunState, prop: FieldProp, origin: Vec3) {
-  const choices = [
-    run.world.props.find((value) => value.id === prop.id)!.pose,
-    ...run.world.stations.map((station) =>
-      pose([
-        station.recover[0],
-        station.recover[1] + PROP_CENTER_HEIGHT[prop.kind],
-        station.recover[2],
-      ]),
-    ),
-  ]
-    .filter((candidate) => propClear(run, prop, candidate, true))
-    .sort(
-      (a, b) => distance(a.position, origin) - distance(b.position, origin),
-    );
-  if (!choices[0])
-    throw Error("No clear authored recovery point for that equipment");
-  clearGrips(run, prop);
-  prop.pose = structuredClone(choices[0]);
-  prop.velocity = [0, 0, 0];
-  prop.angularVelocity = [0, 0, 0];
-  prop.holders = [null, null];
-  prop.placed = false;
-}
-function propRecoverable(run: RunState, prop: FieldProp) {
-  const fixture = run.world.fixtures.find((f) => f.plankId === prop.id),
-    state = fixture && run.route[fixture.id],
-    seated =
-      fixture && state?.open && state.seat ? fixture.seats[state.seat] : null;
-  if (
-    prop.placed &&
-    seated &&
-    distance(prop.pose.position, seated.position) < 1e-6 &&
-    quatAngle(prop.pose.rotation, seated.rotation) < 1e-6
-  )
-    return false;
-  const [x, , z] = prop.pose.rotation;
-  return (
-    prop.pose.position.some((n) => !Number.isFinite(n)) ||
-    prop.pose.position[1] < -2 ||
-    prop.pose.position[1] > 5 ||
-    // Allow recovery beyond 60 degrees when a low grip prevents straightening.
-    (!prop.placed && 1 - 2 * (x * x + z * z) < 0.5) ||
-    !propClear(run, prop, prop.pose, true)
   );
 }
 function safeSpawn(run: RunState, id: string): Vec3 {
@@ -1584,325 +1272,4 @@ export function makePhotoFrame(run: RunState, id: string): PhotoFrame {
       hats: run.hats,
     }),
   );
-}
-function rotate(p: Vec3, q: Quat): Vec3 {
-  const [x, y, z, w] = q,
-    [a, b, c] = p,
-    ix = w * a + y * c - z * b,
-    iy = w * b + z * a - x * c,
-    iz = w * c + x * b - y * a,
-    iw = -x * a - y * b - z * c;
-  return [
-    ix * w - iw * x - iy * z + iz * y,
-    iy * w - iw * y - iz * x + ix * z,
-    iz * w - iw * z - ix * y + iy * x,
-  ];
-}
-function tinBlocks(frame: PhotoFrame, from: Vec3, to: Vec3) {
-  const q = frame.tin.pose.rotation,
-    conjugate: Quat = [-q[0], -q[1], -q[2], q[3]];
-  const local = (v: Vec3) =>
-    rotate(v.map((n, i) => n - frame.tin.pose.position[i]) as Vec3, conjugate);
-  return rayBlocked(local(from), local(to), [
-    { id: "tin", min: TIN_HALF.map((n) => -n) as Vec3, max: TIN_HALF },
-  ]);
-}
-export function evaluatePhoto(
-  frame: PhotoFrame,
-  world: ReserveBlueprint,
-): PhotoVerdict {
-  if (frame.worldId !== world.id) throw Error("Photo belongs to another world");
-  const c = frame.camera,
-    occluders = [
-      ...world.placements.flatMap((p) => p.occluders),
-      ...world.walls,
-      ...fixtureBoxes(world.fixtures, frame.route),
-    ],
-    f = forward(c.yaw, c.pitch),
-    right: Vec3 = [Math.cos(c.yaw), 0, -Math.sin(c.yaw)],
-    up: Vec3 = [
-      Math.sin(c.yaw) * Math.sin(c.pitch),
-      Math.cos(c.pitch),
-      Math.cos(c.yaw) * Math.sin(c.pitch),
-    ];
-  const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2],
-    scale = Math.tan((c.fov * Math.PI) / 360);
-  const pointVisible = (point: Vec3, boxes = occluders) => {
-    const d = point.map((v, i) => v - c.position[i]) as Vec3,
-      depth = dot(d, f);
-    return (
-      depth > 0.1 &&
-      Math.abs(dot(d, right) / ((depth * scale * 16) / 9)) <= 1 &&
-      Math.abs(dot(d, up) / (depth * scale)) <= 1 &&
-      !sightBlocked(world, c.position, point, boxes) &&
-      !tinBlocks(frame, c.position, point) &&
-      !propRayBlocked(c.position, point, frame.props, PROP_DEFINITIONS)
-    );
-  };
-  const reasons: string[] = [];
-  const framed: { animal: Animal; center: number; reason: string | null }[] =
-    [];
-  const qualifies = (a: Animal) => {
-    const points = subjectPoints(a, frame.tick).map((local) => {
-      const v = rotate(local, a.pose.rotation);
-      return v.map((n, i) => n + a.pose.position[i]) as Vec3;
-    });
-    const projected = points.map((point) => {
-      const d = point.map((n, i) => n - c.position[i]) as Vec3,
-        depth = dot(d, f);
-      return {
-        point,
-        depth,
-        x: dot(d, right) / ((depth * scale * 16) / 9),
-        y: dot(d, up) / (depth * scale),
-      };
-    });
-    const inside = projected.filter(
-      (p) => p.depth > 0.1 && Math.abs(p.x) <= 1 && Math.abs(p.y) <= 1,
-    );
-    const feedback = {
-      animal: a,
-      center: Math.min(...inside.map((p) => Math.hypot(p.x, p.y))),
-      reason: null as string | null,
-    };
-    if (inside.length >= 2) framed.push(feedback);
-    if (projected.filter((p) => p.depth > 0.1).length < 2) {
-      reasons.push("Subject is behind the camera");
-      return false;
-    }
-    const heights = [0, SUBJECT_HEIGHT[a.species]].map((y) => {
-      const point = rotate([0, y, 0], a.pose.rotation).map(
-        (n, i) => n + a.pose.position[i] - c.position[i],
-      ) as Vec3;
-      return dot(point, up) / (dot(point, f) * scale);
-    });
-    if (Math.abs(heights[1] - heights[0]) / 2 < 0.03) {
-      feedback.reason = "Move closer: subject is too small";
-      reasons.push("Move closer: subject is too small");
-      return false;
-    }
-    if (inside.length < 2) {
-      reasons.push("Keep the subject inside the frame");
-      return false;
-    }
-    if (
-      inside.filter(
-        (p) =>
-          !world.waters.some(
-            (w) =>
-              p.point[0] > w.min[0] &&
-              p.point[0] < w.max[0] &&
-              p.point[2] > w.min[2] &&
-              p.point[2] < w.max[2] &&
-              p.point[1] < w.max[1] - 0.0125,
-          ) &&
-          !sightBlocked(world, c.position, p.point, occluders) &&
-          !tinBlocks(frame, c.position, p.point) &&
-          !propRayBlocked(c.position, p.point, frame.props, PROP_DEFINITIONS),
-      ).length < 2
-    ) {
-      feedback.reason = "Subject hidden by a solid object";
-      reasons.push("Subject hidden by a solid object");
-      return false;
-    }
-    return true;
-  };
-  const visible = frame.animals.filter(qualifies);
-  const ids = new Set(frame.animals.map((a) => a.id));
-  if (
-    ids.size !== frame.animals.length ||
-    frame.animals.some(
-      (a) =>
-        !world.residents.some((r) => r.id === a.id && r.species === a.species),
-    )
-  )
-    throw Error("Photo resident identity mismatch");
-  const visibleIds = new Set(visible.map((a) => a.id));
-  const inspection = (a: Animal) =>
-    a.species === "raccoon" &&
-    a.behavior === "inspect" &&
-    frame.tin.open &&
-    nearby(a.pose.position, frame.tin.pose.position, 1.5);
-  const credits = world.commissions
-    .filter((commission) => {
-      const pocket = world.pockets.find((p) => p.id === commission.pocket),
-        anchor = pocket?.anchors.find((a) => a.id === commission.anchor),
-        subjects = commission.subjects.map((id) =>
-          frame.animals.find((a) => a.id === id),
-        );
-      if (
-        !anchor ||
-        !subjects.length ||
-        subjects.some(
-          (a) =>
-            !a ||
-            !visibleIds.has(a.id) ||
-            !world.residents.some(
-              (r) =>
-                r.id === a.id &&
-                r.home === pocket!.id &&
-                r.anchors.includes(anchor.id),
-            ),
-        )
-      )
-        return false;
-      const animals = subjects as Animal[],
-        a = animals[0];
-      if (commission.kind === "behavior" && animals.length === 1) {
-        if (a.species === "raccoon")
-          return (
-            commission.behavior === "wash" &&
-            a.behavior === "wash" &&
-            nearby(a.pose.position, anchor.point, 1) &&
-            frame.tin.open &&
-            frame.tin.portions > 0 &&
-            nearby(frame.tin.pose.position, anchor.point, 2)
-          );
-        if (a.species === "deer")
-          return (
-            commission.behavior === "graze" &&
-            a.behavior === "graze" &&
-            nearby(a.pose.position, anchor.point, 3)
-          );
-        if (a.species === "heron")
-          return (
-            commission.behavior === "preen" &&
-            a.behavior === "preen" &&
-            nearby(a.pose.position, anchor.point, 8)
-          );
-        return (
-          commission.behavior === a.behavior &&
-          nearby(a.pose.position, anchor.point, 2)
-        );
-      }
-      if (
-        commission.kind === "setup" &&
-        animals.length === 1 &&
-        ["raccoon", "deer", "heron", "rabbit", "mallard"].includes(a.species)
-      ) {
-        const decoy = frame.props.find(
-            (p) =>
-              p.kind === "decoy" &&
-              p.open &&
-              !p.holders.some(Boolean) &&
-              nearby(p.pose.position, anchor.point, 3),
-          ),
-          screen = frame.props.find(
-            (p) =>
-              p.kind === "screen" &&
-              !p.holders.some(Boolean) &&
-              distance(p.pose.position, frame.camera.position) < 4,
-          );
-        if (
-          !decoy ||
-          !screen ||
-          !frame.tin.open ||
-          !nearby(frame.tin.pose.position, anchor.point, 3) ||
-          !nearby(a.pose.position, anchor.point, 3)
-        )
-          return false;
-        return a.species === "raccoon"
-          ? inspection(a)
-          : a.species === "heron"
-            ? a.behavior === "display"
-            : a.species === "rabbit" || a.species === "mallard"
-              ? a.behavior === "feed"
-              : a.behavior === "investigate" &&
-                nearby(a.pose.position, decoy.pose.position, 2) &&
-                nearby(a.target, decoy.pose.position, 2);
-      }
-      if (commission.kind === "pair" && animals.length === 2) {
-        const raccoon = animals.find((a) => a.species === "raccoon"),
-          heron = animals.find((a) => a.species === "heron");
-        if (!raccoon && !heron)
-          return (
-            [
-              ["deer", "rabbit"],
-              ["beaver", "mallard"],
-            ].some((pair) =>
-              pair.every((s) => animals.some((a) => a.species === s)),
-            ) &&
-            animals.every(
-              (a) =>
-                nearby(a.pose.position, anchor.point, 3) &&
-                ["graze", "nibble", "gnaw", "feed", "preen"].includes(
-                  a.behavior,
-                ),
-            ) &&
-            distance(animals[0].pose.position, animals[1].pose.position) >= 0.55
-          );
-        return (
-          !!raccoon &&
-          !!heron &&
-          inspection(raccoon) &&
-          heron.behavior === "display" &&
-          nearby(heron.pose.position, anchor.point, 3) &&
-          distance(flat(raccoon.pose.position), flat(heron.pose.position)) >=
-            3 &&
-          nearby(raccoon.pose.position, heron.pose.position, 8)
-        );
-      }
-      if (commission.kind === "passage")
-        return (
-          a.behavior === "passage" && nearby(a.pose.position, anchor.point, 2)
-        );
-      if (commission.kind === "cameo")
-        return nearby(a.pose.position, anchor.point, 12);
-      if (commission.kind === "incident")
-        return (
-          frame.hats.some(
-            (h) => h.carrier === `animal:${a.id}` && pointVisible(h.position),
-          ) ||
-          frame.spills.some(
-            (s) =>
-              s.portions > 0 &&
-              s.untilTick > frame.tick &&
-              a.behavior === "investigate" &&
-              nearby(s.position, a.pose.position, 2) &&
-              pointVisible([
-                s.position[0],
-                s.position[1] + 0.04,
-                s.position[2],
-              ]),
-          )
-        );
-      if (commission.kind === "composition") {
-        const landmark = world.placements.find(
-          (p) => p.id === commission.landmark,
-        );
-        if (!landmark || !nearby(a.pose.position, anchor.point, 3))
-          return false;
-        const boxes = [...landmark.solids, ...landmark.occluders];
-        if (!boxes.length) return false;
-        const min = [0, 1, 2].map((i) =>
-          Math.min(...boxes.map((b) => b.min[i])),
-        ) as Vec3;
-        const max = [0, 1, 2].map((i) =>
-          Math.max(...boxes.map((b) => b.max[i])),
-        ) as Vec3;
-        const other = occluders.filter((b) => !b.id.startsWith(landmark.id));
-        let count = 0;
-        for (const x of [min[0], max[0]])
-          for (const y of [min[1], max[1]])
-            for (const z of [min[2], max[2]]) {
-              if (pointVisible([x, y, z], other)) count++;
-            }
-        return count >= 3;
-      }
-      return false;
-    })
-    .map((commission) => commission.id);
-  const subject = framed.sort((a, b) => a.center - b.center)[0];
-  const hint =
-    subject &&
-    world.commissions.find((c) => c.subjects.includes(subject.animal.id));
-  return {
-    credits,
-    reason: credits.length
-      ? "Commission photograph accepted"
-      : (subject?.reason ??
-        (subject
-          ? `${residentName(world, subject.animal.id)}: ${hint ? commissionInstructions(world, hint) : "Wildlife photograph recorded"}`
-          : (reasons[0] ?? "Find a wildlife subject in the frame"))),
-  };
 }

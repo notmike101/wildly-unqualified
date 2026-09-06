@@ -1,10 +1,12 @@
 # Wildly Unqualified
 
-**Forest MVP — ready for human playtesting.** Make a wildlife documentary with friends who are extremely bad at remaining unnoticed.
+**Generated-reserve development build.** Make a wildlife documentary with friends who are extremely bad at remaining unnoticed.
+
+`main` now includes the committed generated-reserve runtime, expanded wildlife, audio, asset work, album requirement tests, and development handoffs. Expansion acceptance is still incomplete. See [the code map and maintenance guide](docs/MAINTAINING.md) for module responsibilities, verification results, and the remaining known failures. The records below describe the separately preserved MVP and prototype, not acceptance of the current source.
 
 The [forest checkpoint](MVP-CHECKPOINT-2026-09-05.md) tracks the three-species, four-commission outing: shared equipment, a physical washout crossing, reactive animals, recoverable mischief, mature canopy and atmospheric sky. Independent reviews pass. One two-player and two distinct four-player outing chains completed in visible browsers, including HTTPS/WSS with 150 ms added delay. Saved-world continuations and driver failures are retained in the evidence. The final production package, visible forest/crew/notebook checks and local migration pass. The accepted prototype, its release and private outing remain preserved separately.
 
-The delivered MVP targeted a **20–30-minute outing for 2–4 friends on separate internet connections**. The approved [generated-reserves expansion](docs/superpowers/specs/2026-09-05-wildly-unqualified-generated-reserves-design.md) now targets **40–60 minutes**, a predominantly dense forest, 12 species and 36–48 individual animals. Those expansion features are planned, not part of the baseline below.
+The delivered MVP targeted a **20–30-minute outing for 2–4 friends on separate internet connections**. The approved [generated-reserves expansion](docs/superpowers/specs/2026-09-05-wildly-unqualified-generated-reserves-design.md) targets **40–60 minutes**, a predominantly dense forest, 12 species and 36–48 individual animals. The expansion is partially implemented in current source; the historical baseline below predates it.
 
 This game has its own private repository, [notmike101/wildly-unqualified](https://github.com/notmike101/wildly-unqualified). It includes game source, tests, assets and Blender sources. Parent research, other concepts, local evidence and private saves remain outside the repository. Historical links to those local materials will not resolve in an independent clone.
 

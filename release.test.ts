@@ -22,6 +22,12 @@ test("portable release contains the exact runtime lock and no credentials or dev
     [
       "encounters.ts",
       "game.ts",
+      "game-state.ts",
+      "equipment.ts",
+      "photo.ts",
+      "world-data.ts",
+      "world-geometry.ts",
+      "world-validation.ts",
       "level.ts",
       "physics.ts",
       "save.ts",
