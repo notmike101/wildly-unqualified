@@ -18,7 +18,11 @@ type Environment = {
   habitat: "woodland" | "clearing" | "wetland";
   waterDistance: number;
 };
-type Voice = { source?: AudioBufferSourceNode; nodes: AudioNode[] };
+type Voice = {
+  source?: AudioBufferSourceNode;
+  nodes: AudioNode[];
+  release?: { at: number; timer: ReturnType<typeof setTimeout> };
+};
 const assets = new Map(manifest.assets.map((a) => [a.id, a]));
 const clamp = (n: number) =>
   Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 0;
@@ -33,6 +37,8 @@ const distance = (a: Point, b: Point) =>
 export function createAudio() {
   let context: AudioContext | undefined,
     buses: GainNode[] = [];
+  let compressor: DynamicsCompressorNode | undefined,
+    ceiling: WaveShaperNode | undefined;
   let levels: AudioSettings = {
     master: 0.7,
     effects: 0.8,
@@ -61,6 +67,8 @@ export function createAudio() {
   let music: Voice | undefined;
 
   function stop(v: Voice) {
+    clearTimeout(v.release?.timer);
+    v.release = undefined;
     if (v.source) {
       v.source.onended = null;
       try {
@@ -79,6 +87,22 @@ export function createAudio() {
     beds.clear();
     if (music) stop(music);
     music = undefined;
+    // A suspended compressor otherwise retains a few milliseconds of old audio.
+    if (ceiling && !disposed) resetCompressor();
+  }
+  function resetCompressor() {
+    compressor?.disconnect();
+    compressor = context!.createDynamicsCompressor();
+    compressor.threshold.value = -6;
+    compressor.knee.value = 6;
+    compressor.ratio.value = 20;
+    compressor.attack.value = 0;
+    compressor.release.value = 0.15;
+    buses.slice(1).forEach((bus) => {
+      bus.disconnect();
+      bus.connect(compressor!);
+    });
+    compressor.connect(ceiling!);
   }
   function load(id: string): Promise<AudioBuffer | null> {
     const existing = buffers.get(id);
@@ -111,8 +135,28 @@ export function createAudio() {
   }
   function ramp(param: AudioParam, value: number, seconds = 0.12) {
     if (!context) return;
-    param.cancelScheduledValues(context.currentTime);
+    param.cancelAndHoldAtTime(context.currentTime);
     param.setTargetAtTime(value, context.currentTime, seconds);
+  }
+  function releaseWater(id: string, v: Voice) {
+    if (v.release) return;
+    const at = context!.currentTime + 0.12;
+    const gain = (v.nodes[1] as GainNode).gain;
+    const value = gain.value;
+    gain.cancelAndHoldAtTime(context!.currentTime);
+    gain.setValueAtTime(value, context!.currentTime);
+    gain.linearRampToValueAtTime(0, at);
+    const finish = () => {
+      if (beds.get(id) !== v || !v.release) return;
+      // Audio time can lag a timer (or be interrupted); never cut the ramp early.
+      if (context!.currentTime < at) {
+        v.release.timer = setTimeout(finish, 20);
+        return;
+      }
+      stop(v);
+      beds.delete(id);
+    };
+    v.release = { at, timer: setTimeout(finish, 140) };
   }
   function updateListener() {
     if (!context) return;
@@ -171,12 +215,17 @@ export function createAudio() {
     }
     for (const [id, v] of beds)
       if (!desired.has(id)) {
-        stop(v);
-        beds.delete(id);
+        if (id === "water" && v.source) releaseWater(id, v);
+        else {
+          stop(v);
+          beds.delete(id);
+        }
       }
     for (const [id, gain] of desired) {
       const v = beds.get(id);
       if (v) {
+        clearTimeout(v.release?.timer);
+        v.release = undefined;
         const volume = v.nodes[1] as GainNode | undefined;
         if (volume) ramp(volume.gain, gain, 0.8);
       } else {
@@ -279,8 +328,15 @@ export function createAudio() {
           if (typeof AudioContext === "undefined") return;
           context = new AudioContext();
           buses = [0, 1, 2, 3].map(() => context!.createGain());
+          // Preserve quiet cues; compress overload before a strict
+          // native safety ceiling. Master follows both nodes so mute has no tail.
+          ceiling = context.createWaveShaper();
+          ceiling.curve = Float32Array.from({ length: 2049 }, (_, i) =>
+            Math.max(-0.95, Math.min(0.95, i / 1024 - 1)),
+          );
+          resetCompressor();
+          ceiling.connect(buses[0]);
           buses[0].connect(context.destination);
-          buses.slice(1).forEach((bus) => bus.connect(buses[0]));
           [
             levels.master,
             levels.effects,
@@ -410,6 +466,8 @@ export function createAudio() {
       variants.clear();
       documentOwner?.removeEventListener("visibilitychange", visibility);
       for (const bus of buses) bus.disconnect();
+      compressor?.disconnect();
+      ceiling?.disconnect();
       if (context) void context.close().catch(() => {});
     },
   };
