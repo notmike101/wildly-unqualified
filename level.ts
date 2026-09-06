@@ -545,7 +545,7 @@ export function worldBox(
     ],
   };
 }
-function placement(
+export function placement(
   id: string,
   model: string,
   position: Vec3,
