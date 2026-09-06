@@ -9,7 +9,12 @@ import {
   fixtureSurfaces,
   fixtureLatch,
 } from "./level.ts";
-import { generateReserve, type ReserveBlueprint } from "./world.ts";
+import {
+  generateReserve,
+  residentName,
+  commissionInstructions,
+  type ReserveBlueprint,
+} from "./world.ts";
 import {
   distance,
   eye,
@@ -42,6 +47,7 @@ import {
   type Vec3,
 } from "./shared.ts";
 import { createPhysics } from "./physics.ts";
+import { sightBlocked } from "./wildlife.ts";
 import {
   stepAnimals,
   localRecoveryPoint,
@@ -1621,6 +1627,18 @@ export function evaluatePhoto(
     ];
   const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2],
     scale = Math.tan((c.fov * Math.PI) / 360);
+  const pointVisible = (point: Vec3, boxes = occluders) => {
+    const d = point.map((v, i) => v - c.position[i]) as Vec3,
+      depth = dot(d, f);
+    return (
+      depth > 0.1 &&
+      Math.abs(dot(d, right) / ((depth * scale * 16) / 9)) <= 1 &&
+      Math.abs(dot(d, up) / (depth * scale)) <= 1 &&
+      !sightBlocked(world, c.position, point, boxes) &&
+      !tinBlocks(frame, c.position, point) &&
+      !propRayBlocked(c.position, point, frame.props, PROP_DEFINITIONS)
+    );
+  };
   const reasons: string[] = [];
   const framed: { animal: Animal; center: number; reason: string | null }[] =
     [];
@@ -1670,7 +1688,15 @@ export function evaluatePhoto(
     if (
       inside.filter(
         (p) =>
-          !rayBlocked(c.position, p.point, occluders) &&
+          !world.waters.some(
+            (w) =>
+              p.point[0] > w.min[0] &&
+              p.point[0] < w.max[0] &&
+              p.point[2] > w.min[2] &&
+              p.point[2] < w.max[2] &&
+              p.point[1] < w.max[1] - 0.0125,
+          ) &&
+          !sightBlocked(world, c.position, p.point, occluders) &&
           !tinBlocks(frame, c.position, p.point) &&
           !propRayBlocked(c.position, p.point, frame.props, PROP_DEFINITIONS),
       ).length < 2
@@ -1744,12 +1770,15 @@ export function evaluatePhoto(
             a.behavior === "preen" &&
             nearby(a.pose.position, anchor.point, 8)
           );
-        return false;
+        return (
+          commission.behavior === a.behavior &&
+          nearby(a.pose.position, anchor.point, 2)
+        );
       }
       if (
         commission.kind === "setup" &&
         animals.length === 1 &&
-        ["raccoon", "deer", "heron"].includes(a.species)
+        ["raccoon", "deer", "heron", "rabbit", "mallard"].includes(a.species)
       ) {
         const decoy = frame.props.find(
             (p) =>
@@ -1776,13 +1805,32 @@ export function evaluatePhoto(
           ? inspection(a)
           : a.species === "heron"
             ? a.behavior === "display"
-            : a.behavior === "investigate" &&
-              nearby(a.pose.position, decoy.pose.position, 2) &&
-              nearby(a.target, decoy.pose.position, 2);
+            : a.species === "rabbit" || a.species === "mallard"
+              ? a.behavior === "feed"
+              : a.behavior === "investigate" &&
+                nearby(a.pose.position, decoy.pose.position, 2) &&
+                nearby(a.target, decoy.pose.position, 2);
       }
       if (commission.kind === "pair" && animals.length === 2) {
         const raccoon = animals.find((a) => a.species === "raccoon"),
           heron = animals.find((a) => a.species === "heron");
+        if (!raccoon && !heron)
+          return (
+            [
+              ["deer", "rabbit"],
+              ["beaver", "mallard"],
+            ].some((pair) =>
+              pair.every((s) => animals.some((a) => a.species === s)),
+            ) &&
+            animals.every(
+              (a) =>
+                nearby(a.pose.position, anchor.point, 3) &&
+                ["graze", "nibble", "gnaw", "feed", "preen"].includes(
+                  a.behavior,
+                ),
+            ) &&
+            distance(animals[0].pose.position, animals[1].pose.position) >= 0.55
+          );
         return (
           !!raccoon &&
           !!heron &&
@@ -1794,7 +1842,53 @@ export function evaluatePhoto(
           nearby(raccoon.pose.position, heron.pose.position, 8)
         );
       }
-      // The remaining categories and nine new routines are implemented in Task 5.
+      if (commission.kind === "passage")
+        return (
+          a.behavior === "passage" && nearby(a.pose.position, anchor.point, 2)
+        );
+      if (commission.kind === "cameo")
+        return nearby(a.pose.position, anchor.point, 12);
+      if (commission.kind === "incident")
+        return (
+          frame.hats.some(
+            (h) => h.carrier === `animal:${a.id}` && pointVisible(h.position),
+          ) ||
+          frame.spills.some(
+            (s) =>
+              s.portions > 0 &&
+              s.untilTick > frame.tick &&
+              a.behavior === "investigate" &&
+              nearby(s.position, a.pose.position, 2) &&
+              pointVisible([
+                s.position[0],
+                s.position[1] + 0.04,
+                s.position[2],
+              ]),
+          )
+        );
+      if (commission.kind === "composition") {
+        const landmark = world.placements.find(
+          (p) => p.id === commission.landmark,
+        );
+        if (!landmark || !nearby(a.pose.position, anchor.point, 3))
+          return false;
+        const boxes = [...landmark.solids, ...landmark.occluders];
+        if (!boxes.length) return false;
+        const min = [0, 1, 2].map((i) =>
+          Math.min(...boxes.map((b) => b.min[i])),
+        ) as Vec3;
+        const max = [0, 1, 2].map((i) =>
+          Math.max(...boxes.map((b) => b.max[i])),
+        ) as Vec3;
+        const other = occluders.filter((b) => !b.id.startsWith(landmark.id));
+        let count = 0;
+        for (const x of [min[0], max[0]])
+          for (const y of [min[1], max[1]])
+            for (const z of [min[2], max[2]]) {
+              if (pointVisible([x, y, z], other)) count++;
+            }
+        return count >= 3;
+      }
       return false;
     })
     .map((commission) => commission.id);
@@ -1808,7 +1902,7 @@ export function evaluatePhoto(
       ? "Commission photograph accepted"
       : (subject?.reason ??
         (subject
-          ? `${subject.animal.species}: ${hint?.instructions ?? "Wildlife photograph recorded"}`
+          ? `${residentName(world, subject.animal.id)}: ${hint ? commissionInstructions(world, hint) : "Wildlife photograph recorded"}`
           : (reasons[0] ?? "Find a wildlife subject in the frame"))),
   };
 }

@@ -1,0 +1,47 @@
+{
+  "files": [
+    {
+      "sha256": "6dd75cc15c701cc66b95d154a2cdff892283dbe541913117917c8d2ed9d2f811",
+      "status": "unverified pre-pause draft",
+      "path": "encounters.ts",
+      "original": "D:\\friendslop-games\\games\\wildly-unqualified\\.worktrees\\routines\\encounters.ts"
+    },
+    {
+      "sha256": "9a34c44fa47e0b9cf846f317256750b39c03f6c2195fee5badf7f9edbf0bed40",
+      "status": "unverified pre-pause draft",
+      "path": "encounters.test.ts",
+      "original": "D:\\friendslop-games\\games\\wildly-unqualified\\.worktrees\\routines\\encounters.test.ts"
+    },
+    {
+      "sha256": "ccb46ebd13c89fc2d23d9ade1e16fb4ec8ab22f33663a2adfab5b62f79b595e5",
+      "status": "unverified pre-pause draft",
+      "path": "expedition-equipment.test.ts",
+      "original": "D:\\friendslop-games\\games\\wildly-unqualified\\.worktrees\\routines\\expedition-equipment.test.ts"
+    },
+    {
+      "sha256": "5d2911f068c19fd92867df67444bfcec84306091b570b1249de4a7bb0912df87",
+      "status": "unverified pre-pause draft",
+      "path": "expedition-equipment-helpers.ts",
+      "original": "D:\\friendslop-games\\games\\wildly-unqualified\\.worktrees\\routines\\expedition-equipment-helpers.ts"
+    },
+    {
+      "sha256": "9c7af10f8e2b88870d385f6401a31c5d7ad835e61c7681414ba8f507eae3405c",
+      "status": "unverified pre-pause draft",
+      "path": "expedition-validation.ts",
+      "original": "D:\\friendslop-games\\games\\wildly-unqualified\\.worktrees\\routines\\expedition-validation.ts"
+    },
+    {
+      "sha256": "5f5709ed86d2356db75ba3da014e330226ba614403fc790bba7eb3f385f8f5a4",
+      "status": "historical renderer draft, old paths and incomplete acceptance",
+      "path": "render/client.ts",
+      "original": "D:\\friendslop-games\\games\\wildly-unqualified\\.worktrees\\expedition\\.superpowers\\sdd\\2026-09-06-generated-reserves\\task-5-programmatic-render\\client.ts"
+    },
+    {
+      "sha256": "c45cc4389ca37fcad4ebcd1de0675cca2bc0ca95f113fea59d88dff6e74eba37",
+      "status": "historical renderer draft, old paths and incomplete acceptance",
+      "path": "render/run.mjs",
+      "original": "D:\\friendslop-games\\games\\wildly-unqualified\\.worktrees\\expedition\\.superpowers\\sdd\\2026-09-06-generated-reserves\\task-5-programmatic-render\\run.mjs"
+    }
+  ],
+  "baseline": "b16f00ed549e8dac0f26400d3dadd34e00e29f6a"
+}

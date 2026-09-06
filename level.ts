@@ -12,6 +12,7 @@ import type {
   Walkable,
 } from "./shared.ts";
 import type { Fixture } from "./world.ts";
+import { wildlifeSubjectPoints } from "./wildlife.ts";
 
 function fixtureState(fixture: Fixture, states: FixtureState) {
   const state = states[fixture.id];
@@ -1216,6 +1217,8 @@ export function animalArticulation(animal: Animal, tick: number) {
   };
 }
 export function subjectPoints(animal: Animal, tick: number): Vec3[] {
+  const wildlife = wildlifeSubjectPoints(animal, tick);
+  if (wildlife) return wildlife;
   const points = SUBJECT_POINTS[animal.species].map((p) => [...p] as Vec3);
   if (animal.species === "raccoon" || animal.species === "heron") {
     const pivot: Vec3 =

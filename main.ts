@@ -12,10 +12,14 @@ import {
   fixtureBoxes,
   fixtureSurfaces,
   fixtureLatch,
+  subjectPoints,
 } from "./level.ts";
+import { sightBlocked, rotate } from "./wildlife.ts";
 import {
   validateReserve,
   reserveHash,
+  residentName,
+  commissionInstructions,
   type ReserveBlueprint,
 } from "./world.ts";
 import {
@@ -539,7 +543,7 @@ function updateHud() {
     li.className = s.completed.includes(commission.id) ? "done" : "";
     li.textContent = `${commission.required ? "" : "Optional: "}${commission.title}`;
     const small = document.createElement("small");
-    small.textContent = commission.instructions;
+    small.textContent = commissionInstructions(world!, commission);
     li.append(small);
     list.append(li);
   }
@@ -754,22 +758,35 @@ function updateHud() {
     roost: "roosting",
     tap: "tapping",
     dabble: "dabbling",
+    stalk: "stalking quietly",
+    passage: "following a wildlife trail",
+    freeze: "holding still",
+    bound: "bounding",
+    climb: "climbing",
+    descend: "climbing down",
+    perch: "resting on a perch",
+    fly: "flying to a nearby perch",
+    swim: "swimming",
+    surface: "surfacing",
+    sniff: "sniffing the ground",
   };
   $("camera-hint").textContent = me
     ? s.animals
         .filter((a) => {
-          const point: Vec3 = [
-            a.pose.position[0],
-            a.pose.position[1] + 0.7,
-            a.pose.position[2],
-          ];
           return (
             distance(me.position, a.pose.position) < 20 &&
-            !rayBlocked(eye(me), point, walls) &&
-            !propRayBlocked(eye(me), point, s.props, PROP_DEFINITIONS)
+            subjectPoints(a, s.tick).every((local) => {
+              const point = rotate(local, a.pose.rotation).map(
+                (v, i) => v + a.pose.position[i],
+              ) as Vec3;
+              return (
+                !sightBlocked(world!, eye(me), point, walls) &&
+                !propRayBlocked(eye(me), point, s.props, PROP_DEFINITIONS)
+              );
+            })
           );
         })
-        .map((a) => `${a.species}: ${behavior[a.behavior]}`)
+        .map((a) => `${residentName(world!, a.id)}: ${behavior[a.behavior]}`)
         .join(" · ") || "Find a clear angle; give wildlife room."
     : "";
   if ($<HTMLDialogElement>("notebook").open) {

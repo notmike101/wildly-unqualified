@@ -1,0 +1,2 @@
+# Preserve pre-pause draft bytes so MANIFEST.json hashes survive checkout.
+* -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol

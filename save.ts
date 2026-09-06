@@ -198,6 +198,17 @@ function animal(value: unknown) {
     "roost",
     "tap",
     "dabble",
+    "stalk",
+    "passage",
+    "freeze",
+    "bound",
+    "climb",
+    "descend",
+    "perch",
+    "fly",
+    "swim",
+    "surface",
+    "sniff",
   ]);
   pose(v.pose);
   num(v.remaining, -1, 1e8);

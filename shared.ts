@@ -41,7 +41,18 @@ export type Behavior =
   | "dig"
   | "roost"
   | "tap"
-  | "dabble";
+  | "dabble"
+  | "stalk"
+  | "passage"
+  | "freeze"
+  | "bound"
+  | "climb"
+  | "descend"
+  | "perch"
+  | "fly"
+  | "swim"
+  | "surface"
+  | "sniff";
 export type Assignment =
   | "raccoon-inspect"
   | "heron-display"

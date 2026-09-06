@@ -20,6 +20,9 @@ const runtime = [
   "level.ts",
   "encounters.ts",
   "world.ts",
+  "wildlife.ts",
+  "wildlife-data.ts",
+  "support-meshes.ts",
 ];
 export async function buildRelease(
   destination = resolve(

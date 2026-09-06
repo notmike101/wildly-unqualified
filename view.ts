@@ -5,8 +5,9 @@ import {
   PROP_DEFINITIONS,
   animalArticulation,
   fixtureBoxes,
+  type WorldPlacement,
 } from "./level.ts";
-import type { ReserveBlueprint } from "./world.ts";
+import { residentName, type ReserveBlueprint } from "./world.ts";
 import {
   eye,
   distance,
@@ -18,7 +19,8 @@ import {
   type Snapshot,
   type Vec3,
 } from "./shared.ts";
-import { addForest, findPart } from "./forest-view.ts";
+import { addForest, findPart, instanceModel } from "./forest-view.ts";
+import { wildlifeParts, sightBlocked, bankStance, rotate } from "./wildlife.ts";
 
 export const CREW_COLORS = [0xf4bd4f, 0xef7166, 0x51bddb, 0xb397ee];
 export const CAMERA_FAR = 360;
@@ -180,6 +182,46 @@ export async function createView(scene: THREE.Scene, world: ReserveBlueprint) {
       point.position[2],
     ]);
     marker.rotation.x = -Math.PI / 2;
+  }
+  // Reuse the authored paw impressions as quiet trail clues; these flat marks
+  // are scenery, not a second navigation or objective state.
+  const tracks: WorldPlacement[] = [];
+  for (const pocket of world.pockets) {
+    const path = pocket.anchors.filter(
+      (a) => a.kind === "passage" && !a.id.endsWith("-start"),
+    );
+    for (let i = 1; i < path.length; i++) {
+      const a = path[i - 1].point,
+        b = path[i].point,
+        length = distance(a, b);
+      for (let along = 0.6; along < length; along += 1.3)
+        tracks.push({
+          id: `track-${tracks.length}`,
+          model: "RaccoonTracks",
+          position: a.map(
+            (v, axis) =>
+              v + ((b[axis] - v) * along) / length + (axis === 1 ? 0.035 : 0),
+          ) as Vec3,
+          yaw: Math.atan2(a[0] - b[0], a[2] - b[2]),
+          scale: [0.8, 1, 0.8],
+          solids: [],
+          occluders: [],
+        });
+    }
+  }
+  const trackModel = findPart(assets.get("reserve-kit")!, "RaccoonTracks");
+  if (trackModel && tracks.length) scene.add(instanceModel(trackModel, tracks));
+  for (const resident of world.residents.filter(
+    (r) => r.species === "beaver",
+  )) {
+    const stance = bankStance(world, resident.id),
+      offset = rotate([0, 0, -0.75], stance.rotation);
+    const pile = field(
+      "BranchPile",
+      stance.position.map((v, i) => v + offset[i]) as Vec3,
+      0.6,
+    );
+    if (pile) pile.quaternion.set(...stance.rotation);
   }
   const tin =
     field("Tin", [...world.tinStart]) ??
@@ -411,7 +453,40 @@ export async function createView(scene: THREE.Scene, world: ReserveBlueprint) {
       o.visible = true;
       o.position.set(...a.pose.position);
       o.quaternion.set(...a.pose.rotation);
+      const fieldLabel = playerLabel(
+        a.id,
+        residentName(world, a.id),
+        world.residents
+          .filter((r) => r.species === a.species)
+          .findIndex((r) => r.id === a.id) % 4,
+      );
+      fieldLabel.position.set(
+        a.pose.position[0],
+        a.pose.position[1] +
+          (a.species === "deer" ? 2.2 : a.species === "heron" ? 1.9 : 1.15),
+        a.pose.position[2],
+      );
+      fieldLabel.scale.set(2.1, 0.36, 1);
+      fieldLabel.visible =
+        !photo &&
+        !!local &&
+        distance(local.position, a.pose.position) < 18 &&
+        !sightBlocked(
+          world,
+          eye(local),
+          [a.pose.position[0], a.pose.position[1] + 0.5, a.pose.position[2]],
+          occluders,
+        );
       const phase = state.tick / 60;
+      if (!["raccoon", "deer", "heron"].includes(a.species)) {
+        for (const [name, angles] of Object.entries(
+          wildlifeParts(a, state.tick),
+        )) {
+          const part = findPart(o, name);
+          if (part) part.rotation.set(...angles, "XYZ");
+        }
+        return;
+      }
       const walking =
         ["wander", "approach", "carry", "investigate", "retreat"].includes(
           a.behavior,
@@ -693,6 +768,7 @@ export async function createView(scene: THREE.Scene, world: ReserveBlueprint) {
     const geometry = new Set<THREE.BufferGeometry>(),
       materials = new Set<THREE.Material>(ownedMaterials);
     scene.traverse((o) => {
+      if (o instanceof THREE.InstancedMesh) o.dispose();
       if (o instanceof THREE.Mesh) {
         geometry.add(o.geometry);
         for (const m of Array.isArray(o.material) ? o.material : [o.material])
