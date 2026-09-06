@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as Shared from "./shared.ts";
 import {
-  parseMessage,
+  parseMessage as parseWorldMessage,
   movePlayer,
   rayBlocked,
   surfaceHeight,
@@ -11,6 +11,7 @@ import {
   type Walkable,
   type FieldProp,
 } from "./shared.ts";
+function parseMessage(value: unknown) { return parseWorldMessage(value && typeof value === "object" ? {worldId:"test-world",...value} : value); }
 const equipmentTarget = (Shared as any).equipmentTarget;
 const equipmentUseTarget = (Shared as any).equipmentUseTarget;
 const playerSpeed = (Shared as any).playerSpeed;
@@ -39,6 +40,7 @@ const input: Input = {
 
 test("favorites accept only a bounded canonical photo ID, boolean and safe sequence", () => {
   const message = {
+    worldId: "test-world",
     type: "favorite",
     seq: 1,
     photoId: "photo-1",
@@ -143,6 +145,7 @@ test("small steps can escape an existing box overlap along either axis", () => {
 
 test("wire parser refuses nonfinite, unknown, extra and oversized input", () => {
   assert.deepEqual(parseMessage({ type: "input", value: input }), {
+    worldId:"test-world",
     type: "input",
     value: input,
   });

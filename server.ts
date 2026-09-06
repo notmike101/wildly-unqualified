@@ -1,3 +1,4 @@
+import { reserveHash } from "./world.ts";
 import {
   createServer,
   type IncomingMessage,
@@ -164,7 +165,7 @@ export async function startServer(
   await access(dataRoot, constants.W_OK);
   let room = await loadRoom(dataRoot);
   const loaded = await loadRun(dataRoot),
-    run = loaded?.run ?? createRun(randomBytes(4).readUInt32LE(0)),
+    run = loaded?.run ?? createRun(randomBytes(4).readUInt32LE(0), randomUUID()),
     images = loaded?.images ?? new Map<string, Uint8Array>();
   if (!loaded && room.hostId !== null)
     throw Error(
@@ -187,7 +188,7 @@ export async function startServer(
   const rates = new Map<string, { start: number; count: number }>();
   const eventId = (event: (typeof run.events)[number]) =>
     `${event.tick}:${event.kind}:${event.player}:${event.point.join(",")}`;
-  const heard = new Set(run.events.map(eventId));
+  const heard = new Set(run.events.map(event => `${run.worldId}-${eventId(event)}`));
   let alerting = new Set(
     run.animals
       .filter((animal) => animal.behavior === "alert")
@@ -217,9 +218,10 @@ export async function startServer(
     }
     return ++entry.count <= limit;
   }
+  const worldMessage = { type: "world" as const, id: run.worldId, hash: await reserveHash(run.world), blueprint: run.world };
   function send(socket: WebSocket, message: ServerMessage) {
     if (socket.readyState !== WebSocket.OPEN) return;
-    if (socket.bufferedAmount > 256 * 1024) {
+    if (socket.bufferedAmount > 4 * 1024 * 1024) {
       socket.terminate();
       return;
     }
@@ -242,7 +244,7 @@ export async function startServer(
   }
   function emitCues() {
     for (const event of run.events) {
-      const id = eventId(event);
+      const id = `${run.worldId}-${eventId(event)}`;
       if (heard.has(id)) continue;
       heard.add(id);
       if (heard.size > 128) heard.delete(heard.values().next().value!);
@@ -250,6 +252,7 @@ export async function startServer(
       if (kind)
         cue({
           type: "cue",
+          worldId: run.worldId,
           id,
           kind,
           source: event.player,
@@ -263,7 +266,8 @@ export async function startServer(
         if (!alerting.has(animal.id))
           cue({
             type: "cue",
-            id: `alert:${run.tick}:${animal.id}`,
+          worldId: run.worldId,
+            id: `${run.worldId}-alert-${run.tick}-${animal.id}`,
             kind: "alert",
             source: animal.id,
             position: animal.pose.position,
@@ -599,6 +603,7 @@ export async function startServer(
         ws.on("error", () => {});
         ws.on("pong", () => alive.add(ws));
         send(ws, { type: "welcome", ...identity(s) });
+        send(ws, worldMessage);
         send(ws, { type: "snapshot", value: snapshot(run) });
         for (const frame of Object.values(run.pendingPhotos))
           if (frame.photographer === s.playerId)
@@ -626,6 +631,7 @@ export async function startServer(
               send(ws, { type: "photo", ...result });
               cue({
                 type: "cue",
+          worldId: run.worldId,
                 id: result.frame.id,
                 kind: "shutter",
                 source: s.playerId,

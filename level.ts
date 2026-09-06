@@ -65,6 +65,15 @@ export function fixtureSurfaces(
   );
 }
 
+export function fixtureLatch(fixture: Fixture, states: FixtureState): Vec3 | null {
+  if (!fixture.latch || !fixtureState(fixture, states).open) return fixture.latch;
+  const dx = fixture.latch[0] - fixture.position[0], dz = fixture.latch[2] - fixture.position[2],
+    localX = dx * Math.cos(fixture.yaw) - dz * Math.sin(fixture.yaw),
+    localZ = dx * Math.sin(fixture.yaw) + dz * Math.cos(fixture.yaw),
+    x = -2.2 + localZ, z = -(localX + 2.2);
+  return [fixture.position[0] + x * Math.cos(fixture.yaw) + z * Math.sin(fixture.yaw), fixture.latch[1], fixture.position[2] - x * Math.sin(fixture.yaw) + z * Math.cos(fixture.yaw)];
+}
+
 export type WorldPlacement = {
   id: string;
   model: string;
@@ -1075,6 +1084,15 @@ export const RULES = {
   photoCooldown: 1,
 };
 export const SUBJECT_POINTS: Record<Species, Vec3[]> = {
+  badger: [[0.0, 0.33, 0.04], [0.0, 0.4, -0.38]],
+  beaver: [[0.0, 0.32, 0.04], [0.0, 0.4, -0.32]],
+  fox: [[0.0, 0.48, 0.02], [0.0, 0.7, -0.37]],
+  mallard: [[0.0, 0.248, 0.04], [0.0, 0.518, -0.225]],
+  otter: [[0.0, 0.22, 0.03], [0.0, 0.28, -0.38]],
+  owl: [[0.0, 0.3, 0.0], [0.0, 0.58, -0.035]],
+  rabbit: [[0.0, 0.26, 0.04], [0.0, 0.37, -0.18]],
+  squirrel: [[0.0, 0.25, 0.02], [0.0, 0.455, -0.105]],
+  woodpecker: [[0.0, 0.21, 0.015], [0.0, 0.365, -0.04]],
   raccoon: [
     [-0.15, 0.35, -0.2],
     [0.15, 0.35, -0.2],
@@ -1091,6 +1109,15 @@ export const SUBJECT_POINTS: Record<Species, Vec3[]> = {
   ],
 };
 export const SUBJECT_HEIGHT: Record<Species, number> = {
+  badger: 0.551,
+  beaver: 0.555,
+  fox: 0.965,
+  mallard: 0.623,
+  otter: 0.385,
+  owl: 0.79043,
+  rabbit: 0.77,
+  squirrel: 0.7,
+  woodpecker: 0.485,
   raccoon: 0.703,
   heron: 1.56,
   deer: 1.9,
@@ -1153,7 +1180,7 @@ export function animalArticulation(animal: Animal, tick: number) {
 }
 export function subjectPoints(animal: Animal, tick: number): Vec3[] {
   const points = SUBJECT_POINTS[animal.species].map((p) => [...p] as Vec3);
-  if (animal.species !== "deer") {
+  if (animal.species === "raccoon" || animal.species === "heron") {
     const pivot: Vec3 =
         animal.species === "raccoon" ? [0, 0.45, -0.26] : [0, 1.446, -0.3],
       p = points[2],

@@ -3,7 +3,7 @@ import { test } from "node:test";
 import {
   addPlayer,
   advanceRun,
-  applyCommand,
+  applyCommand as applyWorldCommand,
   createRun,
   evaluatePhoto,
   makePhotoFrame,
@@ -12,6 +12,8 @@ import {
   HABITAT_SITES,
   CAMP,
   PROP_DEFINITIONS,
+  fixtureSurfaces,
+  fixtureBoxes,
   WALLS,
   WOODLAND_WASH_SITES,
   NAV_NODES,
@@ -45,9 +47,15 @@ function step(run: ReturnType<typeof createRun>, seconds: number) {
   for (let i = 0; i < seconds * 60; i++) advanceRun(run, 1 / 60);
 }
 
+function home(run: ReturnType<typeof createRun>, species: string): Vec3 { const resident = run.world.residents.find(r => r.species === species)!; return run.world.pockets.find(p => p.id === resident.home)!.position; }
+function anchor(run: ReturnType<typeof createRun>, species: string, kind: string): Vec3 { const resident = run.world.residents.find(r => r.species === species)!; return run.world.pockets.find(p => p.id === resident.home)!.anchors.find(a => a.kind === kind)!.point; }
+function applyCommand(run: ReturnType<typeof createRun>, id: string, input: Record<string, unknown>) {
+  return applyWorldCommand(run, id, {worldId: run.worldId, ...input});
+}
+
 test("a crowded raccoon looks and reaches before a theft; stepping away interrupts it", () => {
   const run = crew(),
-    r = run.animals[0],
+    r = run.animals.find(a => a.species === "raccoon")!,
     p = run.players[0];
   p.position = [r.pose.position[0], 0, r.pose.position[2] + 1];
   step(run, 0.2);
@@ -88,7 +96,7 @@ test("a crowded raccoon looks and reaches before a theft; stepping away interrup
     ) < 1e-6,
   );
   assert.equal(run.hats[0].protectedUntilTick - run.hats[0].untilTick, 1800);
-  assert.equal(run.hats.filter((h) => h.carrier === "raccoon").length, 1);
+  assert.equal(run.hats.filter((h) => h.carrier.startsWith("animal:")).length, 1);
   const ally = run.players[1];
   ally.position = [r.pose.position[0], 0, r.pose.position[2] + 0.5];
   applyCommand(run, "b", { type: "interact", seq: ally.lastSeq + 1 });
@@ -105,7 +113,7 @@ test("a crowded raccoon looks and reaches before a theft; stepping away interrup
 
 test("a raccoon consumes a reached spill once without changing goals or prepared routes", () => {
   const run = crew(),
-    r = run.animals[0];
+    r = run.animals.find(a => a.species === "raccoon")!;
   const progress = structuredClone([
     run.world,
     run.completed,
@@ -128,7 +136,7 @@ test("a raccoon consumes a reached spill once without changing goals or prepared
 test("a close hat behind a solid screen is not reachable and disconnect restores a stolen hat", async () => {
   const { disconnectPlayer } = await import("./game.ts");
   const run = crew(),
-    r = run.animals[0],
+    r = run.animals.find(a => a.species === "raccoon")!,
     p = run.players[0],
     screen = run.props.find((p) => p.kind === "screen")!;
   r.pose = pose([0, 0, 0]);
@@ -162,15 +170,15 @@ test("seeded outings spawn three species at the selected sites and reach every s
         run.animals.find((a) => a.species === species)!.pose.position,
         HABITAT_SITES[habitat][run.world.sites[habitat]],
       );
-    assert.equal(new Set(run.world.assignments).size, 4);
-    selections.add(JSON.stringify([run.world.sites, run.world.assignments]));
+    assert.equal(new Set(run.world.commissions.filter(c => c.required).map(c => c.id)).size, 4);
+    selections.add(JSON.stringify([run.world.sites, run.world.commissions.filter(c => c.required).map(c => c.id)]));
   }
   assert.equal(selections.size, 64);
 });
 
 test("held open tin interest ends and a moved setup restores an actual inspection", () => {
   const run = crew(),
-    r = run.animals[0],
+    r = run.animals.find(a => a.species === "raccoon")!,
     p = run.players[0];
   p.position = [r.pose.position[0], 0, r.pose.position[2] + 1.4];
   run.tin.holder = p.id;
@@ -188,13 +196,13 @@ test("held open tin interest ends and a moved setup restores an actual inspectio
 
 test("all four selected commissions are required for camp return", () => {
   const run = crew();
-  run.completed = run.world.assignments.slice(0, 3);
+  run.completed = run.world.commissions.filter(c => c.required).map(c => c.id).slice(0, 3);
   run.players.forEach((p) => (p.position = [...CAMP]));
   assert.throws(
     () => applyCommand(run, "a", { type: "ready-end", seq: 2 }),
     /assignment|photo/i,
   );
-  run.completed = [...run.world.assignments];
+  run.completed = [...run.world.commissions.filter(c => c.required).map(c => c.id)];
   applyCommand(run, "a", { type: "ready-end", seq: 3 });
   applyCommand(run, "b", { type: "ready-end", seq: 1 });
   applyCommand(run, "a", { type: "finish", seq: 4 });
@@ -270,7 +278,7 @@ test("deer distinguishes exposed players and real noise from quiet screen cover"
 test("an expired running input cannot manufacture continuing noise", () => {
   const run = crew(),
     p = run.players[0],
-    d = run.animals[2];
+    d = run.animals.find(a => a.species === "deer")!;
   p.position = [d.pose.position[0], 0, d.pose.position[2] + 6];
   applyCommand(run, p.id, {
     type: "input",
@@ -294,7 +302,7 @@ test("an expired running input cannot manufacture continuing noise", () => {
 
 test("unreachable lures behind equipment never pull an animal through a panel", () => {
   const run = crew(),
-    r = run.animals[0],
+    r = run.animals.find(a => a.species === "raccoon")!,
     screen = run.props.find((p) => p.kind === "screen")!;
   screen.pose = pose([r.pose.position[0], 0.97, r.pose.position[2] - 1]);
   run.tin.pose = pose([r.pose.position[0], 0.109, r.pose.position[2] - 2]);
@@ -318,7 +326,7 @@ test("unreachable lures behind equipment never pull an animal through a panel", 
 
 test("an inaccessible tin does not hide an accessible filled decoy cup", () => {
   const run = crew(),
-    r = run.animals[0],
+    r = run.animals.find(a => a.species === "raccoon")!,
     item = run.props.find((p) => p.kind === "case")!,
     decoy = run.props.find((p) => p.kind === "decoy")!;
   item.pose = pose([r.pose.position[0], 0.325, r.pose.position[2] - 2]);
@@ -336,7 +344,7 @@ test("calm goal choices avoid immediately repeating a completed goal", () => {
   const behaviors = new Set<string>();
   for (let i = 0; i < 1000; i++) {
     step(run, 0.1);
-    behaviors.add(run.animals[2].behavior);
+    behaviors.add(run.animals.find(a => a.species === "deer")!.behavior);
   }
   assert.ok(
     behaviors.has("graze") && behaviors.has("settle"),
@@ -351,7 +359,7 @@ test("calm goal choices avoid immediately repeating a completed goal", () => {
 
 test("a heron walks between resting sites and preens while stationary", () => {
   const run = crew(),
-    h = run.animals[1],
+    h = run.animals.find(a => a.species === "heron")!,
     behaviors = new Set<string>();
   for (let i = 0; i < 400; i++) {
     const before = [...h.pose.position] as Vec3,
@@ -366,7 +374,7 @@ test("a heron walks between resting sites and preens while stationary", () => {
 
 test("a raccoon stops washing when the visible food is removed", () => {
   const run = crew(8),
-    r = run.animals[0],
+    r = run.animals.find(a => a.species === "raccoon")!,
     wash = WOODLAND_WASH_SITES[0];
   run.tin.pose = pose([wash[0] + 0.6, 0.109, wash[2]]);
   run.tin.open = true;
@@ -396,9 +404,9 @@ test("deer cautiously investigates the actual moved decoy and resumes interest a
 test("washing requires food at the selected stream and heron feeding follows either selected patch", () => {
   for (const seed of [8, 13]) {
     const run = crew(seed),
-      r = run.animals[0],
-      h = run.animals[1],
-      wash = WOODLAND_WASH_SITES[run.world.sites.woodland];
+      r = run.animals.find(a => a.species === "raccoon")!,
+      h = run.animals.find(a => a.species === "heron")!,
+      wash = anchor(run, "raccoon", "wash");
     run.tin.pose = pose([wash[0] + 0.6, 0.109, wash[2]]);
     run.tin.open = true;
     run.tin.portions = 0;
@@ -409,16 +417,16 @@ test("washing requires food at the selected stream and heron feeding follows eit
     // Changing an exhausted lure to food is a meaningful setup change.
     for (let i = 0; i < 60 && r.behavior !== "wash"; i++) step(run, 0.1);
     assert.equal(r.behavior, "wash");
-    const patch = HABITAT_SITES.wetland[run.world.sites.wetland],
+    const patch = home(run, "heron"),
       p = run.players[0];
     run.tin.holder = p.id;
     p.position = [patch[0], 0, patch[2] + 1];
     applyCommand(run, p.id, { type: "use", seq: p.lastSeq + 1 });
-    assert.equal(run.baitPatch, 1);
+    assert.equal(run.baitPatches[run.world.pockets.flatMap(p => p.anchors).find(a => a.kind === "feed")!.id], 1);
     p.position = [...CAMP];
     step(run, 15);
     assert.ok(distance(h.pose.position, patch) < 3);
-    assert.equal(run.baitPatch, 0);
+    assert.equal(run.baitPatches[run.world.pockets.flatMap(p => p.anchors).find(a => a.kind === "feed")!.id], 0);
   }
 });
 
@@ -473,12 +481,12 @@ test("a rotated screen keeps the edge of its opening clear in the immutable phot
 test("every seed's four selected commissions are attainable through actual encounter states", () => {
   for (let seed = 0; seed < 64; seed++) {
     const run = crew(seed),
-      r = run.animals[0],
-      h = run.animals[1],
-      d = run.animals[2],
+      r = run.animals.find(a => a.species === "raccoon")!,
+      h = run.animals.find(a => a.species === "heron")!,
+      d = run.animals.find(a => a.species === "deer")!,
       p = run.players[0],
-      wash = WOODLAND_WASH_SITES[run.world.sites.woodland],
-      wet = HABITAT_SITES.wetland[run.world.sites.wetland];
+      wash = anchor(run, "raccoon", "wash"),
+      wet = home(run, "heron");
     const until = (condition: () => boolean, seconds = 15) => {
       for (let i = 0; i < seconds * 10 && !condition(); i++) step(run, 0.1);
       assert.ok(condition(), `seed ${seed}: ${JSON.stringify(run.animals)}`);
@@ -495,7 +503,7 @@ test("every seed's four selected commissions are attainable through actual encou
       p.position = [...CAMP];
       return result.verdict;
     };
-    if (run.world.assignments.includes("raccoon-wash")) {
+    if (run.world.commissions.filter(c => c.required).map(c => c.id).includes("raccoon-wash")) {
       run.tin.pose = pose([wash[0] + 0.6, 0.109, wash[2]]);
       run.tin.open = true;
       until(() => r.behavior === "wash");
@@ -505,7 +513,7 @@ test("every seed's four selected commissions are attainable through actual encou
       );
     }
     const decoy = run.props.find((p) => p.kind === "decoy")!;
-    if (run.world.assignments.includes("deer-decoy")) {
+    if (run.world.commissions.filter(c => c.required).map(c => c.id).includes("deer-decoy")) {
       decoy.pose = pose([d.pose.position[0] + 3, 0.5, d.pose.position[2]]);
       until(() => d.behavior === "investigate");
       assert.ok(
@@ -519,7 +527,7 @@ test("every seed's four selected commissions are attainable through actual encou
         `graze ${seed}`,
       );
     }
-    if (run.world.assignments.includes("heron-preen")) {
+    if (run.world.commissions.filter(c => c.required).map(c => c.id).includes("heron-preen")) {
       until(() => h.behavior === "preen");
       assert.ok(
         photograph(h.pose.position).credits.includes("heron-preen"),
@@ -532,7 +540,7 @@ test("every seed's four selected commissions are attainable through actual encou
     r.remaining = 0;
     run.tin.holder = null;
     run.tin.open = false;
-    run.baitPatch = 1;
+    run.baitPatches[run.world.pockets.flatMap(p => p.anchors).find(a => a.kind === "feed")!.id] = 1;
     until(() => h.behavior === "feed" && h.remaining <= 3);
     run.tin.pose = pose([wet[0] - 5, 0.109, wet[2]]);
     run.tin.open = true;
@@ -544,7 +552,7 @@ test("every seed's four selected commissions are attainable through actual encou
     );
     assert.deepEqual(
       new Set(run.completed),
-      new Set(run.world.assignments),
+      new Set(run.world.commissions.filter(c => c.required).map(c => c.id)),
       `completion ${seed}`,
     );
   }

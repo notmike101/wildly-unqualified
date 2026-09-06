@@ -1,19 +1,7 @@
 import * as THREE from "three/webgpu";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import {
-  PATCH,
-  WALLS,
-  TIN_START,
-  CLUES,
-  WORLD_PLACEMENTS,
-  PROP_CENTER_HEIGHT,
-  PROP_DEFINITIONS,
-  PLANK_PLACEMENTS,
-  HABITAT_SITES,
-  WOODLAND_WASH_SITES,
-  animalArticulation,
-  routeBoxes,
-} from "./level.ts";
+import { PROP_CENTER_HEIGHT, PROP_DEFINITIONS, animalArticulation, fixtureBoxes } from "./level.ts";
+import type { ReserveBlueprint } from "./world.ts";
 import {
   eye,
   distance,
@@ -49,7 +37,13 @@ export function alignLocalCarry(
       p.position = shift(p.position);
 }
 
-export async function createView(scene: THREE.Scene) {
+const assetLoads = new Map<string, ReturnType<GLTFLoader["loadAsync"]>>();
+function loadAsset(name: string, loader: GLTFLoader) {
+  let promise = assetLoads.get(name);
+  if (!promise) { promise = loader.loadAsync(`/models/${name}.glb`); assetLoads.set(name, promise); }
+  return promise;
+}
+export async function createView(scene: THREE.Scene, world: ReserveBlueprint) {
   const loader = new GLTFLoader();
   const assets = new Map<string, THREE.Group>();
   const ownedMaterials = new Set<THREE.Material>();
@@ -87,9 +81,11 @@ export async function createView(scene: THREE.Scene) {
     "expedition-kit-v3",
     "raccoon-dark",
     "heron-reed",
+    "wildlife-kit-v4",
+    "wildlife-habitat-v4",
   ]) {
     try {
-      const gltf = await loader.loadAsync(`/models/${name}.glb`);
+      const gltf = await loadAsset(name, loader);
       assets.set(name, gltf.scene);
       gltf.scene.traverse((o) => {
         if (o instanceof THREE.Mesh) {
@@ -102,7 +98,7 @@ export async function createView(scene: THREE.Scene) {
     }
   }
   function clone(name: string) {
-    const src = assets.get(name);
+    const src = assets.get(name) ?? (assets.has("wildlife-kit-v4") ? findPart(assets.get("wildlife-kit-v4")!, name[0].toUpperCase() + name.slice(1)) : undefined);
     if (!src) return null;
     const model = src.clone(true);
     model.traverse((o) => bases.set(o, o.rotation.clone()));
@@ -120,7 +116,7 @@ export async function createView(scene: THREE.Scene) {
     scene.add(o);
     return o;
   }
-  const forest = addForest(scene, assets);
+  const forest = addForest(scene, assets, world);
   errors.push(...forest.errors);
   function sign(text: string, position: Vec3, rotation = 0) {
     const canvas = document.createElement("canvas");
@@ -147,41 +143,27 @@ export async function createView(scene: THREE.Scene) {
     s.rotation.y = rotation;
     scene.add(s);
   }
-  for (const p of WORLD_PLACEMENTS.filter((p) => p.model === "TrailBoard"))
+  for (const p of world.placements.filter((p) => p.model === "TrailBoard"))
     sign("WILLOWMERE", p.position, p.yaw);
-  const patch = mesh(new THREE.RingGeometry(1.4, 1.6, 32), 0xcac198, [
-    PATCH[0],
-    0.025,
-    PATCH[2],
-  ]);
-  patch.rotation.x = -Math.PI / 2;
-  const washMarkers = WOODLAND_WASH_SITES.map((point) => {
-    const marker = mesh(new THREE.RingGeometry(1.2, 1.27, 24), 0xcac198, [
-      point[0],
-      0.04,
-      point[2],
-    ]);
+  for (const anchor of world.pockets.flatMap(p => p.anchors).filter(a => ["feed", "wash"].includes(a.kind))) {
+    const marker = mesh(new THREE.RingGeometry(1.2, 1.27, 24), 0xcac198, [anchor.point[0], anchor.point[1] + 0.04, anchor.point[2]]);
     marker.rotation.x = -Math.PI / 2;
-    return marker;
-  });
-  for (const c of CLUES) {
-    const marker = mesh(new THREE.RingGeometry(0.3, 0.35, 16), 0xdec378, [
-      c.position[0],
-      0.026,
-      c.position[2],
-    ]);
+  }
+  for (const point of world.navNodes.filter(n => n.id.includes("-camera-"))) {
+    const marker = mesh(new THREE.RingGeometry(0.3, 0.35, 16), 0xdec378, [point.position[0], point.position[1] + 0.026, point.position[2]]);
     marker.rotation.x = -Math.PI / 2;
   }
   const tin =
-    field("Tin", [...TIN_START]) ??
+    field("Tin", [...world.tinStart]) ??
     mesh(new THREE.CylinderGeometry(0.147, 0.147, 0.218, 10), 0xcaae60, [
-      ...TIN_START,
+      ...world.tinStart,
     ]);
   function actor(id: string, species: string, index = 0) {
     let o = actors.get(id);
     if (o) return o;
-    o = clone(species) ?? new THREE.Group();
-    if (!assets.has(species)) {
+    const imported = clone(species);
+    o = imported ?? new THREE.Group();
+    if (!imported) {
       const body = new THREE.Mesh(
         new THREE.CapsuleGeometry(0.3, 0.8, 4, 8),
         material(palette[index % 4]),
@@ -244,8 +226,8 @@ export async function createView(scene: THREE.Scene) {
     ownedMaterials.add(m);
     return m;
   });
-  const crossingGuides = Object.entries(PLANK_PLACEMENTS).map(
-    ([id, placement]) => {
+  const crossingGuides = world.fixtures.filter(f => f.kind === "crossing").flatMap(f => Object.entries(f.seats).map(([seat, placement]) => ({id: f.id, plankId: f.plankId, seat, placement}))).map(
+    ({id, plankId, seat, placement}) => {
       const guideMaterial = new THREE.MeshBasicMaterial({
         color: 0xe7cf86,
         transparent: true,
@@ -273,7 +255,7 @@ export async function createView(scene: THREE.Scene) {
           .add(guide.position);
         mark.quaternion.copy(guide.quaternion);
       }
-      return { id, guide };
+      return { id, plankId, seat, placement, guide };
     },
   );
   const headwear = new Map<string, THREE.Object3D>();
@@ -325,12 +307,8 @@ export async function createView(scene: THREE.Scene) {
   function update(state: Snapshot, localId: string, photo = false) {
     const alive = new Set<string>();
     const local = state.players.find((p) => p.id === localId);
-    const feeding = HABITAT_SITES.wetland[state.world.sites.wetland];
-    patch.position.set(feeding[0], feeding[1] + 0.025, feeding[2]);
-    washMarkers.forEach((marker, i) => {
-      marker.visible = i === state.world.sites.woodland;
-    });
-    const occluders = [...WALLS, ...routeBoxes(state.route)];
+    if (state.worldId !== world.id) throw Error("View world mismatch");
+    const occluders = [...world.walls, ...fixtureBoxes(world.fixtures, state.route)];
     const target =
       local && !heldProp(localId, state.props) && state.tin.holder !== localId
         ? equipmentTarget(local, state.props, PROP_DEFINITIONS, occluders)
@@ -376,13 +354,13 @@ export async function createView(scene: THREE.Scene) {
       }
     });
     forest.update(state.route);
-    const variant = state.world.seed % 2;
+    const variant = world.seed % 2;
     state.animals.forEach((a) => {
       const o = actor(
         a.id,
         a.species === "deer"
           ? "deer-v3"
-          : variant
+          : !["raccoon", "heron"].includes(a.species) ? a.species : variant
             ? a.species === "raccoon"
               ? "raccoon-dark"
               : "heron-reed"
@@ -425,7 +403,7 @@ export async function createView(scene: THREE.Scene) {
             part.rotation.x += -1.15 + Math.sin(phase * 6) * 0.15;
         }
       }
-      for (const n of ["WingL", "WingR"]) {
+      for (const n of a.species === "heron" ? ["WingL", "WingR"] : []) {
         const part = findPart(o, n);
         if (part) {
           part.rotation.copy(bases.get(part) ?? new THREE.Euler());
@@ -552,15 +530,14 @@ export async function createView(scene: THREE.Scene) {
     const carriedPlank = state.props.find(
       (p) => p.kind === "plank" && p.holders.includes(localId),
     );
-    for (const { id, guide } of crossingGuides) {
+    for (const { id, plankId, placement, guide } of crossingGuides) {
       guide.visible =
         !photo &&
-        !state.route.crossing &&
-        !!carriedPlank &&
+        !state.route[id].open &&
+        !!carriedPlank && carriedPlank.id === plankId &&
         !!local &&
         distance(local.position, guide.position.toArray() as Vec3) < 9;
       if (guide.visible && carriedPlank) {
-        const placement = PLANK_PLACEMENTS[id as keyof typeof PLANK_PLACEMENTS];
         const aligned =
           distance(carriedPlank.pose.position, placement.position) <= 0.75 &&
           Math.abs(
@@ -599,15 +576,15 @@ export async function createView(scene: THREE.Scene) {
       }
       hat.visible =
         h.carrier !== "owner" || (player.connected && player.id !== localId);
-      const parent = actors.get(h.carrier === "raccoon" ? "raccoon" : h.owner);
+      const parent = actors.get(h.carrier.startsWith("animal:") ? h.carrier.slice(7) : h.owner);
       const mount =
         parent &&
-        findPart(parent, h.carrier === "raccoon" ? "Head" : "HatMount");
+        findPart(parent, h.carrier.startsWith("animal:") ? "Head" : "HatMount");
       if (h.carrier !== "ground" && mount) {
         mount.updateWorldMatrix(true, false);
         mount.getWorldPosition(hat.position);
         mount.getWorldQuaternion(hat.quaternion);
-        if (h.carrier === "raccoon") hat.position.y += 0.23;
+        if (h.carrier.startsWith("animal:")) hat.position.y += 0.23;
       } else {
         hat.position.set(...h.position);
         hat.quaternion.identity();
@@ -659,6 +636,8 @@ export async function createView(scene: THREE.Scene) {
     }
   }
   function dispose() {
+    const sharedGeometry = new Set<THREE.BufferGeometry>(), sharedMaterials = new Set<THREE.Material>();
+    for (const asset of assets.values()) asset.traverse(o => { if (o instanceof THREE.Mesh) { sharedGeometry.add(o.geometry); for (const m of Array.isArray(o.material) ? o.material : [o.material]) sharedMaterials.add(m); }});
     const geometry = new Set<THREE.BufferGeometry>(),
       materials = new Set<THREE.Material>(ownedMaterials);
     scene.traverse((o) => {
@@ -668,9 +647,10 @@ export async function createView(scene: THREE.Scene) {
           materials.add(m);
       }
     });
-    geometry.forEach((g) => g.dispose());
+    geometry.forEach((g) => { if (!sharedGeometry.has(g)) g.dispose(); });
     const textures = new Set<THREE.Texture>();
     materials.forEach((m) => {
+      if (sharedMaterials.has(m)) return;
       const textured = m as THREE.MeshStandardMaterial;
       if (textured.map) textures.add(textured.map);
       m.dispose();
@@ -679,9 +659,12 @@ export async function createView(scene: THREE.Scene) {
   }
   return {
     update,
+    worldId: world.id,
+    centerShadows: forest.centerShadows,
     dispose: () => {
-      dispose();
       forest.dispose();
+      dispose();
+      scene.clear();
     },
     errors,
   };
@@ -691,9 +674,11 @@ export async function capturePhoto(
   renderer: THREE.WebGPURenderer,
   scene: THREE.Scene,
   frame: PhotoFrame,
+  world: ReserveBlueprint,
   apply: () => void,
   restore: () => void,
 ): Promise<Blob> {
+  if (frame.worldId !== world.id) throw Error("Capture world mismatch");
   const target = new THREE.RenderTarget(640, 360, {
     type: THREE.UnsignedByteType,
     format: THREE.RGBAFormat,

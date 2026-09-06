@@ -11,10 +11,14 @@ import {
   makePhotoFrame,
   advanceRun,
   attachPhysics,
-  applyCommand,
+  applyCommand as applyWorldCommand,
   disconnectPlayer,
 } from "./game.ts";
 import type { Spill } from "./shared.ts";
+
+function applyCommand(run: ReturnType<typeof createRun>, id: string, input: Record<string, unknown>) {
+  return applyWorldCommand(run, id, {worldId: run.worldId, ...input});
+}
 
 test("captured props, hat, gate and articulation remain exact after live changes and restart", async (t) => {
   const dir = await mkdtemp(join(tmpdir(), "wu frozen frame "));
@@ -27,7 +31,7 @@ test("captured props, hat, gate and articulation remain exact after live changes
   const expected = structuredClone(captured);
   run.props[0].pose.position[0] += 2;
   run.props[0].open = true;
-  run.route.gateOpen = true;
+  run.route.gate.open = true;
   run.hats[0].carrier = "ground";
   run.hats[0].position = [...run.players[0].position];
   run.players[0].name = "Changed";
@@ -46,8 +50,8 @@ test("captured props, hat, gate and articulation remain exact after live changes
   await saveRun(dir, run, new Map());
   const restored = (await loadRun(dir))!.run;
   assert.deepEqual(restored.pendingPhotos[captured.id], expected);
-  assert.equal(restored.route.gateOpen, true);
-  assert.equal(restored.pendingPhotos[captured.id].route.gateOpen, false);
+  assert.equal(restored.route.gate.open, true);
+  assert.equal(restored.pendingPhotos[captured.id].route.gate.open, false);
 });
 
 test("saved favorites reject duplicate and foreign crew identities", async (t) => {
@@ -67,30 +71,29 @@ test("saved favorites reject duplicate and foreign crew identities", async (t) =
 test("mid-reach and stolen hats persist their actual theft/drop/protection clocks and owner", async (t) => {
   const dir = await mkdtemp(join(tmpdir(), "wu hat incident "));
   t.after(() => rm(dir, { recursive: true, force: true }));
-  let run = createRun(0);
+  let run = createRun(9);
   addPlayer(run, "a", "A");
   addPlayer(run, "b", "B");
   applyCommand(run, "a", { type: "start", seq: 1 });
-  const deer = run.animals[2],
+  const commission = run.world.commissions.find(c => c.kind === "behavior" && run.world.residents.find(r => r.id === c.subjects[0])!.species === "deer")!,
+    deer = run.animals.find(a => a.id === commission.subjects[0])!,
+    anchor = run.world.pockets.flatMap(p => p.anchors).find(a => a.id === commission.anchor)!.point,
     photographer = run.players[0];
-  photographer.position = [deer.pose.position[0], 0, deer.pose.position[2] + 6];
-  assert.ok(
-    applyCommand(run, "a", { type: "photo", seq: 2 })!.verdict.credits.includes(
-      "deer-graze",
-    ),
-  );
-  run.route.gateOpen = true;
-  const r = run.animals[0];
+  deer.pose.position = [...anchor]; deer.behavior = "graze";
+  photographer.position = [anchor[0], anchor[1], anchor[2] + 5]; photographer.pitch = -0.12;
+  assert.ok(applyCommand(run, "a", {type: "photo", seq: 2})!.verdict.credits.includes(commission.id));
+  run.route.gate.open = true;
+  const r = run.animals.find(a => a.species === "raccoon")!;
   run.players[0].position = [r.pose.position[0], 0, r.pose.position[2] + 1];
   for (let i = 0; i < 30; i++) advanceRun(run, 1 / 60);
   assert.equal(r.behavior, "hat-reach");
   const remaining = r.remaining;
   await saveRun(dir, run, new Map());
   run = (await loadRun(dir))!.run;
-  assert.equal(run.animals[0].remaining, remaining);
+  assert.equal(run.animals.find(a => a.id === r.id)!.remaining, remaining);
   applyCommand(run, "a", { type: "resume", seq: run.players[0].lastSeq + 1 });
   for (let i = 0; i < 65; i++) advanceRun(run, 1 / 60);
-  assert.equal(run.hats[0].carrier, "raccoon");
+  assert.equal(run.hats[0].carrier, `animal:${r.id}`);
   const until = run.hats[0].untilTick,
     protection = run.hats[0].protectedUntilTick;
   const progress = structuredClone([
@@ -128,13 +131,13 @@ test("live and frozen incidents reject contradictory owners, states and far-futu
       (s.spills = [
         {
           id: "spill-1",
-          position: [-70, 0, 34],
+          position: [base.world.waters[0].min[0] + 1, 0, base.world.waters[0].min[2] + 1],
           portions: 1,
           untilTick: s.tick + 60,
         },
       ]),
     (s) =>
-      Object.assign(s.hats[0], { carrier: "ground", position: [-70, 0, 34] }),
+      Object.assign(s.hats[0], { carrier: "ground", position: [base.world.waters[0].min[0] + 1, 0, base.world.waters[0].min[2] + 1] }),
     (s) =>
       (s.spills = [
         {
@@ -220,8 +223,8 @@ test("live and frozen incidents reject contradictory owners, states and far-futu
       );
     }
   for (const change of [
-    (s: any) => (s.animalMemory.raccoon.hatTarget = "missing"),
-    (s: any) => (s.animalMemory.raccoon.hatTarget = "a"),
+    (s: any) => (s.animalMemory[s.animals.find((a: any) => a.species === "raccoon").id].hatTarget = "missing"),
+    (s: any) => (s.animalMemory[s.animals.find((a: any) => a.species === "raccoon").id].hatTarget = "a"),
     (s: any) => (s.animals[0].behavior = "hat-reach"),
   ]) {
     const run = structuredClone(base);
@@ -229,22 +232,22 @@ test("live and frozen incidents reject contradictory owners, states and far-futu
     await assert.rejects(saveRun(dir, run, new Map()));
   }
   const run = structuredClone(base),
-    r = run.animals[0];
+    r = run.animals.find(a => a.species === "raccoon")!;
   applyCommand(run, "a", { type: "start", seq: 1 });
   run.players[0].position = [r.pose.position[0], 0, r.pose.position[2] + 1];
   for (let i = 0; i < 12; i++) advanceRun(run, 1 / 60);
   assert.equal(r.behavior, "hat-reach");
-  run.animalMemory.raccoon.hatTarget = "b";
+  run.animalMemory[run.animals.find(a => a.species === "raccoon")!.id].hatTarget = "b";
   await assert.rejects(
     saveRun(dir, run, new Map()),
     "hat reach memory must name the actual target owner",
   );
-  run.animalMemory.raccoon.hatTarget = "a";
+  run.animalMemory[run.animals.find(a => a.species === "raccoon")!.id].hatTarget = "a";
   for (const frozen of [false, true]) {
     const invalid = structuredClone(run);
     if (frozen) {
       const frame = structuredClone(makePhotoFrame(invalid, "a"));
-      frame.animals[0].pose.position = [0, 0, 0];
+      frame.animals.find(a => a.id === r.id)!.pose.position = [0, 0, 0];
       invalid.pendingPhotos[frame.id] = frame;
       invalid.album = [
         {
@@ -258,7 +261,7 @@ test("live and frozen incidents reject contradictory owners, states and far-futu
           thumbnail: "pending",
         },
       ];
-    } else invalid.animals[0].pose.position = [0, 0, 0];
+    } else invalid.animals.find(a => a.id === r.id)!.pose.position = [0, 0, 0];
     await assert.rejects(
       saveRun(dir, invalid, new Map()),
       `distant raccoon, frozen ${frozen}`,
@@ -281,13 +284,13 @@ test("disconnect during a reach safely cancels the target and remains saveable",
   addPlayer(run, "a", "A");
   addPlayer(run, "b", "B");
   applyCommand(run, "a", { type: "start", seq: 1 });
-  const r = run.animals[0];
+  const r = run.animals.find(a => a.species === "raccoon")!;
   run.players[0].position = [r.pose.position[0], 0, r.pose.position[2] + 1];
   for (let i = 0; i < 12; i++) advanceRun(run, 1 / 60);
   assert.equal(r.behavior, "hat-reach");
   disconnectPlayer(run, "a");
   assert.notEqual(r.behavior, "hat-reach");
-  assert.equal(run.animalMemory.raccoon.hatTarget, null);
+  assert.equal(run.animalMemory[run.animals.find(a => a.species === "raccoon")!.id].hatTarget, null);
   await saveRun(dir, run, new Map());
 });
 
@@ -359,7 +362,7 @@ test("configuration is module relative and refuses invalid or publicly served pr
   assert.equal(config.origin, "https://game.example");
   assert.equal(config.dataDir, resolve(root, "private data"));
   assert.equal(config.webDir, resolve(root, "public build"));
-  assert.equal(loadConfig({}).dataDir, join(root, "data"));
+  assert.equal(loadConfig({}).dataDir, join(root, "data-expedition"));
   for (const WU_PORT of ["0", "1.5", "65536", "-1", "4310junk", ""])
     assert.throws(() => loadConfig({ WU_PORT }));
   for (const WU_PUBLIC_ORIGIN of [
@@ -392,13 +395,13 @@ test("save snapshots preserve pending frames and image bytes across serialized w
     id: frame.id,
     photographer: "host",
     tick: frame.tick,
-    credits: ["raccoon-inspect"],
+    credits: [run.world.commissions[0].id],
     assists: [],
     favorites: [],
     incident: null,
     thumbnail: "pending",
   });
-  run.completed = ["raccoon-inspect"];
+  run.completed = [run.world.commissions[0].id];
   run.tin.portions = 2;
   run.animals[1].behavior = "display";
   run.animals[1].remaining = 4.25;
@@ -410,10 +413,10 @@ test("save snapshots preserve pending frames and image bytes across serialized w
   assert.equal(loaded.run.seconds, 12);
   assert.equal(loaded.run.tin.portions, 2);
   assert.equal(loaded.run.animals[1].remaining, 4.25);
-  assert.equal(loaded.run.version, 2);
-  assert.equal(loaded.run.world.content, "forest-mvp-1");
+  assert.equal(loaded.run.version, 3);
+  assert.equal(loaded.run.world.content, "forest-expedition-1");
   assert.equal(loaded.run.players[0].slot, 0);
-  assert.equal(loaded.run.props.length, 4);
+  assert.equal(loaded.run.props.length, run.world.props.length);
   assert.equal(loaded.run.hats[0].owner, "host");
   assert.deepEqual(loaded.run.pendingPhotos[frame.id], frame);
   const jpeg = Buffer.from(
@@ -574,12 +577,7 @@ test("inconsistent world, identity, inventory and photo references are rejected 
       run.world.seed = -1;
     },
     (run: ReturnType<typeof createRun>) => {
-      run.world.assignments = [
-        "raccoon-inspect",
-        "raccoon-wash",
-        "heron-display",
-        "pond-pair",
-      ];
+      run.world.commissions[0].subjects = ["missing-resident"];
     },
     (run: ReturnType<typeof createRun>) => {
       run.props.pop();
@@ -588,10 +586,10 @@ test("inconsistent world, identity, inventory and photo references are rejected 
       run.props[0].holders[0] = "missing-player";
     },
     (run: ReturnType<typeof createRun>) => {
-      run.props[0].pose.position[0] = 101;
+      run.props[0].pose.position[0] = run.world.bounds.max[0] + 3;
     },
     (run: ReturnType<typeof createRun>) => {
-      run.route.crossing = "left";
+      run.route[run.world.fixtures.find(f => f.kind === "crossing")!.id] = {open: true, seat: "left"};
     },
     (run: ReturnType<typeof createRun>) => {
       run.props.find((prop) => prop.kind === "plank")!.placed = true;

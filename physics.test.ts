@@ -7,11 +7,15 @@ import { surfaceHeight } from "./shared.ts";
 import {
   addPlayer,
   advanceRun,
-  applyCommand,
+  applyCommand as applyWorldCommand,
   attachPhysics,
   createRun,
   snapshot,
 } from "./game.ts";
+
+function applyCommand(run: ReturnType<typeof createRun>, id: string, input: Record<string, unknown>) {
+  return applyWorldCommand(run, id, {worldId: run.worldId, ...input});
+}
 
 test("native impacts name the actual case and an unrelated dropped tin cannot spill its stock", async () => {
   for (const [dropCase, open] of [

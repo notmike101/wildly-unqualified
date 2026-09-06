@@ -1,8 +1,9 @@
 import * as THREE from "three/webgpu";
 import { SkyMesh } from "three/addons/objects/SkyMesh.js";
-import * as level from "./level.ts";
+import type { ReserveBlueprint } from "./world.ts";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import type { WorldPlacement } from "./level.ts";
-import { surfaceHeight, type RouteState, type Vec3 } from "./shared.ts";
+import { surfaceHeight, type FixtureState, type Vec3 } from "./shared.ts";
 
 export function findPart(root: THREE.Object3D, name: string) {
   let found: THREE.Object3D | undefined;
@@ -51,11 +52,14 @@ export function instanceModel(
 export function addForest(
   scene: THREE.Scene,
   assets: Map<string, THREE.Group>,
+  world: ReserveBlueprint,
 ) {
   const root = new THREE.Group();
   root.name = "WillowmereForest";
   scene.add(root);
   const errors: string[] = [];
+  const generatedGeometry = new Set<THREE.BufferGeometry>();
+  const primitives: THREE.Mesh[] = [];
   const materials = new Map<number, THREE.MeshStandardMaterial>();
   const material = (color: number) => {
     let value = materials.get(color);
@@ -66,7 +70,9 @@ export function addForest(
     return value;
   };
   function mesh(geometry: THREE.BufferGeometry, color: number, position: Vec3) {
+    generatedGeometry.add(geometry);
     const object = new THREE.Mesh(geometry, material(color));
+    primitives.push(object);
     object.position.set(...position);
     object.receiveShadow = true;
     root.add(object);
@@ -95,13 +101,14 @@ export function addForest(
   sun.castShadow = true;
   sun.shadow.mapSize.set(4096, 4096);
   Object.assign(sun.shadow.camera, {
-    left: -90,
-    right: 90,
-    top: 82,
-    bottom: -82,
+    left: -42,
+    right: 42,
+    top: 42,
+    bottom: -42,
     near: 1,
     far: 250,
   });
+  sun.shadow.camera.updateProjectionMatrix();
   sun.shadow.bias = -0.00015;
   sun.shadow.normalBias = 0.08;
   root.add(sun, sun.target);
@@ -110,27 +117,25 @@ export function addForest(
   mesh(new THREE.BoxGeometry(700, 1, 700), 0x46573c, [0, -1.55, 0]);
   function ground(x: number, z: number) {
     let y = -1;
-    for (const surface of level.WALKABLES) {
+    for (const surface of world.walkables) {
       const height = surfaceHeight(surface, x, z);
       if (height !== null) y = Math.max(y, height);
     }
     return y;
   }
-  const waterBounds = level.WATER_BOUNDS;
-  for (const original of level.WALKABLES) {
+
+  for (const original of world.walkables) {
     const xs = [
       original.min[0],
       original.max[0],
-      waterBounds.min[0],
-      waterBounds.max[0],
+      ...world.waters.flatMap(w => [w.min[0], w.max[0]]),
     ]
       .filter((x) => x >= original.min[0] && x <= original.max[0])
       .sort((a, b) => a - b);
     const zs = [
       original.min[2],
       original.max[2],
-      waterBounds.min[2],
-      waterBounds.max[2],
+      ...world.waters.flatMap(w => [w.min[2], w.max[2]]),
     ]
       .filter((z) => z >= original.min[2] && z <= original.max[2])
       .sort((a, b) => a - b);
@@ -140,10 +145,7 @@ export function addForest(
         const cx = (xs[xi] + xs[xi - 1]) / 2,
           cz = (zs[zi] + zs[zi - 1]) / 2;
         if (
-          cx > waterBounds.min[0] &&
-          cx < waterBounds.max[0] &&
-          cz > waterBounds.min[2] &&
-          cz < waterBounds.max[2]
+          world.waters.some(w => cx > w.min[0] && cx < w.max[0] && cz > w.min[2] && cz < w.max[2])
         )
           continue;
         const surface = {
@@ -178,7 +180,7 @@ export function addForest(
         );
       }
   }
-  for (const trail of level.TRAILS) {
+  for (const trail of world.trails) {
     for (let i = 1; i < trail.points.length; i++) {
       const a = trail.points[i - 1],
         b = trail.points[i];
@@ -190,7 +192,7 @@ export function addForest(
         const t = (n + 0.5) / segments;
         const x = a[0] + dx * t,
           z = a[2] + dz * t;
-        if (!level.WALKABLES.some((s) => surfaceHeight(s, x, z) !== null))
+        if (!world.walkables.some((s) => surfaceHeight(s, x, z) !== null))
           continue;
         const path = mesh(
           new THREE.BoxGeometry(trail.width, 0.035, length / segments + 0.09),
@@ -201,50 +203,23 @@ export function addForest(
       }
     }
   }
-  if (waterBounds) {
+  for (const waterBounds of world.waters) {
     const width = waterBounds.max[0] - waterBounds.min[0];
     const depth = waterBounds.max[2] - waterBounds.min[2];
-    const water = mesh(new THREE.CylinderGeometry(1, 1, 0.025, 40), 0x688f91, [
+    const water = mesh(new THREE.BoxGeometry(2, 0.025, 2), 0x688f91, [
       (waterBounds.min[0] + waterBounds.max[0]) / 2,
-      -0.07,
+      waterBounds.max[1] - 0.025,
       (waterBounds.min[2] + waterBounds.max[2]) / 2,
     ]);
     water.scale.set(width * 0.5, 1, depth * 0.5);
-    water.material = new THREE.MeshStandardMaterial({
-      color: 0x638f91,
-      roughness: 0.3,
-      metalness: 0.25,
-    });
+    const waterMaterial = material(0x638f91);
+    waterMaterial.roughness = 0.3; waterMaterial.metalness = 0.25;
+    water.material = waterMaterial;
   }
 
-  const washes = level.WOODLAND_WASH_SITES;
-  const dx = washes[1][0] - washes[0][0],
-    dz = washes[1][2] - washes[0][2];
-  const brookAngle = Math.atan2(dx, dz),
-    brookLength = Math.hypot(dx, dz) + 5;
-  for (const [width, height, color] of [
-    [1.3, 0.006, 0x435249],
-    [0.65, 0.02, 0x638f91],
-  ]) {
-    const brook = mesh(
-      new THREE.BoxGeometry(width, 0.012, brookLength),
-      color,
-      [
-        (washes[0][0] + washes[1][0]) / 2,
-        height,
-        (washes[0][2] + washes[1][2]) / 2,
-      ],
-    );
-    brook.rotation.y = brookAngle;
-  }
-  for (const point of washes) {
-    const pool = mesh(new THREE.CylinderGeometry(1, 1, 0.015, 12), 0x638f91, [
-      point[0],
-      0.024,
-      point[2],
-    ]);
+  for (const point of world.pockets.flatMap(p => p.anchors.filter(a => a.kind === "wash").map(a => a.point))) {
+    const pool = mesh(new THREE.CylinderGeometry(1, 1, 0.015, 12), 0x638f91, [point[0], point[1] + 0.024, point[2]]);
     pool.scale.set(1.15, 1, 0.7);
-    pool.rotation.y = brookAngle;
   }
 
   function findModel(name: string): THREE.Object3D | undefined {
@@ -254,13 +229,15 @@ export function addForest(
     }
   }
   const byModel = new Map<string, WorldPlacement[]>();
-  const gateLeaves: THREE.Object3D[] = [];
-  for (const placement of level.WORLD_PLACEMENTS) {
-    const entries = byModel.get(placement.model) ?? [];
+  const gateLeaves: { id: string; leaf: THREE.Object3D }[] = [];
+  for (const placement of world.placements) {
+    const key = `${placement.model}:${Math.floor(placement.position[0] / 48)}:${Math.floor(placement.position[2] / 48)}`;
+    const entries = byModel.get(key) ?? [];
     entries.push(placement);
-    byModel.set(placement.model, entries);
+    byModel.set(key, entries);
   }
-  for (const [name, placements] of byModel) {
+  for (const placements of byModel.values()) {
+    const name = placements[0].model;
     const model = findModel(name);
     if (!model) {
       errors.push(`Forest model missing: ${name}`);
@@ -274,7 +251,7 @@ export function addForest(
         gate.scale.set(...p.scale);
         root.add(gate);
         const leaf = findPart(gate, "GateLeaf");
-        if (leaf) gateLeaves.push(leaf);
+        if (leaf) gateLeaves.push({id: world.fixtures.find(f => f.kind === "gate" && f.position.every((v,a) => v === p.position[a]))!.id, leaf});
         else errors.push("ForestGate has no GateLeaf pivot");
       }
     } else root.add(instanceModel(model, placements));
@@ -285,7 +262,7 @@ export function addForest(
     const ring: WorldPlacement[] = [];
     for (let i = 0; i < 150; i++) {
       const angle = i * 2.399963;
-      const radius = 100 + (i % 7) * 18;
+      const radius = 270 + (i % 7) * 18;
       ring.push({
         id: `horizon-${i}`,
         model: "MaturePineA",
@@ -313,22 +290,46 @@ export function addForest(
   for (let i = 0; i < 11; i++) {
     const angle = (i * Math.PI * 2) / 11;
     const ridge = mesh(new THREE.IcosahedronGeometry(1, 1), 0x53726b, [
-      Math.cos(angle) * 210,
+      Math.cos(angle) * 360,
       -24,
-      Math.sin(angle) * 210,
+      Math.sin(angle) * 360,
     ]);
     ridge.scale.set(65, 42 + (i % 3) * 13, 58);
   }
+  // Batch generated ground/trail pieces by material and spatial cell, keeping
+  // imported model buffers shared and independently culled above.
+  const batches = new Map<string, { material: THREE.Material; parts: THREE.BufferGeometry[] }>();
+  for (const object of primitives) {
+    object.updateMatrix();
+    const material = object.material as THREE.Material, key = `${material.uuid}:${Math.floor(object.position.x / 48)}:${Math.floor(object.position.z / 48)}`;
+    const batch = batches.get(key) ?? { material, parts: [] };
+    batch.parts.push(object.geometry.clone().applyMatrix4(object.matrix));
+    batches.set(key, batch); object.removeFromParent();
+  }
+  for (const batch of batches.values()) {
+    const geometry = mergeGeometries(batch.parts); batch.parts.forEach(g => g.dispose());
+    if (!geometry) throw Error("Forest geometry could not be batched");
+    generatedGeometry.add(geometry);
+    const object = new THREE.Mesh(geometry, batch.material); object.receiveShadow = true; root.add(object);
+  }
   return {
     errors,
-    update(route: RouteState) {
-      for (const leaf of gateLeaves)
-        leaf.rotation.y = route.gateOpen ? Math.PI / 2 : 0;
+    update(route: FixtureState) {
+      for (const {id, leaf} of gateLeaves) leaf.rotation.y = route[id].open ? Math.PI / 2 : 0;
+    },
+    centerShadows(point: Vec3) {
+      sun.target.position.set(...point); sun.target.updateMatrixWorld();
+      sun.position.copy(sky.sunPosition.value).multiplyScalar(105).add(sun.target.position);
+      sun.updateMatrixWorld();
     },
     dispose() {
       root.traverse((o) => {
         if (o instanceof THREE.InstancedMesh) o.dispose();
       });
+      generatedGeometry.forEach(g => g.dispose());
+      materials.forEach(m => m.dispose());
+      sky.geometry.dispose(); sky.material.dispose();
+      sun.shadow.dispose();
       root.removeFromParent();
     },
   };

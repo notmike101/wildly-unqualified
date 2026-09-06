@@ -1,26 +1,5 @@
-import {
-  CAMP,
-  CLUES,
-  CLEARING,
-  PHYSICS_BOXES,
-  PLANK_PLACEMENTS,
-  PROP_DEFINITIONS,
-  PROP_RECOVERY_POINTS,
-  RULES,
-  STASH,
-  SUBJECT_HEIGHT,
-  subjectPoints,
-  HABITAT_SITES,
-  WOODLAND_WASH_SITES,
-  WORLD_PLACEMENTS,
-  TIN_HALF,
-  TIN_START,
-  WALKABLES,
-  WALLS,
-  routeBoxes,
-  routeSurfaces,
-  gateLatch,
-} from "./level.ts";
+import { PROP_DEFINITIONS, RULES, SUBJECT_HEIGHT, subjectPoints, TIN_HALF, PROP_CENTER_HEIGHT, fixtureBoxes, fixtureSurfaces, fixtureLatch } from "./level.ts";
+import { generateReserve, type ReserveBlueprint } from "./world.ts";
 import {
   distance,
   eye,
@@ -54,7 +33,6 @@ import {
 } from "./shared.ts";
 import { createPhysics } from "./physics.ts";
 import {
-  chooseOuting,
   stepAnimals,
   localRecoveryPoint,
   type AnimalMemory,
@@ -68,6 +46,7 @@ type Action = {
   tick: number;
 };
 export type RunState = Snapshot & {
+  world: ReserveBlueprint;
   pendingPhotos: Record<string, PhotoFrame>;
   hostId: string | null;
   events: Action[];
@@ -118,13 +97,13 @@ function spillCase(run: RunState, prop: FieldProp) {
 function updateHats(run: RunState) {
   for (const hat of run.hats) {
     const owner = run.players.find((p) => p.id === hat.owner),
-      r = run.animals.find((a) => a.species === "raccoon");
+      r = run.animals.find((a) => `animal:${a.id}` === hat.carrier);
     if (!owner) continue; // Invalid removed owners are rejected by persistence.
     if (!owner.connected || !r) {
       hat.carrier = "owner";
       hat.untilTick = 0;
     }
-    if (hat.carrier === "raccoon" && r) {
+    if (hat.carrier.startsWith("animal:") && r) {
       if (run.tick >= hat.untilTick) {
         const point = localRecoveryPoint(run, r.pose.position);
         hat.carrier = point ? "ground" : "owner";
@@ -174,13 +153,13 @@ function event(
   });
   run.events = run.events.slice(-128);
 }
-function safe(point: Vec3, walls = WALLS) {
+function safe(run: RunState, point: Vec3, walls = [...run.world.walls, ...fixtureBoxes(run.world.fixtures, run.route)]) {
   return (
-    Math.abs(point[0]) < 77 &&
-    point[2] > -67 &&
-    point[2] < 67 &&
+    [...run.world.walkables, ...fixtureSurfaces(run.world.fixtures, run.route)].some(surface => surfaceHeight(surface, point[0], point[2]) !== null) &&
+    point[0] > run.world.bounds.min[0] && point[0] < run.world.bounds.max[0] &&
+    point[2] > run.world.bounds.min[2] && point[2] < run.world.bounds.max[2] &&
     !walls.some(
-      (b) =>
+      (b) => b.max[1] > point[1] + 0.15 && b.min[1] < point[1] + 1.8 &&
         point[0] > b.min[0] - 0.45 &&
         point[0] < b.max[0] + 0.45 &&
         point[2] > b.min[2] - 0.45 &&
@@ -235,8 +214,8 @@ const alignLocalX = (direction: Vec3): Quat => {
 };
 function terrainLift(run: RunState, prop: FieldProp, value: Pose) {
   const surfaces = [
-    ...WALKABLES,
-    ...(prop.kind === "plank" && prop.placed ? [] : routeSurfaces(run.route)),
+    ...run.world.walkables,
+    ...(prop.kind === "plank" && prop.placed ? [] : fixtureSurfaces(run.world.fixtures, run.route)),
   ];
   return Math.max(
     0,
@@ -280,8 +259,8 @@ function propClear(run: RunState, prop: FieldProp, value: Pose, outer = false) {
       : definition,
     test = { ...prop, pose: value },
     blockers = [
-      ...WALLS,
-      ...routeBoxes(run.route),
+      ...run.world.walls,
+      ...fixtureBoxes(run.world.fixtures, run.route),
       ...run.props
         .filter((p) => p !== prop)
         .flatMap((p) => propBoxes(p, PROP_DEFINITIONS[p.kind])),
@@ -355,7 +334,8 @@ function sweepProp(run: RunState, prop: FieldProp, desired: Pose) {
 }
 function seatPlank(run: RunState, prop: FieldProp) {
   const yaw = yawOf(prop.pose),
-    seat = (Object.entries(PLANK_PLACEMENTS) as ["left" | "right", Pose][])
+    fixture = run.world.fixtures.find(f => f.plankId === prop.id),
+    seat = Object.entries(fixture?.seats ?? {})
       .filter(
         ([, value]) => distance(prop.pose.position, value.position) <= 0.75,
       )
@@ -374,7 +354,7 @@ function seatPlank(run: RunState, prop: FieldProp) {
   prop.angularVelocity = [0, 0, 0];
   prop.holders = [null, null];
   prop.placed = true;
-  run.route.crossing = seat[0];
+  run.route[fixture!.id] = { open: true, seat: seat[0] };
   return true;
 }
 function releaseProp(
@@ -397,7 +377,7 @@ function releaseProp(
   prop.angularVelocity = place ? [0, 0, 0] : [0, 0.6, 0.35];
 }
 function recoverProp(run: RunState, prop: FieldProp, origin: Vec3) {
-  const choices = PROP_RECOVERY_POINTS[prop.kind]
+  const choices = [run.world.props.find(value => value.id === prop.id)!.pose, ...run.world.stations.map(station => pose([station.recover[0], station.recover[1] + PROP_CENTER_HEIGHT[prop.kind], station.recover[2]]))]
     .filter((candidate) => propClear(run, prop, candidate, true))
     .sort(
       (a, b) => distance(a.position, origin) - distance(b.position, origin),
@@ -412,6 +392,10 @@ function recoverProp(run: RunState, prop: FieldProp, origin: Vec3) {
   prop.placed = false;
 }
 function propRecoverable(run: RunState, prop: FieldProp) {
+  const fixture = run.world.fixtures.find(f => f.plankId === prop.id),
+    state = fixture && run.route[fixture.id],
+    seated = fixture && state?.open && state.seat ? fixture.seats[state.seat] : null;
+  if (prop.placed && seated && distance(prop.pose.position, seated.position) < 1e-6 && quatAngle(prop.pose.rotation, seated.rotation) < 1e-6) return false;
   const [x, , z] = prop.pose.rotation;
   return (
     prop.pose.position.some((n) => !Number.isFinite(n)) ||
@@ -424,7 +408,7 @@ function propRecoverable(run: RunState, prop: FieldProp) {
 }
 function safeSpawn(run: RunState, id: string): Vec3 {
   const crew = run.players.filter((p) => p.connected && p.id !== id),
-    anchor = crew[0]?.position ?? CAMP;
+    anchor = crew[0]?.position ?? run.world.camp;
   for (const radius of [1.5, 3, 5])
     for (let i = 0; i < 8; i++) {
       const point: Vec3 = [
@@ -432,24 +416,24 @@ function safeSpawn(run: RunState, id: string): Vec3 {
         0,
         anchor[2] + Math.sin((i * Math.PI) / 4) * radius,
       ];
-      const heights = [...WALKABLES, ...routeSurfaces(run.route)]
+      const heights = [...run.world.walkables, ...fixtureSurfaces(run.world.fixtures, run.route)]
         .map((s) => surfaceHeight(s, point[0], point[2]))
         .filter((h): h is number => h !== null && h <= anchor[1] + 0.45);
       if (!heights.length) continue;
       point[1] = Math.max(...heights);
       if (
-        safe(point, [...WALLS, ...routeBoxes(run.route)]) &&
+        safe(run, point, [...run.world.walls, ...fixtureBoxes(run.world.fixtures, run.route)]) &&
         crew.every((p) => !nearby(p.position, point, 0.8))
       )
         return point;
     }
-  return [...CAMP];
+  return [...run.world.camp];
 }
 
-export function createRun(seed = 1): RunState {
+export function createRun(seed = 1, worldId: string = crypto.randomUUID()): RunState {
   if (!Number.isInteger(seed) || seed < 0 || seed > 0xffffffff)
     throw Error("World seed must be a uint32 integer");
-  const world = chooseOuting(seed);
+  const world = generateReserve(seed, worldId);
   const fieldProp = (
     id: string,
     kind: FieldProp["kind"],
@@ -467,34 +451,20 @@ export function createRun(seed = 1): RunState {
     spillUntilTick: 0,
   });
   return {
-    version: 2,
+    version: 3,
+    worldId: world.id,
     tick: 0,
     seconds: 0,
     phase: "camp",
     paused: true,
     pauseReason: "Waiting for crew",
     players: [],
-    animals: (
-      [
-        ["raccoon", "woodland"],
-        ["heron", "wetland"],
-        ["deer", "clearing"],
-      ] as const
-    ).map(([species, habitat]) => ({
-      id: species,
-      species,
-      behavior:
-        species === "raccoon"
-          ? "wander"
-          : species === "deer"
-            ? "graze"
-            : "preen",
-      pose: pose(HABITAT_SITES[habitat][world.sites[habitat]]),
-      target: [...HABITAT_SITES[habitat][world.sites[habitat]]] as Vec3,
-      remaining: 5,
+    animals: world.residents.map(resident => ({
+      id: resident.id, species: resident.species, behavior: "wander",
+      pose: pose(resident.spawn), target: [...resident.spawn], remaining: 5,
     })),
     tin: {
-      pose: pose(TIN_START),
+      pose: pose(world.tinStart),
       velocity: [0, 0, 0],
       angularVelocity: [0, 0, 0],
       holder: null,
@@ -502,22 +472,12 @@ export function createRun(seed = 1): RunState {
       open: false,
     },
     world,
-    props: [
-      fieldProp("field-case", "case", [-46, 0.325, 43]),
-      fieldProp(
-        "crossing-plank",
-        "plank",
-        [-20, -0.155, 3.5],
-        [0, Math.SQRT1_2, 0, Math.SQRT1_2],
-      ),
-      fieldProp("folding-screen", "screen", [-46, 0.97, 47]),
-      fieldProp("wildlife-decoy", "decoy", [-50, 0.5, 47]),
-    ],
-    route: { crossing: null, gateOpen: false },
+    props: world.props.map(prop => fieldProp(prop.id, prop.kind, prop.pose.position, prop.pose.rotation)),
+    route: Object.fromEntries(world.fixtures.map(f => [f.id, {open: false, seat: null}])),
     spills: [],
     hats: [],
     spareBait: 8,
-    baitPatch: 0,
+    baitPatches: Object.fromEntries(world.pockets.flatMap(p => p.anchors.filter(a => a.kind === "feed").map(a => [a.id, 0]))),
     observations: [
       "Open the tin near the raccoon. Watch its paws before it steals the tin.",
     ],
@@ -530,7 +490,7 @@ export function createRun(seed = 1): RunState {
     events: [],
     cooldowns: {},
     animalMemory: Object.fromEntries(
-      ["raccoon", "heron", "deer"].map((id) => [
+      world.residents.map(({id}) => [
         id,
         {
           goal: "",
@@ -604,8 +564,8 @@ export function addPlayer(run: RunState, id: string, name: string): Player {
 function heldPose(run: RunState) {
   const holder = run.tin.holder;
   if (!holder) return;
-  if (holder === "animal:raccoon") {
-    const r = animal(run, "raccoon"),
+  if (holder.startsWith("animal:")) {
+    const r = run.animals.find(a => a.id === run.tin.holder?.slice(7))!,
       f = rotate([0, 0.2 + TIN_HALF[1], -0.61], r.pose.rotation);
     run.tin.pose = {
       position: r.pose.position.map((n, i) => n + f[i]) as Vec3,
@@ -635,7 +595,7 @@ function release(run: RunState, p: Player, drop: boolean) {
       TIN_HALF[1],
       p.position[2] + f[2] * 1.1,
     ];
-  if (!drop && (!safe(flat(target)) || rayBlocked(eye(p), target, WALLS)))
+  if (!drop && (!safe(run, flat(target)) || rayBlocked(eye(p), target, [...run.world.walls, ...fixtureBoxes(run.world.fixtures, run.route)])))
     throw Error("Placement blocked; face clear ground");
   run.tin.holder = null;
   run.tin.pose = pose(drop ? [...run.tin.pose.position] : target);
@@ -666,13 +626,11 @@ export function disconnectPlayer(run: RunState, id: string): void {
         recoverProp(run, prop, p.position);
     }
   p.connected = false;
-  const memory = run.animalMemory.raccoon,
-    raccoon = run.animals.find((a) => a.species === "raccoon");
-  if (memory?.hatTarget === id) {
-    memory.hatTarget = null;
-    if (raccoon?.behavior === "hat-reach") {
-      raccoon.behavior = "wander";
-      raccoon.remaining = 0;
+  for (const animal of run.animals) {
+    const memory = run.animalMemory[animal.id];
+    if (memory.hatTarget === id) {
+      memory.hatTarget = null;
+      if (animal.behavior === "hat-reach") { animal.behavior = "wander"; animal.remaining = 0; }
     }
   }
   updateHats(run);
@@ -688,17 +646,18 @@ function recoverable(run: RunState) {
     p.some((n) => !Number.isFinite(n)) ||
     p[1] < -0.5 ||
     p[1] > 5 ||
-    !safe(flat(p))
+    !safe(run, flat(p))
   );
 }
 export function applyCommand(
   run: RunState,
   id: string,
-  input: ClientMessage,
+  input: unknown,
 ): { frame: PhotoFrame; verdict: PhotoVerdict } | void {
   const cmd = parseMessage(input),
     p = player(run, id),
     seq = cmd.type === "input" ? cmd.value.seq : cmd.seq;
+  if (cmd.worldId !== run.worldId) throw Error("Stale world command; refresh the reserve");
   if (seq <= p.lastSeq) throw Error("Replayed command sequence");
   p.lastSeq = seq;
   const host = () => {
@@ -716,7 +675,7 @@ export function applyCommand(
     if (run.phase !== "camp") throw Error("The outing has already started");
     if (run.players.filter((p) => p.connected).length < 2)
       throw Error("Connect at least two researchers to start");
-    if (!nearby(p.position, CAMP, 6)) throw Error("Return to camp to start");
+    if (!nearby(p.position, run.world.camp, 6)) throw Error("Return to camp to start");
     run.phase = "outing";
     run.paused = false;
     run.pauseReason = "";
@@ -726,12 +685,12 @@ export function applyCommand(
   if (cmd.type === "pause" || cmd.type === "save-and-stop") {
     host();
     if (cmd.type === "save-and-stop") {
-      if (run.tin.holder && run.tin.holder !== "animal:raccoon")
+      if (run.tin.holder && !run.tin.holder.startsWith("animal:"))
         release(run, player(run, run.tin.holder), true);
       for (const prop of run.props) {
         clearGrips(run, prop);
         prop.holders = [null, null];
-        prop.placed = prop.kind === "plank" && run.route.crossing !== null;
+        prop.placed = run.world.fixtures.some(f => f.plankId === prop.id && run.route[f.id].open);
       }
     }
     run.paused = true;
@@ -764,10 +723,10 @@ export function applyCommand(
   if (run.paused) throw Error("The outing is paused");
   if (run.phase === "exhibition") throw Error("This outing has ended");
   if (cmd.type === "ready-end" || cmd.type === "finish") {
-    if (!run.world.assignments.every((id) => run.completed.includes(id)))
-      throw Error("Complete all four selected photo assignments first");
+    if (!run.world.commissions.filter(c => c.required).every(c => run.completed.includes(c.id)))
+      throw Error("Complete all six required photo commissions first");
     if (cmd.type === "ready-end") {
-      if (!nearby(p.position, CAMP, 6))
+      if (!nearby(p.position, run.world.camp, 6))
         throw Error("Return to camp before marking ready");
       run.ready = run.ready.includes(id)
         ? run.ready.filter((v) => v !== id)
@@ -779,7 +738,7 @@ export function applyCommand(
       run.players.some(
         (p) =>
           p.connected &&
-          (!nearby(p.position, CAMP, 6) || !run.ready.includes(p.id)),
+          (!nearby(p.position, run.world.camp, 6) || !run.ready.includes(p.id)),
       )
     )
       throw Error("Every connected researcher must be at camp and ready");
@@ -790,7 +749,7 @@ export function applyCommand(
     return;
   }
   if (cmd.type === "ping") {
-    if (distance(eye(p), cmd.point) > 50 || !safe(flat(cmd.point)))
+    if (distance(eye(p), cmd.point) > 50 || !safe(run, flat(cmd.point)))
       throw Error("Ping a reachable point in the reserve");
     run.pings = run.pings.filter((p) => p.player !== id);
     run.pings.push({
@@ -827,15 +786,7 @@ export function applyCommand(
     if (run.tin.holder) throw Error("The tin is currently held");
     if (!recoverable(run))
       throw Error("Nearby equipment and the tin are reachable");
-    const points: Vec3[] = [
-      TIN_START,
-      [STASH[0], TIN_HALF[1], STASH[2]],
-      [
-        HABITAT_SITES.wetland[run.world.sites.wetland][0] - 4,
-        TIN_HALF[1],
-        HABITAT_SITES.wetland[run.world.sites.wetland][2] + 2,
-      ],
-    ];
+    const points: Vec3[] = [run.world.tinStart, ...run.world.stations.map(s => [s.recover[0], s.recover[1] + TIN_HALF[1], s.recover[2]] as Vec3)];
     const origin = run.tin.pose.position.every(Number.isFinite)
       ? run.tin.pose.position
       : p.position;
@@ -865,8 +816,8 @@ export function applyCommand(
       return;
     }
     const recovery = recoveryTarget(p, run, PROP_DEFINITIONS, [
-      ...WALLS,
-      ...routeBoxes(run.route),
+      ...run.world.walls,
+      ...fixtureBoxes(run.world.fixtures, run.route),
     ]);
     if (recovery) {
       if (recovery.kind === "hat") {
@@ -893,18 +844,18 @@ export function applyCommand(
       return;
     }
     const reachWalls = [
-        ...WALLS,
-        ...routeBoxes(run.route),
+        ...run.world.walls,
+        ...fixtureBoxes(run.world.fixtures, run.route),
         ...run.props.flatMap((prop) =>
           propBoxes(prop, PROP_DEFINITIONS[prop.kind]),
         ),
       ],
       target = equipmentTarget(p, run.props, PROP_DEFINITIONS, [
-        ...WALLS,
-        ...routeBoxes(run.route),
+        ...run.world.walls,
+        ...fixtureBoxes(run.world.fixtures, run.route),
       ]),
       tinReachable =
-        (!run.tin.holder || run.tin.holder === "animal:raccoon") &&
+        (!run.tin.holder || run.tin.holder?.startsWith("animal:")) &&
         distance(eye(p), run.tin.pose.position) <= 2 &&
         !rayBlocked(eye(p), run.tin.pose.position, reachWalls);
     if (
@@ -919,25 +870,26 @@ export function applyCommand(
       gripOffset(run, prop, target.handle!, p);
       return;
     }
-    const latch = gateLatch(run.route);
+    const gate = run.world.fixtures.filter(f => f.kind === "gate").map(f => ({...f, latch: fixtureLatch(f, run.route)})).filter(f => f.latch).sort((a,b) => distance(eye(p), a.latch!) - distance(eye(p), b.latch!))[0],
+      latch = gate?.latch;
     if (
-      distance(eye(p), latch) <= 2 &&
+      latch && distance(eye(p), latch) <= 2 &&
       !rayBlocked(eye(p), latch, [
-        ...WALLS,
+        ...run.world.walls,
         ...run.props.flatMap((prop) =>
           propBoxes(prop, PROP_DEFINITIONS[prop.kind]),
         ),
       ])
     ) {
-      run.route.gateOpen = !run.route.gateOpen;
+      run.route[gate.id].open = !run.route[gate.id].open;
       event(run, "place", p, latch);
       return;
     }
-    const heldByOther = run.tin.holder && run.tin.holder !== "animal:raccoon";
+    const heldByOther = run.tin.holder && !run.tin.holder.startsWith("animal:");
     const tooFar = distance(eye(p), run.tin.pose.position) > 2;
     const blocked = rayBlocked(eye(p), run.tin.pose.position, reachWalls);
     if (heldByOther || tooFar || blocked) {
-      const clue = CLUES.filter(
+      const clue = run.world.commissions.map(c => ({title: c.title, text: c.instructions, position: run.world.pockets.find(p => p.id === c.pocket)!.position})).filter(
         (c) =>
           distance(p.position, c.position) <= 3 &&
           !rayBlocked(eye(p), c.position, reachWalls),
@@ -954,11 +906,11 @@ export function applyCommand(
         throw Error("Move closer to reach the tin or inspect a field clue");
       throw Error("The tin is blocked by a wall");
     }
-    if (run.tin.holder === "animal:raccoon") {
-      const r = animal(run, "raccoon");
+    if (run.tin.holder?.startsWith("animal:")) {
+      const r = run.animals.find(a => a.id === run.tin.holder?.slice(7))!;
       r.behavior = "wander";
       r.remaining = 0;
-      run.animalMemory.raccoon.habituatedUntilTick = run.tick + 120;
+      run.animalMemory[r.id].habituatedUntilTick = run.tick + 120;
       observe(
         run,
         "The raccoon will give up the tin when you reclaim it close by.",
@@ -989,8 +941,8 @@ export function applyCommand(
     }
     if (!prop) {
       const target = equipmentUseTarget(p, run.props, PROP_DEFINITIONS, [
-        ...WALLS,
-        ...routeBoxes(run.route),
+        ...run.world.walls,
+        ...fixtureBoxes(run.world.fixtures, run.route),
       ]);
       if (target) {
         const decoy = run.props.find((value) => value.id === target.propId)!;
@@ -1020,7 +972,7 @@ export function applyCommand(
         return;
       }
       if (
-        nearby(p.position, CAMP, 5) &&
+        (nearby(p.position, run.world.camp, 5) || run.world.stations.some(s => nearby(p.position, s.position, 5))) &&
         (run.tin.portions < 4 || run.spareBait < 8)
       ) {
         run.tin.portions = 4;
@@ -1031,20 +983,13 @@ export function applyCommand(
         );
         return;
       }
-      if (
-        nearby(p.position, HABITAT_SITES.wetland[run.world.sites.wetland], 2.5)
-      ) {
-        if (!run.tin.portions)
-          throw Error("The tin is empty; refill it at camp");
-        if (run.baitPatch >= 4)
-          throw Error("The feeding patch already has enough bait");
-        run.tin.portions--;
-        run.baitPatch++;
-        event(run, "bait", p, HABITAT_SITES.wetland[run.world.sites.wetland]);
-        observe(
-          run,
-          "The heron displays at the feeding patch after five quiet seconds.",
-        );
+      const patch = run.world.pockets.flatMap(p => p.anchors).find(a => a.kind === "feed" && nearby(p.position, a.point, 2.5));
+      if (patch) {
+        if (!run.tin.portions) throw Error("The tin is empty; refill at a supply station");
+        if (run.baitPatches[patch.id] >= 4) throw Error("The feeding patch already has enough bait");
+        run.tin.portions--; run.baitPatches[patch.id]++;
+        event(run, "bait", p, patch.point);
+        observe(run, "Bait placed at the local feeding patch. Give wildlife quiet space.");
         return;
       }
       run.tin.open = true;
@@ -1072,7 +1017,7 @@ export function applyCommand(
       throw Error("Wait one second before the next photograph");
     cooldown.photo = run.tick;
     const frame = makePhotoFrame(run, id),
-      verdict = evaluatePhoto(frame, WALLS),
+      verdict = evaluatePhoto(frame, run.world),
       credits = verdict.credits.filter((c) => !run.completed.includes(c));
     run.completed.push(...credits);
     const assists = [
@@ -1140,21 +1085,21 @@ export function advanceRun(run: RunState, dt: number): void {
       if (p) gripOffset(run, prop, handle, p);
     });
   const playerWalls = (p: Player) => [
-    ...WALLS,
-    ...routeBoxes(run.route),
+    ...run.world.walls,
+    ...fixtureBoxes(run.world.fixtures, run.route),
     ...run.props
       .filter((prop) => !prop.holders.includes(p.id) && !prop.placed)
       .flatMap((prop) => propBoxes(prop, PROP_DEFINITIONS[prop.kind])),
   ];
   const separationPoint = (p: Player, point: Vec3): Vec3 | null => {
-    const heights = [...WALKABLES, ...routeSurfaces(run.route)]
+    const heights = [...run.world.walkables, ...fixtureSurfaces(run.world.fixtures, run.route)]
         .map((surface) => surfaceHeight(surface, point[0], point[2]))
         .filter((height): height is number => height !== null)
         .filter((height) => height <= p.position[1] + 0.45),
       height = heights.length ? Math.max(...heights) : null;
     if (height === null) return null;
     const supported: Vec3 = [point[0], height, point[2]];
-    return safe(supported, playerWalls(p)) ? supported : null;
+    return safe(run, supported, playerWalls(p)) ? supported : null;
   };
   for (const p of run.players) {
     if (!p.connected) continue;
@@ -1166,12 +1111,12 @@ export function advanceRun(run: RunState, dt: number): void {
           p.lastInput,
           dt,
           playerWalls(p),
-          [...WALKABLES, ...routeSurfaces(run.route)],
+          [...run.world.walkables, ...fixtureSurfaces(run.world.fixtures, run.route)],
           playerSpeed(p.id, p.lastInput, run.props),
         ),
       );
     } else p.lastInput = null;
-    if (!nearby(p.position, CAMP, 6))
+    if (!nearby(p.position, run.world.camp, 6))
       run.ready = run.ready.filter((id) => id !== p.id);
   }
   const pairs =
@@ -1378,10 +1323,11 @@ export async function attachPhysics(
   run: RunState,
 ): Promise<{ step(dt: number): void; dispose(): void }> {
   const physics = await createPhysics(
-    PHYSICS_BOXES,
+    run.world.physicsBoxes,
     run.tin,
     run.props,
     run.route,
+    run.world.fixtures,
   );
   let revision = run.tinRevision,
     holder = run.tin.holder;
@@ -1438,13 +1384,13 @@ export function snapshot(run: RunState): Snapshot {
     players,
     animals,
     tin,
-    world,
+    worldId,
     props,
     route,
     spills,
     hats,
     spareBait,
-    baitPatch,
+    baitPatches,
     observations,
     completed,
     album,
@@ -1461,13 +1407,13 @@ export function snapshot(run: RunState): Snapshot {
     players,
     animals,
     tin,
-    world,
+    worldId,
     props,
     route,
     spills,
     hats,
     spareBait,
-    baitPatch,
+    baitPatches,
     observations,
     completed,
     album,
@@ -1486,14 +1432,14 @@ export function makePhotoFrame(run: RunState, id: string): PhotoFrame {
   const p = player(run, id);
   return freeze(
     structuredClone({
-      id: `photo-${run.nextPhoto++}`,
+      id: `${run.worldId}-photo-${run.nextPhoto++}`,
       tick: run.tick,
       photographer: id,
       camera: { position: eye(p), yaw: p.yaw, pitch: p.pitch, fov: 60 },
       players: run.players,
       animals: run.animals,
       tin: run.tin,
-      world: run.world,
+      worldId: run.worldId,
       props: run.props,
       route: run.route,
       spills: run.spills,
@@ -1523,12 +1469,13 @@ function tinBlocks(frame: PhotoFrame, from: Vec3, to: Vec3) {
     { id: "tin", min: TIN_HALF.map((n) => -n) as Vec3, max: TIN_HALF },
   ]);
 }
-export function evaluatePhoto(frame: PhotoFrame, boxes: Box[]): PhotoVerdict {
+export function evaluatePhoto(frame: PhotoFrame, world: ReserveBlueprint): PhotoVerdict {
+  if (frame.worldId !== world.id) throw Error("Photo belongs to another world");
   const c = frame.camera,
     occluders = [
-      ...WORLD_PLACEMENTS.flatMap((p) => p.occluders),
-      ...boxes,
-      ...routeBoxes(frame.route),
+      ...world.placements.flatMap((p) => p.occluders),
+      ...world.walls,
+      ...fixtureBoxes(world.fixtures, frame.route),
     ],
     f = forward(c.yaw, c.pitch),
     right: Vec3 = [Math.cos(c.yaw), 0, -Math.sin(c.yaw)],
@@ -1599,92 +1546,38 @@ export function evaluatePhoto(frame: PhotoFrame, boxes: Box[]): PhotoVerdict {
     }
     return true;
   };
-  const r = frame.animals.find((a) => a.species === "raccoon"),
-    h = frame.animals.find((a) => a.species === "heron");
-  const rVisible = r ? qualifies(r) : false,
-    hVisible = h ? qualifies(h) : false,
-    credits: Assignment[] = [];
-  const inspection =
-    !!r &&
-    r.behavior === "inspect" &&
-    frame.tin.open &&
-    nearby(r.pose.position, frame.tin.pose.position, 1.5);
-  const display =
-    h?.behavior === "display" &&
-    nearby(
-      h.pose.position,
-      HABITAT_SITES.wetland[frame.world.sites.wetland],
-      3,
-    );
-  if (rVisible && inspection) credits.push("raccoon-inspect");
-  if (hVisible && display) credits.push("heron-display");
-  if (
-    rVisible &&
-    hVisible &&
-    inspection &&
-    display &&
-    r &&
-    h &&
-    nearby(r.pose.position, h.pose.position, 8) &&
-    distance(flat(r.pose.position), flat(h.pose.position)) >= 3 &&
-    nearby(h.pose.position, HABITAT_SITES.wetland[frame.world.sites.wetland], 3)
-  )
-    credits.push("pond-pair");
-  const d = frame.animals.find((a) => a.species === "deer");
-  if (
-    rVisible &&
-    r?.behavior === "wash" &&
-    nearby(r.pose.position, WOODLAND_WASH_SITES[frame.world.sites.woodland], 1)
-  )
-    credits.push("raccoon-wash");
-  if (
-    hVisible &&
-    h?.behavior === "preen" &&
-    nearby(h.pose.position, HABITAT_SITES.wetland[frame.world.sites.wetland], 8)
-  )
-    credits.push("heron-preen");
-  if (d && qualifies(d)) {
-    if (d.behavior === "graze") credits.push("deer-graze");
-    if (
-      d.behavior === "investigate" &&
-      frame.props.some(
-        (p) =>
-          p.kind === "decoy" &&
-          !p.holders.some(Boolean) &&
-          nearby(d.pose.position, p.pose.position, 2) &&
-          nearby(d.target, p.pose.position, 2),
-      )
-    )
-      credits.push("deer-decoy");
-  }
-  const selected = credits.filter((id) => frame.world.assignments.includes(id));
+  const visible = frame.animals.filter(qualifies);
+  const ids = new Set(frame.animals.map(a => a.id));
+  if (ids.size !== frame.animals.length || frame.animals.some(a => !world.residents.some(r => r.id === a.id && r.species === a.species)))
+    throw Error("Photo resident identity mismatch");
+  const visibleIds = new Set(visible.map(a => a.id));
+  const inspection = (a: Animal) => a.species === "raccoon" && a.behavior === "inspect" && frame.tin.open && nearby(a.pose.position, frame.tin.pose.position, 1.5);
+  const credits = world.commissions.filter(commission => {
+    const pocket = world.pockets.find(p => p.id === commission.pocket),
+      anchor = pocket?.anchors.find(a => a.id === commission.anchor),
+      subjects = commission.subjects.map(id => frame.animals.find(a => a.id === id));
+    if (!anchor || !subjects.length || subjects.some(a => !a || !visibleIds.has(a.id) || !world.residents.some(r => r.id === a.id && r.home === pocket!.id && r.anchors.includes(anchor.id)))) return false;
+    const animals = subjects as Animal[], a = animals[0];
+    if (commission.kind === "behavior" && animals.length === 1) {
+      if (a.species === "raccoon") return commission.behavior === "wash" && a.behavior === "wash" && nearby(a.pose.position, anchor.point, 1) && frame.tin.open && frame.tin.portions > 0 && nearby(frame.tin.pose.position, anchor.point, 2);
+      if (a.species === "deer") return commission.behavior === "graze" && a.behavior === "graze" && nearby(a.pose.position, anchor.point, 3);
+      if (a.species === "heron") return commission.behavior === "preen" && a.behavior === "preen" && nearby(a.pose.position, anchor.point, 8);
+      return false;
+    }
+    if (commission.kind === "setup" && animals.length === 1 && ["raccoon", "deer", "heron"].includes(a.species)) {
+      const decoy = frame.props.find(p => p.kind === "decoy" && p.open && !p.holders.some(Boolean) && nearby(p.pose.position, anchor.point, 3)),
+        screen = frame.props.find(p => p.kind === "screen" && !p.holders.some(Boolean) && distance(p.pose.position, frame.camera.position) < 4);
+      if (!decoy || !screen || !frame.tin.open || !nearby(frame.tin.pose.position, anchor.point, 3) || !nearby(a.pose.position, anchor.point, 3)) return false;
+      return a.species === "raccoon" ? inspection(a) : a.species === "heron" ? a.behavior === "display" : a.behavior === "investigate" && nearby(a.pose.position, decoy.pose.position, 2) && nearby(a.target, decoy.pose.position, 2);
+    }
+    if (commission.kind === "pair" && animals.length === 2) {
+      const raccoon = animals.find(a => a.species === "raccoon"), heron = animals.find(a => a.species === "heron");
+      return !!raccoon && !!heron && inspection(raccoon) && heron.behavior === "display" && nearby(heron.pose.position, anchor.point, 3) && distance(flat(raccoon.pose.position), flat(heron.pose.position)) >= 3 && nearby(raccoon.pose.position, heron.pose.position, 8);
+    }
+    // The remaining categories and nine new routines are implemented in Task 5.
+    return false;
+  }).map(commission => commission.id);
   const subject = framed.sort((a, b) => a.center - b.center)[0];
-  const stateHint = (a: Animal) => {
-    if (a.behavior === "alert" || a.behavior === "retreat")
-      return `Give the ${a.species} quiet space to settle`;
-    if (a.species === "deer")
-      return frame.world.assignments.includes("deer-graze")
-        ? "Wait for the deer to graze"
-        : "Photograph the deer investigating the placed decoy";
-    if (a.species === "raccoon")
-      return frame.world.assignments.includes("raccoon-wash")
-        ? "Wait for the raccoon to wash beside the woodland brook"
-        : "Wait for the raccoon to inspect the open tin";
-    return frame.world.assignments.includes("heron-preen")
-      ? "Wait for the heron to preen near the wetland"
-      : "Wait for the heron to display near the wetland";
-  };
-  return {
-    credits: selected,
-    reason: selected.length
-      ? "Assignment photograph accepted"
-      : subject
-        ? (subject.reason ?? stateHint(subject.animal))
-        : (reasons[0] ??
-          (h && h.behavior === "alert"
-            ? "Heron alert"
-            : !inspection
-              ? "Wait for the raccoon to inspect the open tin"
-              : "Wait for the heron to display")),
-  };
+  const hint = subject && world.commissions.find(c => c.subjects.includes(subject.animal.id));
+  return { credits, reason: credits.length ? "Commission photograph accepted" : subject?.reason ?? (subject ? `${subject.animal.species}: ${hint?.instructions ?? "Wildlife photograph recorded"}` : reasons[0] ?? "Find a wildlife subject in the frame") };
 }
