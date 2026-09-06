@@ -2,7 +2,7 @@
 
 You are the implementation worker for an existing game. Work on this same Windows machine using Oh My Pi. Complete the remaining approved MVP work one small task at a time, then return evidence to the orchestrator. Do not restart the project, redesign it, or assume Codex tools, conversation history, a large context window, or extra agents.
 
-Start in:
+On every start/resume, first read D:/friendslop-games/games/wildly-unqualified/.artifacts/omp/ACTIVE.md if it exists, and use the active worker path it names. For the first run, start in:
 D:/friendslop-games/games/wildly-unqualified/.worktrees/omp-01-wildlife
 Branch: work/omp-01-wildlife
 
@@ -17,7 +17,7 @@ Execute packet 00, then the single packet named by CURRENT.md. Read STATE.md onc
 Mandatory workflow:
 - Use a NEW branch and NEW worktree for each subsequent numbered task, based on the preceding verified task commit. Never work in main or any original worker checkout. Never reset, clean, rebase, force-push, delete, or absorb unrelated original work.
 - Read the relevant callers, reproduce the problem, write a meaningful failing regression where appropriate, make the smallest coherent fix, run the packet's checks, inspect the diff, commit and push the private feature branch. Preserve exact commands, exit codes, counts, and source SHA.
-- Update CURRENT.md and write a concise results/NN.md at each checkpoint. Continue autonomously through the ordered packets. At context reset, reread CURRENT.md and the current packet, not the full history. Do not start a dependent packet with a failing prerequisite.
+- Update CURRENT.md and write a concise results/NN.md at each checkpoint. Refresh the stable ACTIVE.md pointer when changing worktrees so a fresh session finds the latest ledger. Continue autonomously through the ordered packets. At context reset, read that pointer, the active CURRENT.md and one packet. Do not start a dependent packet with a failing prerequisite.
 - Ordinary code/tool/test blockers are yours to investigate. Ask only when the answer materially changes the game or an external capability is indispensable. Keep chat to short milestone/blocker messages. Do not ask whether to continue between tasks.
 - Prefer programmatic simulation, native physics, real production commands and scripted browser assertions. No agents literally walking through long outings. Browser checks that remain necessary must be visible; new Blender authoring must use a visible foreground instance. Simulation cannot prove human fun, a 40–60-minute duration, listening quality or internet reliability.
 - Keep existing stack and free/local tools. Preserve strict validation, server authority, private saves, immutable photos and portable self-hosting. No paid services or account/model changes. Never print tokens, room credentials or cookies.

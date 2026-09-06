@@ -49,4 +49,4 @@ Set-Location -LiteralPath $wuNextWork
 npm ci
 if ($LASTEXITCODE -ne 0) { throw 'Install failed' }
 ```
-Do not delete old worktrees to free a branch name. Choose a new suffix if a genuinely different prior attempt owns it; resume an existing task only after verifying its ledger/ownership. Set every tool's cwd to the new checkout, or restart OMP with --cwd there before edits. Skills/MCP and relative paths are cwd-sensitive.
+Do not delete old worktrees to free a branch name. Choose a new suffix if a genuinely different prior attempt owns it; resume an existing task only after verifying its ledger/ownership. Immediately update the stable $wuRoot/.artifacts/omp/ACTIVE.md pointer with the new absolute worktree, branch, base and packet. Set every tool's cwd to the new checkout and use absolute read/edit paths. A shell's Set-Location may last only for that call: prefix later shell calls with the correct location as needed. A fresh OMP session may use --cwd for the active checkout. Never reread a stale CURRENT.md from the first checkout after moving.

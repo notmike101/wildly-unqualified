@@ -4,12 +4,12 @@ This handoff narrows the already-approved generated-reserves plan for sequential
 
 ## One task cycle
 
-1. Read CURRENT.md and one packet. Read only its named source sections and references. If .codegraph exists, query CodeGraph before locating code; otherwise use rg. Do not create an index.
+1. Read the stable D:/friendslop-games/games/wildly-unqualified/.artifacts/omp/ACTIVE.md pointer, then the CURRENT.md and one packet in that active worktree. Read only its named source sections and references. If .codegraph exists, query CodeGraph before locating code; otherwise use rg. Do not create an index.
 2. Confirm clean owned branch/worktree and record the base SHA. For tasks after 01, create a new branch/worktree from the preceding accepted SHA using packet 00's recipe. The current packet may contain multiple tiny commits; push coherent checkpoints.
 3. Write a short local checklist for this packet only. For a failure, trace callers and observe the failing boundary before editing. Retain strict negative cases when migrating obsolete fixtures.
 4. Run the focused red/green check. Finish formatting before builds/release-byte tests. Run checks sequentially against settled source. Do not duplicate an unchanged full suite just to fill time.
 5. Inspect git diff, staged scope and git diff --cached --check. Commit only this packet and its report. Push the existing private origin, verify visibility and remote SHA.
-6. Write results/NN.md (at most 500 words, links to ignored raw evidence). Update CURRENT.md (at most 300 words) with the next task, current branch/worktree/SHA, exact last checks and unresolved items. Commit/push this ledger too. Then proceed.
+6. Write results/NN.md (at most 500 words, links to ignored raw evidence). Update CURRENT.md (at most 300 words) with the next task, current branch/worktree/SHA, exact last checks and unresolved items. Commit/push this ledger too. Refresh ACTIVE.md with the absolute active worktree, branch, latest checkpoint and packet, before any edit after a worktree change. This ignored local pointer contains no secrets; the committed CURRENT/results files are the durable record. Then proceed.
 
 If a packet is too large for remaining context, checkpoint its incomplete steps, exact first failing command and next action; resume the SAME packet. Never replace a failure with a skip, enlarge production limits, remove an assertion, teleport, force behavior/credits, inject fake JPEG success, or mark an intended test run as executed. Structured fixture mutation is allowed in explicitly labeled negative/unit tests; it does not count as positive gameplay evidence.
 
