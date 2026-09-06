@@ -1,0 +1,3544 @@
+{
+  "version": 3,
+  "stage": "complete",
+  "blender": "5.2.1 LTS",
+  "coordinates": "metres; Y up; forward -Z; ground Y=0",
+  "operation": "Visible foreground Blender; timer-staged Python authoring; no Blender MCP or background mode",
+  "sources": {
+    "author.py": "78674d4c119730bea1d7d05e1d6c44c4083df6f1ccbe752067e6095b170e897d",
+    "author-v3.py": "4ee1257bb2552b2f26ebe30f5af57429b93a310c1ce01f83475b195739c18daa",
+    "forest-shapes-v3.py": "b8c8cc12699e73fc5391ea060a3d22bbc83fe4ac10ca3c361c1aa493a17ba3ee",
+    "revise-v3.py": "80d7924a6491a2638cc5b0585519247d1a60cb0786b0ef86fe2006535287bef3",
+    "audit-v3.py": "22d3d2e9e3d409e6c95c100ae20fefe9b57bb279126f8225de25039f17bbe8a0",
+    "audit-plank-v3.py": "d732afd5bdb1b2b648331b602c306a3a6ad97d4a6561c5e7c5b4aea298350759",
+    "audit-hats-v3.py": "7170cdb69c902f4089bb1b2d9765c60142cb8ea063adaacc0551b59f2e755cf6"
+  },
+  "assets": {
+    "forest-kit-v3": {
+      "bounds_min_m": [
+        -8.05363,
+        0,
+        -8.08326
+      ],
+      "bounds_max_m": [
+        8.98935,
+        32,
+        7.47797
+      ],
+      "dimensions_m": [
+        17.04298,
+        32,
+        15.56122
+      ],
+      "triangles": 38078,
+      "nodes": {
+        "ForestKitV3": {
+          "type": "EMPTY",
+          "parent": null,
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        },
+        "BoulderCluster": {
+          "type": "MESH",
+          "parent": "ForestKitV3",
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        },
+        "DryBankSlope": {
+          "type": "MESH",
+          "parent": "ForestKitV3",
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        },
+        "FallenLogWhole": {
+          "type": "MESH",
+          "parent": "ForestKitV3",
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        },
+        "FernLargeA": {
+          "type": "MESH",
+          "parent": "ForestKitV3",
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        },
+        "FernLargeB": {
+          "type": "MESH",
+          "parent": "ForestKitV3",
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        },
+        "ForestGate": {
+          "type": "EMPTY",
+          "parent": "ForestKitV3",
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        },
+        "GatePosts": {
+          "type": "MESH",
+          "parent": "ForestGate",
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        },
+        "Hinge": {
+          "type": "EMPTY",
+          "parent": "ForestGate",
+          "pivot_m": [
+            -2.2,
+            0.9,
+            0
+          ]
+        },
+        "GateLeaf": {
+          "type": "MESH",
+          "parent": "Hinge",
+          "pivot_m": [
+            -2.2,
+            0.9,
+            0
+          ]
+        },
+        "Latch": {
+          "type": "EMPTY",
+          "parent": "GateLeaf",
+          "pivot_m": [
+            2.15,
+            1.25,
+            -0.08
+          ]
+        },
+        "HollowLog": {
+          "type": "MESH",
+          "parent": "ForestKitV3",
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        },
+        "LeafMat": {
+          "type": "MESH",
+          "parent": "ForestKitV3",
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        },
+        "LilyPatch": {
+          "type": "MESH",
+          "parent": "ForestKitV3",
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        },
+        "MatureAlderA": {
+          "type": "MESH",
+          "parent": "ForestKitV3",
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        },
+        "MatureAlderB": {
+          "type": "MESH",
+          "parent": "ForestKitV3",
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        },
+        "MatureCedarA": {
+          "type": "MESH",
+          "parent": "ForestKitV3",
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        },
+        "MatureCedarB": {
+          "type": "MESH",
+          "parent": "ForestKitV3",
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        },
+        "MatureOakA": {
+          "type": "MESH",
+          "parent": "ForestKitV3",
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        },
+        "MatureOakB": {
+          "type": "MESH",
+          "parent": "ForestKitV3",
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        },
+        "MaturePineA": {
+          "type": "MESH",
+          "parent": "ForestKitV3",
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        },
+        "MaturePineB": {
+          "type": "MESH",
+          "parent": "ForestKitV3",
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        },
+        "MossBoulderA": {
+          "type": "MESH",
+          "parent": "ForestKitV3",
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        },
+        "MossBoulderB": {
+          "type": "MESH",
+          "parent": "ForestKitV3",
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        },
+        "NeedleMat": {
+          "type": "MESH",
+          "parent": "ForestKitV3",
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        },
+        "ReedBed": {
+          "type": "MESH",
+          "parent": "ForestKitV3",
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        },
+        "RootArch": {
+          "type": "MESH",
+          "parent": "ForestKitV3",
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        },
+        "RootPlate": {
+          "type": "MESH",
+          "parent": "ForestKitV3",
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        },
+        "RootSpread": {
+          "type": "MESH",
+          "parent": "ForestKitV3",
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        },
+        "SedgeClump": {
+          "type": "MESH",
+          "parent": "ForestKitV3",
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        },
+        "SnagForked": {
+          "type": "MESH",
+          "parent": "ForestKitV3",
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        },
+        "SnagTall": {
+          "type": "MESH",
+          "parent": "ForestKitV3",
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        },
+        "TrailBoard": {
+          "type": "MESH",
+          "parent": "ForestKitV3",
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        },
+        "WetBankShelf": {
+          "type": "MESH",
+          "parent": "ForestKitV3",
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "props": {
+        "BoulderCluster": {
+          "bounds_min_m": [
+            -2.37621,
+            0,
+            -1.03586
+          ],
+          "bounds_max_m": [
+            2.5,
+            1.9,
+            1.73586
+          ],
+          "dimensions_m": [
+            4.87621,
+            1.9,
+            2.77172
+          ],
+          "triangles": 582,
+          "nodes": {
+            "BoulderCluster": {
+              "type": "MESH",
+              "parent": "ForestKitV3",
+              "pivot_m": [
+                0,
+                0,
+                0
+              ],
+              "partName": "BoulderCluster"
+            }
+          },
+          "colliders": [
+            {
+              "shape": "cylinder",
+              "center": [
+                -1.25,
+                0.9,
+                0.3
+              ],
+              "radius": 1.25,
+              "height": 1.8
+            },
+            {
+              "shape": "cylinder",
+              "center": [
+                0,
+                0.9,
+                0.3
+              ],
+              "radius": 1.25,
+              "height": 1.8
+            },
+            {
+              "shape": "cylinder",
+              "center": [
+                1.25,
+                0.9,
+                0.3
+              ],
+              "radius": 1.25,
+              "height": 1.8
+            }
+          ],
+          "attachments": {},
+          "semantic_attachments": {},
+          "material_count": 2
+        },
+        "DryBankSlope": {
+          "bounds_min_m": [
+            -3.5,
+            0,
+            -2
+          ],
+          "bounds_max_m": [
+            3.5,
+            1.02,
+            1.8
+          ],
+          "dimensions_m": [
+            7,
+            1.02,
+            3.8
+          ],
+          "triangles": 446,
+          "nodes": {
+            "DryBankSlope": {
+              "type": "MESH",
+              "parent": "ForestKitV3",
+              "pivot_m": [
+                0,
+                0,
+                0
+              ],
+              "partName": "DryBankSlope"
+            }
+          },
+          "colliders": [
+            {
+              "shape": "ramp",
+              "bounds_min": [
+                -3.5,
+                0,
+                -2
+              ],
+              "bounds_max": [
+                3.5,
+                1.02,
+                1.8
+              ],
+              "rise_axis": "+Z",
+              "low_height": 0.12,
+              "high_height": 1.02
+            }
+          ],
+          "attachments": {},
+          "semantic_attachments": {},
+          "material_count": 3
+        },
+        "FallenLogWhole": {
+          "bounds_min_m": [
+            -4.216,
+            0,
+            -0.63993
+          ],
+          "bounds_max_m": [
+            4.231,
+            1.95301,
+            0.63993
+          ],
+          "dimensions_m": [
+            8.447,
+            1.95301,
+            1.27987
+          ],
+          "triangles": 620,
+          "nodes": {
+            "FallenLogWhole": {
+              "type": "MESH",
+              "parent": "ForestKitV3",
+              "pivot_m": [
+                0,
+                0,
+                0
+              ],
+              "partName": "FallenLogWhole"
+            }
+          },
+          "colliders": [
+            {
+              "shape": "box",
+              "center": [
+                0,
+                0.65,
+                0.06
+              ],
+              "size": [
+                8.4,
+                1.3,
+                1.3
+              ]
+            }
+          ],
+          "attachments": {},
+          "semantic_attachments": {},
+          "material_count": 4
+        },
+        "FernLargeA": {
+          "bounds_min_m": [
+            -1.21631,
+            0,
+            -1.31615
+          ],
+          "bounds_max_m": [
+            1.35,
+            1.12952,
+            1.31615
+          ],
+          "dimensions_m": [
+            2.56631,
+            1.12952,
+            2.63231
+          ],
+          "triangles": 1568,
+          "nodes": {
+            "FernLargeA": {
+              "type": "MESH",
+              "parent": "ForestKitV3",
+              "pivot_m": [
+                0,
+                0,
+                0
+              ],
+              "partName": "FernLargeA"
+            }
+          },
+          "colliders": [],
+          "attachments": {},
+          "semantic_attachments": {},
+          "material_count": 2
+        },
+        "FernLargeB": {
+          "bounds_min_m": [
+            -1.16161,
+            0,
+            -1.13608
+          ],
+          "bounds_max_m": [
+            1.10709,
+            1.3479,
+            1.15185
+          ],
+          "dimensions_m": [
+            2.2687,
+            1.3479,
+            2.28793
+          ],
+          "triangles": 2016,
+          "nodes": {
+            "FernLargeB": {
+              "type": "MESH",
+              "parent": "ForestKitV3",
+              "pivot_m": [
+                0,
+                0,
+                0
+              ],
+              "partName": "FernLargeB"
+            }
+          },
+          "colliders": [],
+          "attachments": {},
+          "semantic_attachments": {},
+          "material_count": 2
+        },
+        "ForestGate": {
+          "bounds_min_m": [
+            -2.465,
+            0,
+            -0.12
+          ],
+          "bounds_max_m": [
+            2.465,
+            2.1,
+            0.12
+          ],
+          "dimensions_m": [
+            4.93,
+            2.1,
+            0.24
+          ],
+          "triangles": 84,
+          "nodes": {
+            "ForestGate": {
+              "type": "EMPTY",
+              "parent": "ForestKitV3",
+              "pivot_m": [
+                0,
+                0,
+                0
+              ],
+              "partName": "ForestGate"
+            },
+            "GatePosts": {
+              "type": "MESH",
+              "parent": "ForestGate",
+              "pivot_m": [
+                0,
+                0,
+                0
+              ],
+              "partName": "GatePosts"
+            },
+            "Hinge": {
+              "type": "EMPTY",
+              "parent": "ForestGate",
+              "pivot_m": [
+                -2.2,
+                0.9,
+                0
+              ],
+              "partName": "Hinge"
+            },
+            "GateLeaf": {
+              "type": "MESH",
+              "parent": "Hinge",
+              "pivot_m": [
+                -2.2,
+                0.9,
+                0
+              ],
+              "partName": "GateLeaf"
+            },
+            "Latch": {
+              "type": "EMPTY",
+              "parent": "GateLeaf",
+              "pivot_m": [
+                2.15,
+                1.25,
+                -0.08
+              ],
+              "partName": "Latch"
+            }
+          },
+          "colliders": [
+            {
+              "shape": "box",
+              "center": [
+                -2.35,
+                1.05,
+                0
+              ],
+              "size": [
+                0.23,
+                2.1,
+                0.24
+              ]
+            },
+            {
+              "shape": "box",
+              "center": [
+                2.35,
+                1.05,
+                0
+              ],
+              "size": [
+                0.23,
+                2.1,
+                0.24
+              ]
+            },
+            {
+              "shape": "box",
+              "node": "GateLeaf",
+              "state": "closed",
+              "center": [
+                0,
+                0.85,
+                0
+              ],
+              "size": [
+                4.3,
+                1.2,
+                0.12
+              ]
+            }
+          ],
+          "attachments": {
+            "Hinge": [
+              -2.2,
+              0.9,
+              0
+            ],
+            "Latch": [
+              2.15,
+              1.25,
+              -0.08
+            ]
+          },
+          "semantic_attachments": {
+            "GatePosts": [
+              0,
+              0,
+              0
+            ],
+            "Hinge": [
+              -2.2,
+              0.9,
+              0
+            ],
+            "GateLeaf": [
+              -2.2,
+              0.9,
+              0
+            ],
+            "Latch": [
+              2.15,
+              1.25,
+              -0.08
+            ]
+          },
+          "material_count": 2
+        },
+        "HollowLog": {
+          "bounds_min_m": [
+            -3.9,
+            0,
+            -0.723
+          ],
+          "bounds_max_m": [
+            3.93,
+            1.97206,
+            0.723
+          ],
+          "dimensions_m": [
+            7.83,
+            1.97206,
+            1.446
+          ],
+          "triangles": 744,
+          "nodes": {
+            "HollowLog": {
+              "type": "MESH",
+              "parent": "ForestKitV3",
+              "pivot_m": [
+                0,
+                0,
+                0
+              ],
+              "partName": "HollowLog"
+            }
+          },
+          "colliders": [
+            {
+              "shape": "box",
+              "center": [
+                0,
+                0.72,
+                0
+              ],
+              "size": [
+                7.8,
+                1.44,
+                1.44
+              ],
+              "note": "low crawl opening visual; not a walkable tunnel"
+            }
+          ],
+          "attachments": {},
+          "semantic_attachments": {},
+          "material_count": 3
+        },
+        "LeafMat": {
+          "bounds_min_m": [
+            -1.48871,
+            0,
+            -1.45013
+          ],
+          "bounds_max_m": [
+            1.4439,
+            0.047,
+            1.81265
+          ],
+          "dimensions_m": [
+            2.93261,
+            0.047,
+            3.26278
+          ],
+          "triangles": 504,
+          "nodes": {
+            "LeafMat": {
+              "type": "MESH",
+              "parent": "ForestKitV3",
+              "pivot_m": [
+                0,
+                0,
+                0
+              ],
+              "partName": "LeafMat"
+            }
+          },
+          "colliders": [],
+          "attachments": {},
+          "semantic_attachments": {},
+          "material_count": 2
+        },
+        "LilyPatch": {
+          "bounds_min_m": [
+            -1.96751,
+            0,
+            -1.8102
+          ],
+          "bounds_max_m": [
+            2.17713,
+            0.018,
+            1.39579
+          ],
+          "dimensions_m": [
+            4.14465,
+            0.018,
+            3.20599
+          ],
+          "triangles": 572,
+          "nodes": {
+            "LilyPatch": {
+              "type": "MESH",
+              "parent": "ForestKitV3",
+              "pivot_m": [
+                0,
+                0,
+                0
+              ],
+              "partName": "LilyPatch"
+            }
+          },
+          "colliders": [],
+          "attachments": {},
+          "semantic_attachments": {},
+          "material_count": 1
+        },
+        "MatureAlderA": {
+          "bounds_min_m": [
+            -8.05363,
+            0,
+            -7.48881
+          ],
+          "bounds_max_m": [
+            5.88685,
+            21,
+            7.32212
+          ],
+          "dimensions_m": [
+            13.94048,
+            21,
+            14.81093
+          ],
+          "triangles": 2480,
+          "nodes": {
+            "MatureAlderA": {
+              "type": "MESH",
+              "parent": "ForestKitV3",
+              "pivot_m": [
+                0,
+                0,
+                0
+              ],
+              "partName": "MatureAlderA"
+            }
+          },
+          "colliders": [
+            {
+              "shape": "cylinder",
+              "center": [
+                0,
+                3,
+                0
+              ],
+              "radius": 0.8,
+              "height": 6
+            }
+          ],
+          "attachments": {},
+          "semantic_attachments": {},
+          "material_count": 3
+        },
+        "MatureAlderB": {
+          "bounds_min_m": [
+            -6.021,
+            0,
+            -6.7593
+          ],
+          "bounds_max_m": [
+            7.65928,
+            23,
+            7.47797
+          ],
+          "dimensions_m": [
+            13.68028,
+            23,
+            14.23726
+          ],
+          "triangles": 2996,
+          "nodes": {
+            "MatureAlderB": {
+              "type": "MESH",
+              "parent": "ForestKitV3",
+              "pivot_m": [
+                0,
+                0,
+                0
+              ],
+              "partName": "MatureAlderB"
+            }
+          },
+          "colliders": [
+            {
+              "shape": "cylinder",
+              "center": [
+                0,
+                3,
+                0
+              ],
+              "radius": 0.8,
+              "height": 6
+            }
+          ],
+          "attachments": {},
+          "semantic_attachments": {},
+          "material_count": 3
+        },
+        "MatureCedarA": {
+          "bounds_min_m": [
+            -7.50991,
+            0,
+            -5.1548
+          ],
+          "bounds_max_m": [
+            7.35939,
+            26,
+            6.95867
+          ],
+          "dimensions_m": [
+            14.8693,
+            26,
+            12.11348
+          ],
+          "triangles": 3584,
+          "nodes": {
+            "MatureCedarA": {
+              "type": "MESH",
+              "parent": "ForestKitV3",
+              "pivot_m": [
+                0,
+                0,
+                0
+              ],
+              "partName": "MatureCedarA"
+            }
+          },
+          "colliders": [
+            {
+              "shape": "cylinder",
+              "center": [
+                0,
+                3,
+                0
+              ],
+              "radius": 1.1,
+              "height": 6
+            }
+          ],
+          "attachments": {},
+          "semantic_attachments": {},
+          "material_count": 4
+        },
+        "MatureCedarB": {
+          "bounds_min_m": [
+            -5.32338,
+            0,
+            -5.14131
+          ],
+          "bounds_max_m": [
+            7.15607,
+            28,
+            5.72729
+          ],
+          "dimensions_m": [
+            12.47945,
+            28,
+            10.86861
+          ],
+          "triangles": 3584,
+          "nodes": {
+            "MatureCedarB": {
+              "type": "MESH",
+              "parent": "ForestKitV3",
+              "pivot_m": [
+                0,
+                0,
+                0
+              ],
+              "partName": "MatureCedarB"
+            }
+          },
+          "colliders": [
+            {
+              "shape": "cylinder",
+              "center": [
+                0,
+                3,
+                0
+              ],
+              "radius": 1.1,
+              "height": 6
+            }
+          ],
+          "attachments": {},
+          "semantic_attachments": {},
+          "material_count": 4
+        },
+        "MatureOakA": {
+          "bounds_min_m": [
+            -7.08316,
+            0,
+            -8.08326
+          ],
+          "bounds_max_m": [
+            7.06575,
+            24,
+            6.86592
+          ],
+          "dimensions_m": [
+            14.14891,
+            24,
+            14.94918
+          ],
+          "triangles": 2480,
+          "nodes": {
+            "MatureOakA": {
+              "type": "MESH",
+              "parent": "ForestKitV3",
+              "pivot_m": [
+                0,
+                0,
+                0
+              ],
+              "partName": "MatureOakA"
+            }
+          },
+          "colliders": [
+            {
+              "shape": "cylinder",
+              "center": [
+                0,
+                3,
+                0
+              ],
+              "radius": 1.1,
+              "height": 6
+            }
+          ],
+          "attachments": {},
+          "semantic_attachments": {},
+          "material_count": 4
+        },
+        "MatureOakB": {
+          "bounds_min_m": [
+            -7.98466,
+            0,
+            -7.57401
+          ],
+          "bounds_max_m": [
+            8.98935,
+            27,
+            5.92975
+          ],
+          "dimensions_m": [
+            16.97401,
+            27,
+            13.50377
+          ],
+          "triangles": 2996,
+          "nodes": {
+            "MatureOakB": {
+              "type": "MESH",
+              "parent": "ForestKitV3",
+              "pivot_m": [
+                0,
+                0,
+                0
+              ],
+              "partName": "MatureOakB"
+            }
+          },
+          "colliders": [
+            {
+              "shape": "cylinder",
+              "center": [
+                0,
+                3,
+                0
+              ],
+              "radius": 1.1,
+              "height": 6
+            }
+          ],
+          "attachments": {},
+          "semantic_attachments": {},
+          "material_count": 4
+        },
+        "MaturePineA": {
+          "bounds_min_m": [
+            -5.8019,
+            0,
+            -5.45898
+          ],
+          "bounds_max_m": [
+            5.86158,
+            29,
+            4.47797
+          ],
+          "dimensions_m": [
+            11.66348,
+            29,
+            9.93695
+          ],
+          "triangles": 3584,
+          "nodes": {
+            "MaturePineA": {
+              "type": "MESH",
+              "parent": "ForestKitV3",
+              "pivot_m": [
+                0,
+                0,
+                0
+              ],
+              "partName": "MaturePineA"
+            }
+          },
+          "colliders": [
+            {
+              "shape": "cylinder",
+              "center": [
+                0,
+                3,
+                0
+              ],
+              "radius": 0.8,
+              "height": 6
+            }
+          ],
+          "attachments": {},
+          "semantic_attachments": {},
+          "material_count": 4
+        },
+        "MaturePineB": {
+          "bounds_min_m": [
+            -5.95787,
+            0,
+            -5.87802
+          ],
+          "bounds_max_m": [
+            5.83622,
+            32,
+            6.36844
+          ],
+          "dimensions_m": [
+            11.79409,
+            32,
+            12.24647
+          ],
+          "triangles": 3584,
+          "nodes": {
+            "MaturePineB": {
+              "type": "MESH",
+              "parent": "ForestKitV3",
+              "pivot_m": [
+                0,
+                0,
+                0
+              ],
+              "partName": "MaturePineB"
+            }
+          },
+          "colliders": [
+            {
+              "shape": "cylinder",
+              "center": [
+                0,
+                3,
+                0
+              ],
+              "radius": 0.8,
+              "height": 6
+            }
+          ],
+          "attachments": {},
+          "semantic_attachments": {},
+          "material_count": 4
+        },
+        "MossBoulderA": {
+          "bounds_min_m": [
+            -1.59748,
+            0,
+            -1.42305
+          ],
+          "bounds_max_m": [
+            1.7,
+            1.9,
+            1.42305
+          ],
+          "dimensions_m": [
+            3.29748,
+            1.9,
+            2.84609
+          ],
+          "triangles": 202,
+          "nodes": {
+            "MossBoulderA": {
+              "type": "MESH",
+              "parent": "ForestKitV3",
+              "pivot_m": [
+                0,
+                0,
+                0
+              ],
+              "partName": "MossBoulderA"
+            }
+          },
+          "colliders": [
+            {
+              "shape": "cylinder",
+              "center": [
+                0,
+                0.9,
+                0
+              ],
+              "radius": 1.7,
+              "height": 1.8
+            }
+          ],
+          "attachments": {},
+          "semantic_attachments": {},
+          "material_count": 2
+        },
+        "MossBoulderB": {
+          "bounds_min_m": [
+            -1.12621,
+            0,
+            -1.03586
+          ],
+          "bounds_max_m": [
+            1.25,
+            1.9,
+            1.03586
+          ],
+          "dimensions_m": [
+            2.37621,
+            1.9,
+            2.07172
+          ],
+          "triangles": 194,
+          "nodes": {
+            "MossBoulderB": {
+              "type": "MESH",
+              "parent": "ForestKitV3",
+              "pivot_m": [
+                0,
+                0,
+                0
+              ],
+              "partName": "MossBoulderB"
+            }
+          },
+          "colliders": [
+            {
+              "shape": "cylinder",
+              "center": [
+                0,
+                0.9,
+                0
+              ],
+              "radius": 1.25,
+              "height": 1.8
+            }
+          ],
+          "attachments": {},
+          "semantic_attachments": {},
+          "material_count": 2
+        },
+        "NeedleMat": {
+          "bounds_min_m": [
+            -1.59296,
+            0,
+            -1.36317
+          ],
+          "bounds_max_m": [
+            1.49783,
+            0.027,
+            1.73899
+          ],
+          "dimensions_m": [
+            3.09079,
+            0.027,
+            3.10215
+          ],
+          "triangles": 520,
+          "nodes": {
+            "NeedleMat": {
+              "type": "MESH",
+              "parent": "ForestKitV3",
+              "pivot_m": [
+                0,
+                0,
+                0
+              ],
+              "partName": "NeedleMat"
+            }
+          },
+          "colliders": [],
+          "attachments": {},
+          "semantic_attachments": {},
+          "material_count": 2
+        },
+        "ReedBed": {
+          "bounds_min_m": [
+            -1.27887,
+            0,
+            -0.60714
+          ],
+          "bounds_max_m": [
+            1.22197,
+            2.30002,
+            0.92971
+          ],
+          "dimensions_m": [
+            2.50083,
+            2.30002,
+            1.53685
+          ],
+          "triangles": 952,
+          "nodes": {
+            "ReedBed": {
+              "type": "MESH",
+              "parent": "ForestKitV3",
+              "pivot_m": [
+                0,
+                0,
+                0
+              ],
+              "partName": "ReedBed"
+            }
+          },
+          "colliders": [],
+          "attachments": {},
+          "semantic_attachments": {},
+          "material_count": 3
+        },
+        "RootArch": {
+          "bounds_min_m": [
+            -2.93945,
+            0,
+            -0.8296
+          ],
+          "bounds_max_m": [
+            2.93945,
+            4.0043,
+            0.8296
+          ],
+          "dimensions_m": [
+            5.8789,
+            4.0043,
+            1.6592
+          ],
+          "triangles": 480,
+          "nodes": {
+            "RootArch": {
+              "type": "MESH",
+              "parent": "ForestKitV3",
+              "pivot_m": [
+                0,
+                0,
+                0
+              ],
+              "partName": "RootArch"
+            }
+          },
+          "colliders": [
+            {
+              "shape": "cylinder",
+              "center": [
+                -2.4,
+                1.2,
+                0
+              ],
+              "radius": 0.5,
+              "height": 2.4
+            },
+            {
+              "shape": "cylinder",
+              "center": [
+                2.4,
+                1.2,
+                0
+              ],
+              "radius": 0.5,
+              "height": 2.4
+            }
+          ],
+          "attachments": {},
+          "semantic_attachments": {},
+          "material_count": 2
+        },
+        "RootPlate": {
+          "bounds_min_m": [
+            -0.45563,
+            0,
+            -2.57922
+          ],
+          "bounds_max_m": [
+            2.72155,
+            3.5707,
+            2.57922
+          ],
+          "dimensions_m": [
+            3.17717,
+            3.5707,
+            5.15844
+          ],
+          "triangles": 612,
+          "nodes": {
+            "RootPlate": {
+              "type": "MESH",
+              "parent": "ForestKitV3",
+              "pivot_m": [
+                0,
+                0,
+                0
+              ],
+              "partName": "RootPlate"
+            }
+          },
+          "colliders": [
+            {
+              "shape": "box",
+              "center": [
+                0,
+                1.5,
+                0
+              ],
+              "size": [
+                1,
+                3,
+                3.6
+              ]
+            }
+          ],
+          "attachments": {},
+          "semantic_attachments": {},
+          "material_count": 2
+        },
+        "RootSpread": {
+          "bounds_min_m": [
+            -2.20265,
+            0,
+            -1.80329
+          ],
+          "bounds_max_m": [
+            1.80344,
+            0.23397,
+            2.20248
+          ],
+          "dimensions_m": [
+            4.00608,
+            0.23397,
+            4.00577
+          ],
+          "triangles": 512,
+          "nodes": {
+            "RootSpread": {
+              "type": "MESH",
+              "parent": "ForestKitV3",
+              "pivot_m": [
+                0,
+                0,
+                0
+              ],
+              "partName": "RootSpread"
+            }
+          },
+          "colliders": [],
+          "attachments": {},
+          "semantic_attachments": {},
+          "material_count": 1
+        },
+        "SedgeClump": {
+          "bounds_min_m": [
+            -0.77573,
+            0,
+            -0.27044
+          ],
+          "bounds_max_m": [
+            0.74965,
+            0.9514,
+            0.57989
+          ],
+          "dimensions_m": [
+            1.52538,
+            0.9514,
+            0.85032
+          ],
+          "triangles": 880,
+          "nodes": {
+            "SedgeClump": {
+              "type": "MESH",
+              "parent": "ForestKitV3",
+              "pivot_m": [
+                0,
+                0,
+                0
+              ],
+              "partName": "SedgeClump"
+            }
+          },
+          "colliders": [],
+          "attachments": {},
+          "semantic_attachments": {},
+          "material_count": 2
+        },
+        "SnagForked": {
+          "bounds_min_m": [
+            -1.61099,
+            0,
+            -2.01011
+          ],
+          "bounds_max_m": [
+            2.60776,
+            11.84,
+            1.67077
+          ],
+          "dimensions_m": [
+            4.21875,
+            11.84,
+            3.68088
+          ],
+          "triangles": 404,
+          "nodes": {
+            "SnagForked": {
+              "type": "MESH",
+              "parent": "ForestKitV3",
+              "pivot_m": [
+                0,
+                0,
+                0
+              ],
+              "partName": "SnagForked"
+            }
+          },
+          "colliders": [
+            {
+              "shape": "cylinder",
+              "center": [
+                0,
+                3,
+                0
+              ],
+              "radius": 0.8,
+              "height": 6
+            }
+          ],
+          "attachments": {},
+          "semantic_attachments": {},
+          "material_count": 2
+        },
+        "SnagTall": {
+          "bounds_min_m": [
+            -1.61099,
+            0,
+            -2.01011
+          ],
+          "bounds_max_m": [
+            2.10776,
+            13.03312,
+            1.67078
+          ],
+          "dimensions_m": [
+            3.71875,
+            13.03312,
+            3.68089
+          ],
+          "triangles": 356,
+          "nodes": {
+            "SnagTall": {
+              "type": "MESH",
+              "parent": "ForestKitV3",
+              "pivot_m": [
+                0,
+                0,
+                0
+              ],
+              "partName": "SnagTall"
+            }
+          },
+          "colliders": [
+            {
+              "shape": "cylinder",
+              "center": [
+                0,
+                3,
+                0
+              ],
+              "radius": 0.8,
+              "height": 6
+            }
+          ],
+          "attachments": {},
+          "semantic_attachments": {},
+          "material_count": 2
+        },
+        "TrailBoard": {
+          "bounds_min_m": [
+            -1.12,
+            0,
+            -0.3
+          ],
+          "bounds_max_m": [
+            1.12,
+            2.42,
+            0.26
+          ],
+          "dimensions_m": [
+            2.24,
+            2.42,
+            0.56
+          ],
+          "triangles": 96,
+          "nodes": {
+            "TrailBoard": {
+              "type": "MESH",
+              "parent": "ForestKitV3",
+              "pivot_m": [
+                0,
+                0,
+                0
+              ],
+              "partName": "TrailBoard"
+            }
+          },
+          "colliders": [
+            {
+              "shape": "box",
+              "center": [
+                0,
+                1.2,
+                0
+              ],
+              "size": [
+                2,
+                2.4,
+                0.3
+              ]
+            }
+          ],
+          "attachments": {},
+          "semantic_attachments": {},
+          "material_count": 3
+        },
+        "WetBankShelf": {
+          "bounds_min_m": [
+            -3,
+            0,
+            -2
+          ],
+          "bounds_max_m": [
+            3,
+            1.02,
+            1.8
+          ],
+          "dimensions_m": [
+            6,
+            1.02,
+            3.8
+          ],
+          "triangles": 446,
+          "nodes": {
+            "WetBankShelf": {
+              "type": "MESH",
+              "parent": "ForestKitV3",
+              "pivot_m": [
+                0,
+                0,
+                0
+              ],
+              "partName": "WetBankShelf"
+            }
+          },
+          "colliders": [
+            {
+              "shape": "ramp",
+              "bounds_min": [
+                -3,
+                0,
+                -2
+              ],
+              "bounds_max": [
+                3,
+                1.02,
+                1.8
+              ],
+              "rise_axis": "+Z",
+              "low_height": 0.12,
+              "high_height": 1.02
+            }
+          ],
+          "attachments": {},
+          "semantic_attachments": {},
+          "material_count": 3
+        }
+      },
+      "bytes": 2091920,
+      "sha256": "fa56fdf272282db3de69a9b1910b9a8d82d465022a8b308855bf60f5cafc63d4"
+    },
+    "deer-v3": {
+      "bounds_min_m": [
+        -0.31,
+        0,
+        -1.218
+      ],
+      "bounds_max_m": [
+        0.31,
+        1.94,
+        1.03114
+      ],
+      "dimensions_m": [
+        0.62,
+        1.94,
+        2.24914
+      ],
+      "triangles": 856,
+      "nodes": {
+        "deer-v3": {
+          "type": "EMPTY",
+          "parent": null,
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        },
+        "Deer": {
+          "type": "EMPTY",
+          "parent": "deer-v3",
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        },
+        "Body": {
+          "type": "MESH",
+          "parent": "Deer",
+          "pivot_m": [
+            0,
+            1.08,
+            0.1
+          ]
+        },
+        "LegBL": {
+          "type": "MESH",
+          "parent": "Body",
+          "pivot_m": [
+            -0.21,
+            1.04,
+            0.66
+          ]
+        },
+        "LegBR": {
+          "type": "MESH",
+          "parent": "Body",
+          "pivot_m": [
+            0.21,
+            1.04,
+            0.66
+          ]
+        },
+        "LegFL": {
+          "type": "MESH",
+          "parent": "Body",
+          "pivot_m": [
+            -0.21,
+            1.04,
+            -0.43
+          ]
+        },
+        "LegFR": {
+          "type": "MESH",
+          "parent": "Body",
+          "pivot_m": [
+            0.21,
+            1.04,
+            -0.43
+          ]
+        },
+        "Neck": {
+          "type": "MESH",
+          "parent": "Body",
+          "pivot_m": [
+            0,
+            1.2,
+            -0.46
+          ]
+        },
+        "Head": {
+          "type": "MESH",
+          "parent": "Neck",
+          "pivot_m": [
+            0,
+            1.6,
+            -0.74
+          ]
+        },
+        "EarL": {
+          "type": "MESH",
+          "parent": "Head",
+          "pivot_m": [
+            -0.1,
+            1.76,
+            -0.68
+          ]
+        },
+        "EarR": {
+          "type": "MESH",
+          "parent": "Head",
+          "pivot_m": [
+            0.1,
+            1.76,
+            -0.68
+          ]
+        },
+        "PhotoHead": {
+          "type": "EMPTY",
+          "parent": "Head",
+          "pivot_m": [
+            0,
+            1.64,
+            -0.83
+          ]
+        },
+        "PhotoBody": {
+          "type": "EMPTY",
+          "parent": "Body",
+          "pivot_m": [
+            0,
+            1.12,
+            0.1
+          ]
+        },
+        "Tail": {
+          "type": "MESH",
+          "parent": "Body",
+          "pivot_m": [
+            0,
+            1.2,
+            0.77
+          ]
+        }
+      },
+      "props": {
+        "Deer": {
+          "bounds_min_m": [
+            -0.31,
+            0,
+            -1.218
+          ],
+          "bounds_max_m": [
+            0.31,
+            1.94,
+            1.03114
+          ],
+          "dimensions_m": [
+            0.62,
+            1.94,
+            2.24914
+          ],
+          "triangles": 856,
+          "nodes": {
+            "Deer": {
+              "type": "EMPTY",
+              "parent": "deer-v3",
+              "pivot_m": [
+                0,
+                0,
+                0
+              ],
+              "partName": "Deer"
+            },
+            "Body": {
+              "type": "MESH",
+              "parent": "Deer",
+              "pivot_m": [
+                0,
+                1.08,
+                0.1
+              ],
+              "partName": "Body"
+            },
+            "LegBL": {
+              "type": "MESH",
+              "parent": "Body",
+              "pivot_m": [
+                -0.21,
+                1.04,
+                0.66
+              ],
+              "partName": "LegBL"
+            },
+            "LegBR": {
+              "type": "MESH",
+              "parent": "Body",
+              "pivot_m": [
+                0.21,
+                1.04,
+                0.66
+              ],
+              "partName": "LegBR"
+            },
+            "LegFL": {
+              "type": "MESH",
+              "parent": "Body",
+              "pivot_m": [
+                -0.21,
+                1.04,
+                -0.43
+              ],
+              "partName": "LegFL"
+            },
+            "LegFR": {
+              "type": "MESH",
+              "parent": "Body",
+              "pivot_m": [
+                0.21,
+                1.04,
+                -0.43
+              ],
+              "partName": "LegFR"
+            },
+            "Neck": {
+              "type": "MESH",
+              "parent": "Body",
+              "pivot_m": [
+                0,
+                1.2,
+                -0.46
+              ],
+              "partName": "Neck"
+            },
+            "Head": {
+              "type": "MESH",
+              "parent": "Neck",
+              "pivot_m": [
+                0,
+                1.6,
+                -0.74
+              ],
+              "partName": "Head"
+            },
+            "EarL": {
+              "type": "MESH",
+              "parent": "Head",
+              "pivot_m": [
+                -0.1,
+                1.76,
+                -0.68
+              ],
+              "partName": "EarL"
+            },
+            "EarR": {
+              "type": "MESH",
+              "parent": "Head",
+              "pivot_m": [
+                0.1,
+                1.76,
+                -0.68
+              ],
+              "partName": "EarR"
+            },
+            "PhotoHead": {
+              "type": "EMPTY",
+              "parent": "Head",
+              "pivot_m": [
+                0,
+                1.64,
+                -0.83
+              ],
+              "partName": "PhotoHead"
+            },
+            "PhotoBody": {
+              "type": "EMPTY",
+              "parent": "Body",
+              "pivot_m": [
+                0,
+                1.12,
+                0.1
+              ],
+              "partName": "PhotoBody"
+            },
+            "Tail": {
+              "type": "MESH",
+              "parent": "Body",
+              "pivot_m": [
+                0,
+                1.2,
+                0.77
+              ],
+              "partName": "Tail"
+            }
+          },
+          "colliders": [
+            {
+              "shape": "capsule",
+              "center": [
+                0,
+                0.85,
+                0
+              ],
+              "radius": 0.35,
+              "height": 1.3
+            }
+          ],
+          "attachments": {
+            "PhotoHead": [
+              0,
+              1.64,
+              -0.83
+            ],
+            "PhotoBody": [
+              0,
+              1.12,
+              0.1
+            ]
+          },
+          "semantic_attachments": {
+            "Body": [
+              0,
+              1.08,
+              0.1
+            ],
+            "LegBL": [
+              -0.21,
+              1.04,
+              0.66
+            ],
+            "LegBR": [
+              0.21,
+              1.04,
+              0.66
+            ],
+            "LegFL": [
+              -0.21,
+              1.04,
+              -0.43
+            ],
+            "LegFR": [
+              0.21,
+              1.04,
+              -0.43
+            ],
+            "Neck": [
+              0,
+              1.2,
+              -0.46
+            ],
+            "Head": [
+              0,
+              1.6,
+              -0.74
+            ],
+            "EarL": [
+              -0.1,
+              1.76,
+              -0.68
+            ],
+            "EarR": [
+              0.1,
+              1.76,
+              -0.68
+            ],
+            "PhotoHead": [
+              0,
+              1.64,
+              -0.83
+            ],
+            "PhotoBody": [
+              0,
+              1.12,
+              0.1
+            ],
+            "Tail": [
+              0,
+              1.2,
+              0.77
+            ]
+          },
+          "material_count": 4
+        }
+      },
+      "bytes": 61988,
+      "sha256": "5d076278e0f7b152bccf2cbd28bd0c9dbf33b1426224042fd70db18dfc7ed2de"
+    },
+    "researcher-forest-v3": {
+      "bounds_min_m": [
+        -0.371,
+        0,
+        -0.404
+      ],
+      "bounds_max_m": [
+        0.371,
+        1.787,
+        0.459
+      ],
+      "dimensions_m": [
+        0.742,
+        1.787,
+        0.863
+      ],
+      "triangles": 1076,
+      "nodes": {
+        "researcher-forest-v3": {
+          "type": "EMPTY",
+          "parent": null,
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        },
+        "ResearcherForest": {
+          "type": "EMPTY",
+          "parent": "researcher-forest-v3",
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        },
+        "Body": {
+          "type": "MESH",
+          "parent": "ResearcherForest",
+          "pivot_m": [
+            0,
+            1.04,
+            0
+          ]
+        },
+        "ArmL": {
+          "type": "MESH",
+          "parent": "Body",
+          "pivot_m": [
+            -0.24,
+            1.34,
+            0
+          ]
+        },
+        "ArmR": {
+          "type": "MESH",
+          "parent": "Body",
+          "pivot_m": [
+            0.24,
+            1.34,
+            0
+          ]
+        },
+        "CameraGrip": {
+          "type": "EMPTY",
+          "parent": "Body",
+          "pivot_m": [
+            0,
+            1.065,
+            -0.24
+          ]
+        },
+        "Camera": {
+          "type": "MESH",
+          "parent": "CameraGrip",
+          "pivot_m": [
+            0,
+            1.065,
+            -0.24
+          ]
+        },
+        "ForestPockets": {
+          "type": "MESH",
+          "parent": "Body",
+          "pivot_m": [
+            0,
+            1.04,
+            0
+          ]
+        },
+        "Head": {
+          "type": "MESH",
+          "parent": "Body",
+          "pivot_m": [
+            0,
+            1.455,
+            0
+          ]
+        },
+        "HatMount": {
+          "type": "EMPTY",
+          "parent": "Head",
+          "pivot_m": [
+            0,
+            1.76,
+            0
+          ]
+        },
+        "LegL": {
+          "type": "MESH",
+          "parent": "Body",
+          "pivot_m": [
+            -0.115,
+            0.89,
+            0
+          ]
+        },
+        "LegR": {
+          "type": "MESH",
+          "parent": "Body",
+          "pivot_m": [
+            0.115,
+            0.89,
+            0
+          ]
+        },
+        "TinGrip": {
+          "type": "EMPTY",
+          "parent": "Body",
+          "pivot_m": [
+            0.31,
+            0.82,
+            -0.28
+          ]
+        }
+      },
+      "props": {
+        "ResearcherForest": {
+          "bounds_min_m": [
+            -0.371,
+            0,
+            -0.404
+          ],
+          "bounds_max_m": [
+            0.371,
+            1.787,
+            0.459
+          ],
+          "dimensions_m": [
+            0.742,
+            1.787,
+            0.863
+          ],
+          "triangles": 1076,
+          "nodes": {
+            "ResearcherForest": {
+              "type": "EMPTY",
+              "parent": "researcher-forest-v3",
+              "pivot_m": [
+                0,
+                0,
+                0
+              ],
+              "partName": "ResearcherForest"
+            },
+            "Body": {
+              "type": "MESH",
+              "parent": "ResearcherForest",
+              "pivot_m": [
+                0,
+                1.04,
+                0
+              ],
+              "partName": "Body"
+            },
+            "ArmL": {
+              "type": "MESH",
+              "parent": "Body",
+              "pivot_m": [
+                -0.24,
+                1.34,
+                0
+              ],
+              "partName": "ArmL"
+            },
+            "ArmR": {
+              "type": "MESH",
+              "parent": "Body",
+              "pivot_m": [
+                0.24,
+                1.34,
+                0
+              ],
+              "partName": "ArmR"
+            },
+            "CameraGrip": {
+              "type": "EMPTY",
+              "parent": "Body",
+              "pivot_m": [
+                0,
+                1.065,
+                -0.24
+              ],
+              "partName": "CameraGrip"
+            },
+            "Camera": {
+              "type": "MESH",
+              "parent": "CameraGrip",
+              "pivot_m": [
+                0,
+                1.065,
+                -0.24
+              ],
+              "partName": "Camera"
+            },
+            "ForestPockets": {
+              "type": "MESH",
+              "parent": "Body",
+              "pivot_m": [
+                0,
+                1.04,
+                0
+              ],
+              "partName": "ForestPockets"
+            },
+            "Head": {
+              "type": "MESH",
+              "parent": "Body",
+              "pivot_m": [
+                0,
+                1.455,
+                0
+              ],
+              "partName": "Head"
+            },
+            "HatMount": {
+              "type": "EMPTY",
+              "parent": "Head",
+              "pivot_m": [
+                0,
+                1.76,
+                0
+              ],
+              "partName": "HatMount"
+            },
+            "LegL": {
+              "type": "MESH",
+              "parent": "Body",
+              "pivot_m": [
+                -0.115,
+                0.89,
+                0
+              ],
+              "partName": "LegL"
+            },
+            "LegR": {
+              "type": "MESH",
+              "parent": "Body",
+              "pivot_m": [
+                0.115,
+                0.89,
+                0
+              ],
+              "partName": "LegR"
+            },
+            "TinGrip": {
+              "type": "EMPTY",
+              "parent": "Body",
+              "pivot_m": [
+                0.31,
+                0.82,
+                -0.28
+              ],
+              "partName": "TinGrip"
+            }
+          },
+          "colliders": [
+            {
+              "shape": "capsule",
+              "center": [
+                0,
+                0.85,
+                0
+              ],
+              "radius": 0.32,
+              "height": 1.7
+            }
+          ],
+          "attachments": {
+            "CameraGrip": [
+              0,
+              1.065,
+              -0.24
+            ],
+            "HatMount": [
+              0,
+              1.76,
+              0
+            ],
+            "TinGrip": [
+              0.31,
+              0.82,
+              -0.28
+            ]
+          },
+          "semantic_attachments": {
+            "Body": [
+              0,
+              1.04,
+              0
+            ],
+            "ArmL": [
+              -0.24,
+              1.34,
+              0
+            ],
+            "ArmR": [
+              0.24,
+              1.34,
+              0
+            ],
+            "CameraGrip": [
+              0,
+              1.065,
+              -0.24
+            ],
+            "Camera": [
+              0,
+              1.065,
+              -0.24
+            ],
+            "ForestPockets": [
+              0,
+              1.04,
+              0
+            ],
+            "Head": [
+              0,
+              1.455,
+              0
+            ],
+            "HatMount": [
+              0,
+              1.76,
+              0
+            ],
+            "LegL": [
+              -0.115,
+              0.89,
+              0
+            ],
+            "LegR": [
+              0.115,
+              0.89,
+              0
+            ],
+            "TinGrip": [
+              0.31,
+              0.82,
+              -0.28
+            ]
+          },
+          "material_count": 9
+        }
+      },
+      "bytes": 75100,
+      "sha256": "c03f7ffcc852458f1e281ea8126d0d1633a26db5f186c1d8d89267d9b2224884"
+    },
+    "headwear-v3": {
+      "bounds_min_m": [
+        -0.3,
+        0.0,
+        -0.32
+      ],
+      "bounds_max_m": [
+        0.3,
+        0.31,
+        0.3
+      ],
+      "dimensions_m": [
+        0.6,
+        0.31,
+        0.62
+      ],
+      "triangles": 640,
+      "nodes": {
+        "headwear-v3": {
+          "type": "EMPTY",
+          "parent": null,
+          "pivot_m": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "HatBeanie": {
+          "type": "MESH",
+          "parent": "headwear-v3",
+          "pivot_m": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "HatBrim": {
+          "type": "MESH",
+          "parent": "headwear-v3",
+          "pivot_m": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "HatBucket": {
+          "type": "MESH",
+          "parent": "headwear-v3",
+          "pivot_m": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "HatCap": {
+          "type": "MESH",
+          "parent": "headwear-v3",
+          "pivot_m": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "props": {
+        "HatBeanie": {
+          "bounds_min_m": [
+            -0.17,
+            0.0,
+            -0.17
+          ],
+          "bounds_max_m": [
+            0.17,
+            0.31,
+            0.17
+          ],
+          "dimensions_m": [
+            0.34,
+            0.31,
+            0.34
+          ],
+          "triangles": 212,
+          "nodes": {
+            "HatBeanie": {
+              "type": "MESH",
+              "parent": "headwear-v3",
+              "pivot_m": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "partName": "HatBeanie"
+            }
+          },
+          "colliders": [],
+          "attachments": {},
+          "semantic_attachments": {},
+          "material_count": 2
+        },
+        "HatBrim": {
+          "bounds_min_m": [
+            -0.3,
+            0.0,
+            -0.3
+          ],
+          "bounds_max_m": [
+            0.3,
+            0.21,
+            0.3
+          ],
+          "dimensions_m": [
+            0.6,
+            0.21,
+            0.6
+          ],
+          "triangles": 148,
+          "nodes": {
+            "HatBrim": {
+              "type": "MESH",
+              "parent": "headwear-v3",
+              "pivot_m": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "partName": "HatBrim"
+            }
+          },
+          "colliders": [],
+          "attachments": {},
+          "semantic_attachments": {},
+          "material_count": 3
+        },
+        "HatBucket": {
+          "bounds_min_m": [
+            -0.255,
+            0.0,
+            -0.24861
+          ],
+          "bounds_max_m": [
+            0.255,
+            0.22,
+            0.24861
+          ],
+          "dimensions_m": [
+            0.51,
+            0.22,
+            0.49721
+          ],
+          "triangles": 140,
+          "nodes": {
+            "HatBucket": {
+              "type": "MESH",
+              "parent": "headwear-v3",
+              "pivot_m": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "partName": "HatBucket"
+            }
+          },
+          "colliders": [],
+          "attachments": {},
+          "semantic_attachments": {},
+          "material_count": 2
+        },
+        "HatCap": {
+          "bounds_min_m": [
+            -0.19,
+            0.0,
+            -0.32
+          ],
+          "bounds_max_m": [
+            0.19,
+            0.21,
+            0.19
+          ],
+          "dimensions_m": [
+            0.38,
+            0.21,
+            0.51
+          ],
+          "triangles": 140,
+          "nodes": {
+            "HatCap": {
+              "type": "MESH",
+              "parent": "headwear-v3",
+              "pivot_m": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "partName": "HatCap"
+            }
+          },
+          "colliders": [],
+          "attachments": {},
+          "semantic_attachments": {},
+          "material_count": 1
+        }
+      },
+      "bytes": 38208,
+      "sha256": "d8d670d4e8751cbc98bab83d5eda7ff715c222c46f9ef298e1139cb18f7bd24f"
+    },
+    "expedition-kit-v3": {
+      "bounds_min_m": [
+        -1.6,
+        0,
+        -0.3505
+      ],
+      "bounds_max_m": [
+        1.6,
+        1.94,
+        0.325
+      ],
+      "dimensions_m": [
+        3.2,
+        1.94,
+        0.6755
+      ],
+      "triangles": 1156,
+      "nodes": {
+        "expedition-kit-v3": {
+          "type": "EMPTY",
+          "parent": null,
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        },
+        "CrossingPlank": {
+          "type": "EMPTY",
+          "parent": "expedition-kit-v3",
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        },
+        "Deck": {
+          "type": "MESH",
+          "parent": "CrossingPlank",
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        },
+        "HandleL": {
+          "type": "MESH",
+          "parent": "CrossingPlank",
+          "pivot_m": [
+            -1.43,
+            0.165,
+            0
+          ]
+        },
+        "HandleR": {
+          "type": "MESH",
+          "parent": "CrossingPlank",
+          "pivot_m": [
+            1.43,
+            0.165,
+            0
+          ]
+        },
+        "SupportL": {
+          "type": "EMPTY",
+          "parent": "CrossingPlank",
+          "pivot_m": [
+            -1.48,
+            0,
+            0
+          ]
+        },
+        "SupportR": {
+          "type": "EMPTY",
+          "parent": "CrossingPlank",
+          "pivot_m": [
+            1.48,
+            0,
+            0
+          ]
+        },
+        "FieldCase": {
+          "type": "EMPTY",
+          "parent": "expedition-kit-v3",
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        },
+        "BaitStore": {
+          "type": "EMPTY",
+          "parent": "FieldCase",
+          "pivot_m": [
+            0,
+            0.13,
+            0
+          ]
+        },
+        "StoredBait": {
+          "type": "MESH",
+          "parent": "BaitStore",
+          "pivot_m": [
+            0,
+            0.13,
+            0
+          ]
+        },
+        "Container": {
+          "type": "MESH",
+          "parent": "FieldCase",
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        },
+        "HandleL.001": {
+          "type": "MESH",
+          "parent": "FieldCase",
+          "pivot_m": [
+            -0.75,
+            0.39,
+            0
+          ]
+        },
+        "HandleR.001": {
+          "type": "MESH",
+          "parent": "FieldCase",
+          "pivot_m": [
+            0.75,
+            0.39,
+            0
+          ]
+        },
+        "Lid": {
+          "type": "MESH",
+          "parent": "FieldCase",
+          "pivot_m": [
+            0,
+            0.58,
+            0.325
+          ]
+        },
+        "FoldingScreen": {
+          "type": "EMPTY",
+          "parent": "expedition-kit-v3",
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        },
+        "PanelL": {
+          "type": "MESH",
+          "parent": "FoldingScreen",
+          "pivot_m": [
+            0,
+            0.96,
+            0
+          ]
+        },
+        "HandleL.002": {
+          "type": "MESH",
+          "parent": "PanelL",
+          "pivot_m": [
+            -1.25,
+            1.05,
+            0.08
+          ]
+        },
+        "PanelR": {
+          "type": "MESH",
+          "parent": "FoldingScreen",
+          "pivot_m": [
+            0,
+            0.96,
+            0
+          ]
+        },
+        "HandleR.002": {
+          "type": "MESH",
+          "parent": "PanelR",
+          "pivot_m": [
+            1.25,
+            1.05,
+            0.08
+          ]
+        },
+        "WildlifeDecoy": {
+          "type": "EMPTY",
+          "parent": "expedition-kit-v3",
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        },
+        "BaitCup": {
+          "type": "MESH",
+          "parent": "WildlifeDecoy",
+          "pivot_m": [
+            0.28,
+            0.3,
+            -0.23
+          ]
+        },
+        "DecoySilhouette": {
+          "type": "MESH",
+          "parent": "WildlifeDecoy",
+          "pivot_m": [
+            0,
+            0,
+            0
+          ]
+        },
+        "Handle": {
+          "type": "MESH",
+          "parent": "WildlifeDecoy",
+          "pivot_m": [
+            0,
+            0.45,
+            0.15
+          ]
+        }
+      },
+      "props": {
+        "CrossingPlank": {
+          "bounds_min_m": [
+            -1.6,
+            0,
+            -0.325
+          ],
+          "bounds_max_m": [
+            1.6,
+            0.188,
+            0.325
+          ],
+          "dimensions_m": [
+            3.2,
+            0.188,
+            0.65
+          ],
+          "triangles": 116,
+          "nodes": {
+            "CrossingPlank": {
+              "type": "EMPTY",
+              "parent": "expedition-kit-v3",
+              "pivot_m": [
+                0,
+                0,
+                0
+              ],
+              "partName": "CrossingPlank"
+            },
+            "Deck": {
+              "type": "MESH",
+              "parent": "CrossingPlank",
+              "pivot_m": [
+                0,
+                0,
+                0
+              ],
+              "partName": "Deck"
+            },
+            "HandleL": {
+              "type": "MESH",
+              "parent": "CrossingPlank",
+              "pivot_m": [
+                -1.43,
+                0.165,
+                0
+              ],
+              "partName": "HandleL"
+            },
+            "HandleR": {
+              "type": "MESH",
+              "parent": "CrossingPlank",
+              "pivot_m": [
+                1.43,
+                0.165,
+                0
+              ],
+              "partName": "HandleR"
+            },
+            "SupportL": {
+              "type": "EMPTY",
+              "parent": "CrossingPlank",
+              "pivot_m": [
+                -1.48,
+                0,
+                0
+              ],
+              "partName": "SupportL"
+            },
+            "SupportR": {
+              "type": "EMPTY",
+              "parent": "CrossingPlank",
+              "pivot_m": [
+                1.48,
+                0,
+                0
+              ],
+              "partName": "SupportR"
+            }
+          },
+          "colliders": [
+            {
+              "shape": "box",
+              "center": [
+                0,
+                0.095,
+                0
+              ],
+              "size": [
+                3.2,
+                0.1,
+                0.65
+              ]
+            },
+            {
+              "shape": "box",
+              "center": [
+                -1.48,
+                0.045,
+                0
+              ],
+              "size": [
+                0.14,
+                0.09,
+                0.65
+              ]
+            },
+            {
+              "shape": "box",
+              "center": [
+                1.48,
+                0.045,
+                0
+              ],
+              "size": [
+                0.14,
+                0.09,
+                0.65
+              ]
+            }
+          ],
+          "attachments": {
+            "SupportL": [
+              -1.48,
+              0,
+              0
+            ],
+            "SupportR": [
+              1.48,
+              0,
+              0
+            ]
+          },
+          "semantic_attachments": {
+            "Deck": [
+              0,
+              0,
+              0
+            ],
+            "HandleL": [
+              -1.43,
+              0.165,
+              0
+            ],
+            "HandleR": [
+              1.43,
+              0.165,
+              0
+            ],
+            "SupportL": [
+              -1.48,
+              0,
+              0
+            ],
+            "SupportR": [
+              1.48,
+              0,
+              0
+            ]
+          },
+          "material_count": 3
+        },
+        "FieldCase": {
+          "bounds_min_m": [
+            -0.778,
+            0,
+            -0.3505
+          ],
+          "bounds_max_m": [
+            0.778,
+            0.66,
+            0.325
+          ],
+          "dimensions_m": [
+            1.556,
+            0.66,
+            0.6755
+          ],
+          "triangles": 388,
+          "nodes": {
+            "FieldCase": {
+              "type": "EMPTY",
+              "parent": "expedition-kit-v3",
+              "pivot_m": [
+                0,
+                0,
+                0
+              ],
+              "partName": "FieldCase"
+            },
+            "BaitStore": {
+              "type": "EMPTY",
+              "parent": "FieldCase",
+              "pivot_m": [
+                0,
+                0.13,
+                0
+              ],
+              "partName": "BaitStore"
+            },
+            "StoredBait": {
+              "type": "MESH",
+              "parent": "BaitStore",
+              "pivot_m": [
+                0,
+                0.13,
+                0
+              ],
+              "partName": "StoredBait"
+            },
+            "Container": {
+              "type": "MESH",
+              "parent": "FieldCase",
+              "pivot_m": [
+                0,
+                0,
+                0
+              ],
+              "partName": "Container"
+            },
+            "HandleL.001": {
+              "type": "MESH",
+              "parent": "FieldCase",
+              "pivot_m": [
+                -0.75,
+                0.39,
+                0
+              ],
+              "partName": "HandleL"
+            },
+            "HandleR.001": {
+              "type": "MESH",
+              "parent": "FieldCase",
+              "pivot_m": [
+                0.75,
+                0.39,
+                0
+              ],
+              "partName": "HandleR"
+            },
+            "Lid": {
+              "type": "MESH",
+              "parent": "FieldCase",
+              "pivot_m": [
+                0,
+                0.58,
+                0.325
+              ],
+              "partName": "Lid"
+            }
+          },
+          "colliders": [
+            {
+              "shape": "box",
+              "center": [
+                0,
+                0.325,
+                0
+              ],
+              "size": [
+                1.3,
+                0.65,
+                0.65
+              ]
+            }
+          ],
+          "attachments": {
+            "BaitStore": [
+              0,
+              0.13,
+              0
+            ]
+          },
+          "semantic_attachments": {
+            "BaitStore": [
+              0,
+              0.13,
+              0
+            ],
+            "StoredBait": [
+              0,
+              0.13,
+              0
+            ],
+            "Container": [
+              0,
+              0,
+              0
+            ],
+            "HandleL": [
+              -0.75,
+              0.39,
+              0
+            ],
+            "HandleR": [
+              0.75,
+              0.39,
+              0
+            ],
+            "Lid": [
+              0,
+              0.58,
+              0.325
+            ]
+          },
+          "material_count": 4
+        },
+        "FoldingScreen": {
+          "bounds_min_m": [
+            -1.272,
+            0,
+            -0.325
+          ],
+          "bounds_max_m": [
+            1.272,
+            1.94,
+            0.325
+          ],
+          "dimensions_m": [
+            2.544,
+            1.94,
+            0.65
+          ],
+          "triangles": 424,
+          "nodes": {
+            "FoldingScreen": {
+              "type": "EMPTY",
+              "parent": "expedition-kit-v3",
+              "pivot_m": [
+                0,
+                0,
+                0
+              ],
+              "partName": "FoldingScreen"
+            },
+            "PanelL": {
+              "type": "MESH",
+              "parent": "FoldingScreen",
+              "pivot_m": [
+                0,
+                0.96,
+                0
+              ],
+              "partName": "PanelL"
+            },
+            "HandleL.002": {
+              "type": "MESH",
+              "parent": "PanelL",
+              "pivot_m": [
+                -1.25,
+                1.05,
+                0.08
+              ],
+              "partName": "HandleL"
+            },
+            "PanelR": {
+              "type": "MESH",
+              "parent": "FoldingScreen",
+              "pivot_m": [
+                0,
+                0.96,
+                0
+              ],
+              "partName": "PanelR"
+            },
+            "HandleR.002": {
+              "type": "MESH",
+              "parent": "PanelR",
+              "pivot_m": [
+                1.25,
+                1.05,
+                0.08
+              ],
+              "partName": "HandleR"
+            }
+          },
+          "colliders": [
+            {
+              "shape": "box",
+              "center": [
+                0,
+                0.7,
+                0
+              ],
+              "size": [
+                2.4,
+                1.02,
+                0.07
+              ]
+            },
+            {
+              "shape": "box",
+              "center": [
+                0,
+                1.865,
+                0
+              ],
+              "size": [
+                2.4,
+                0.15,
+                0.07
+              ]
+            },
+            {
+              "shape": "box",
+              "center": [
+                -0.87,
+                1.5,
+                0
+              ],
+              "size": [
+                0.66,
+                0.64,
+                0.07
+              ]
+            },
+            {
+              "shape": "box",
+              "center": [
+                0.87,
+                1.5,
+                0
+              ],
+              "size": [
+                0.66,
+                0.64,
+                0.07
+              ]
+            },
+            {
+              "shape": "box",
+              "center": [
+                -1.1,
+                0.04,
+                0
+              ],
+              "size": [
+                0.12,
+                0.08,
+                0.65
+              ]
+            },
+            {
+              "shape": "box",
+              "center": [
+                -0.12,
+                0.04,
+                0
+              ],
+              "size": [
+                0.12,
+                0.08,
+                0.65
+              ]
+            },
+            {
+              "shape": "box",
+              "center": [
+                0.12,
+                0.04,
+                0
+              ],
+              "size": [
+                0.12,
+                0.08,
+                0.65
+              ]
+            },
+            {
+              "shape": "box",
+              "center": [
+                1.1,
+                0.04,
+                0
+              ],
+              "size": [
+                0.12,
+                0.08,
+                0.65
+              ]
+            }
+          ],
+          "attachments": {},
+          "semantic_attachments": {
+            "PanelL": [
+              0,
+              0.96,
+              0
+            ],
+            "HandleL": [
+              -1.25,
+              1.05,
+              0.08
+            ],
+            "PanelR": [
+              0,
+              0.96,
+              0
+            ],
+            "HandleR": [
+              1.25,
+              1.05,
+              0.08
+            ]
+          },
+          "material_count": 4
+        },
+        "WildlifeDecoy": {
+          "bounds_min_m": [
+            -0.52,
+            0,
+            -0.34
+          ],
+          "bounds_max_m": [
+            0.45,
+            1,
+            0.3
+          ],
+          "dimensions_m": [
+            0.97,
+            1,
+            0.64
+          ],
+          "triangles": 228,
+          "nodes": {
+            "WildlifeDecoy": {
+              "type": "EMPTY",
+              "parent": "expedition-kit-v3",
+              "pivot_m": [
+                0,
+                0,
+                0
+              ],
+              "partName": "WildlifeDecoy"
+            },
+            "BaitCup": {
+              "type": "MESH",
+              "parent": "WildlifeDecoy",
+              "pivot_m": [
+                0.28,
+                0.3,
+                -0.23
+              ],
+              "partName": "BaitCup"
+            },
+            "DecoySilhouette": {
+              "type": "MESH",
+              "parent": "WildlifeDecoy",
+              "pivot_m": [
+                0,
+                0,
+                0
+              ],
+              "partName": "DecoySilhouette"
+            },
+            "Handle": {
+              "type": "MESH",
+              "parent": "WildlifeDecoy",
+              "pivot_m": [
+                0,
+                0.45,
+                0.15
+              ],
+              "partName": "Handle"
+            }
+          },
+          "colliders": [
+            {
+              "shape": "box",
+              "center": [
+                0,
+                0.5,
+                0
+              ],
+              "size": [
+                0.8,
+                1,
+                0.55
+              ]
+            }
+          ],
+          "attachments": {},
+          "semantic_attachments": {
+            "BaitCup": [
+              0.28,
+              0.3,
+              -0.23
+            ],
+            "DecoySilhouette": [
+              0,
+              0,
+              0
+            ],
+            "Handle": [
+              0,
+              0.45,
+              0.15
+            ]
+          },
+          "material_count": 3
+        }
+      },
+      "bytes": 74392,
+      "sha256": "c1365464c33bcd755721fbb62d70850a6d2dbc082229ad447340c4c5282354cb"
+    }
+  },
+  "usability_audit": {
+    "screen_aperture_y_m": [
+      1.21,
+      1.79
+    ],
+    "standing_eye_y_m": 1.6,
+    "bounds_and_semantic_pivots_unchanged": true,
+    "plank_support_x_m": [
+      -1.48,
+      1.48
+    ],
+    "approved_gap_m": 2.8,
+    "grounding_proxies": {
+      "CrossingPlank": 2,
+      "FoldingScreen": 4
+    },
+    "hat_fit": {
+      "mount_y_m": 1.76,
+      "beanie_height_before_after_m": [
+        0.37,
+        0.31
+      ],
+      "cap_height_before_after_m": [
+        0.26,
+        0.21
+      ],
+      "earlier_visual_audit": "HatBrim only; did not establish Beanie or Cap seating"
+    }
+  },
+  "source_scene_sha256": "e7c6df9577f7764636ea854f99188b795080f495f0d562841d01aab08b068b85"
+}

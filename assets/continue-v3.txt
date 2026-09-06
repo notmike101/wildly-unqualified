@@ -1,0 +1,1 @@
+Coordinator approved real WebGPU eye-level and upward views; continue visible full library.

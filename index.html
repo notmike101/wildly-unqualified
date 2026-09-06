@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#193d33" />
+    <title>Wildly Unqualified · Field outing</title>
+  </head>
+  <body>
+    <main id="viewport" aria-label="Wildlife reserve"></main>
+    <section id="join" class="screen">
+      <div class="join-card">
+        <p class="eyebrow">THE SOMEWHAT QUALIFIED FIELD SOCIETY</p>
+        <h1>Wildly<br /><em>Unqualified.</em></h1>
+        <p class="lede">
+          A quiet day in the wild.<br />What could your friends possibly ruin?
+        </p>
+        <form id="join-form">
+          <label
+            >Your field name<input
+              id="name"
+              maxlength="24"
+              value="Field researcher"
+              autocomplete="nickname"
+              required /></label
+          ><label
+            >Invitation or host key<input
+              id="secret"
+              type="password"
+              autocomplete="off"
+              required
+              placeholder="Paste the key from your invitation" /></label
+          ><button class="primary" type="submit">
+            Enter the reserve <span>↗</span>
+          </button>
+        </form>
+        <p id="join-status" role="status">
+          Private 2–4 player outing · WebGPU desktop browser
+        </p>
+        <p class="fine">Everyone gets a camera. Nobody gets a qualification.</p>
+      </div>
+      <div class="join-stamp" aria-hidden="true">
+        FIELD<br />SEASON<br /><strong>01</strong>
+      </div>
+    </section>
+    <div id="hud" hidden>
+      <header>
+        <div>
+          <span class="badge">FIELD OUTING 01</span
+          ><strong>Willowmere Reserve</strong>
+        </div>
+        <div class="header-right">
+          <span id="connection">Connecting</span
+          ><button id="notebook-button">Field notebook <kbd>Tab</kbd></button
+          ><button id="settings-button" aria-label="Open settings">
+            Settings
+          </button>
+        </div>
+      </header>
+      <aside id="assignment-card">
+        <p class="eyebrow">TODAY'S QUESTIONABLE ASSIGNMENT</p>
+        <h2>Leave with a story.</h2>
+        <ol id="assignments"></ol>
+        <p id="phase-hint">Gather your crew at camp.</p>
+        <button id="start-button" class="primary" hidden>
+          Begin the outing
+        </button>
+        <div id="room-actions">
+          <button id="pause-button">Pause outing</button
+          ><button id="ready-button" hidden>Ready to exhibit</button
+          ><button id="finish-button" hidden>Open exhibition</button>
+        </div>
+      </aside>
+      <div id="crew"></div>
+      <div id="reticle" aria-hidden="true">+</div>
+      <div id="viewfinder" hidden>
+        <i></i><span>FIELD CAMERA · 60°</span
+        ><b id="camera-hint">Find the behavior. Then find the frame.</b>
+      </div>
+      <div id="context-action"></div>
+      <div id="notice" role="status" aria-live="polite"></div>
+      <div id="pause-banner" hidden>
+        <strong>Taking a breather.</strong><span id="pause-reason"></span
+        ><button id="resume-button">Continue outing</button>
+      </div>
+      <div id="photo-toast" hidden>
+        <img id="photo-preview" alt="Your latest wildlife photograph" /><span
+          id="photo-result"
+        ></span>
+      </div>
+      <footer>
+        <div id="equipment">Field kit · 4 bait portions</div>
+        <div class="controls">
+          <span><kbd>WASD</kbd> Move</span
+          ><span><kbd>E</kbd> Pick up / place</span
+          ><span><kbd>Q</kbd> Use / whistle</span
+          ><button id="camera-button">Viewfinder</button
+          ><button id="shutter-button">Take photo</button>
+        </div>
+        <button id="enter-controls">Click to look around</button>
+      </footer>
+    </div>
+    <dialog id="notebook">
+      <div class="dialog-head">
+        <div>
+          <p class="eyebrow">EVIDENCE, NOT EXPERTISE</p>
+          <h2>Your field notebook</h2>
+        </div>
+        <button class="close" data-close="notebook">Close ×</button>
+      </div>
+      <div class="notebook-grid">
+        <section>
+          <h3>What we've learned</h3>
+          <ul id="observations"></ul>
+          <canvas
+            id="map"
+            width="360"
+            height="260"
+            aria-label="Reserve map with crew and landmarks"
+          ></canvas>
+          <p class="fine">
+            Camp → woodland → clearing → wetland. The dry trail remains open
+            while you prepare a plank crossing.
+          </p>
+          <h3>Share the field kit</h3>
+          <p class="fine">
+            Two people steer heavy equipment faster. Claim opposite handles,
+            agree on a direction, then walk together. E sets it down; G releases
+            your handle.
+          </p>
+          <p class="fine">
+            The case carries spare bait. Close its lid before moving. Place the
+            screen for cover and look through its opening. Move the decoy to
+            change a wildlife setup.
+          </p>
+        </section>
+        <section>
+          <h3>A rather unusual exhibition</h3>
+          <div id="album"></div>
+          <button id="retry-photos">Retry pending pictures</button>
+        </section>
+      </div>
+    </dialog>
+    <dialog id="settings">
+      <div class="dialog-head">
+        <h2>Field preferences</h2>
+        <button class="close" data-close="settings">Close ×</button>
+      </div>
+      <label
+        >Look sensitivity<input
+          id="sensitivity"
+          type="range"
+          min="0.3"
+          max="3"
+          step="0.1"
+          value="1" /></label
+      ><label class="row"
+        ><input id="invert" type="checkbox" />Invert vertical look</label
+      ><label
+        >Sound volume<input
+          id="volume"
+          type="range"
+          min="0"
+          max="1"
+          step="0.1"
+          value="0.5"
+      /></label>
+      <p class="fine">
+        No head bob or camera shake. Arrow keys also turn the camera.
+      </p>
+      <h3>Keys</h3>
+      <div id="bindings"></div>
+      <div class="setting-actions">
+        <button id="recover-button">Recover stuck equipment</button
+        ><button id="invite-button" hidden>Copy invitation</button
+        ><button id="stop-button" hidden>Save and stop server</button
+        ><button id="leave-button">Leave reserve</button>
+      </div>
+      <div id="reassign" hidden>
+        <h3>Rejoin after a server move</h3>
+        <p class="fine">
+          While paused, choose a disconnected field slot for an admitted friend.
+        </p>
+        <div id="reassign-list"></div>
+      </div>
+    </dialog>
+    <script type="module" src="/main.ts"></script>
+  </body>
+</html>

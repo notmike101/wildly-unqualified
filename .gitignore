@@ -1,0 +1,16 @@
+node_modules/
+web/
+web-mvp/
+data/
+.artifacts/
+.worktrees/
+.superpowers/
+.playwright/
+**/__pycache__/
+*.blend1
+*.blend2
+*.log
+*.err
+.env
+.env.*
+!.env.example

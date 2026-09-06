@@ -1,0 +1,6 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": { "erasableSyntaxOnly": true },
+  "include": ["*.ts", "../_environment/smoke-test/box3d.d.ts"],
+  "exclude": ["web", "data"]
+}

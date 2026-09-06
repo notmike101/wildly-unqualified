@@ -1,0 +1,1 @@
+Visible support correction complete; source inspection transforms restored.

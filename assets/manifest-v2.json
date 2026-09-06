@@ -1,0 +1,1415 @@
+{
+  "version": 2,
+  "blender": "5.2.1 LTS",
+  "coordinates": "metres; Y up; forward -Z; ground Y=0; L is negative X",
+  "operation": "visible Blender GUI, timer-staged real construction; no MCP or background Blender",
+  "sources": {
+    "author.py": "78674d4c119730bea1d7d05e1d6c44c4083df6f1ccbe752067e6095b170e897d",
+    "author-v2.py": "f0f190d0793ca7e84451b24e901bc89c2a9430c38ec6c61ce13b460309c30511",
+    "reserve-shapes-v2.py": "c22a4e7b5f3272f577b4d440ee0702c6b1dcc5408c694885ea72c4be245a4c4f"
+  },
+  "assets": {
+    "reserve-kit": {
+      "bounds_min_m": [
+        -2.34394,
+        0.0,
+        -2.03647
+      ],
+      "bounds_max_m": [
+        2.37735,
+        5.44161,
+        1.98647
+      ],
+      "dimensions_m": [
+        4.72129,
+        5.44161,
+        4.02293
+      ],
+      "triangles": 15644,
+      "nodes": {
+        "ReserveKit": {
+          "type": "EMPTY",
+          "parent": null,
+          "pivot_m": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "Bench": {
+          "type": "MESH",
+          "parent": "ReserveKit",
+          "pivot_m": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "BirchTree": {
+          "type": "MESH",
+          "parent": "ReserveKit",
+          "pivot_m": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "BirdNest": {
+          "type": "MESH",
+          "parent": "ReserveKit",
+          "pivot_m": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "Boulder": {
+          "type": "MESH",
+          "parent": "ReserveKit",
+          "pivot_m": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "Bush": {
+          "type": "MESH",
+          "parent": "ReserveKit",
+          "pivot_m": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "CameraTripod": {
+          "type": "MESH",
+          "parent": "ReserveKit",
+          "pivot_m": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "CampTable": {
+          "type": "MESH",
+          "parent": "ReserveKit",
+          "pivot_m": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "Cattails": {
+          "type": "MESH",
+          "parent": "ReserveKit",
+          "pivot_m": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "DeadTree": {
+          "type": "MESH",
+          "parent": "ReserveKit",
+          "pivot_m": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "FallenTrunk": {
+          "type": "MESH",
+          "parent": "ReserveKit",
+          "pivot_m": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "Fern": {
+          "type": "MESH",
+          "parent": "ReserveKit",
+          "pivot_m": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "FieldNotebook": {
+          "type": "MESH",
+          "parent": "ReserveKit",
+          "pivot_m": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "FlatRock": {
+          "type": "MESH",
+          "parent": "ReserveKit",
+          "pivot_m": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "HeronTracks": {
+          "type": "MESH",
+          "parent": "ReserveKit",
+          "pivot_m": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "Lantern": {
+          "type": "MESH",
+          "parent": "ReserveKit",
+          "pivot_m": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "LilyPads": {
+          "type": "MESH",
+          "parent": "ReserveKit",
+          "pivot_m": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "Mushrooms": {
+          "type": "MESH",
+          "parent": "ReserveKit",
+          "pivot_m": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "OakTree": {
+          "type": "MESH",
+          "parent": "ReserveKit",
+          "pivot_m": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "ObservationBlind": {
+          "type": "MESH",
+          "parent": "ReserveKit",
+          "pivot_m": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "PineTree": {
+          "type": "MESH",
+          "parent": "ReserveKit",
+          "pivot_m": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "RaccoonTracks": {
+          "type": "MESH",
+          "parent": "ReserveKit",
+          "pivot_m": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "Stump": {
+          "type": "MESH",
+          "parent": "ReserveKit",
+          "pivot_m": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "SupplyCrate": {
+          "type": "MESH",
+          "parent": "ReserveKit",
+          "pivot_m": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "TrailMarker": {
+          "type": "MESH",
+          "parent": "ReserveKit",
+          "pivot_m": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "props": {
+        "Bench": {
+          "bounds_min_m": [
+            -0.84,
+            0.0,
+            -0.225
+          ],
+          "bounds_max_m": [
+            0.84,
+            1.0496,
+            0.36212
+          ],
+          "dimensions_m": [
+            1.68,
+            1.0496,
+            0.58712
+          ],
+          "triangles": 132,
+          "nodes": {
+            "Bench": {
+              "type": "MESH",
+              "parent": "ReserveKit",
+              "pivot_m": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            }
+          }
+        },
+        "BirchTree": {
+          "bounds_min_m": [
+            -1.95,
+            0.0,
+            -0.5
+          ],
+          "bounds_max_m": [
+            1.86,
+            5.44161,
+            0.97
+          ],
+          "dimensions_m": [
+            3.81,
+            5.44161,
+            1.47
+          ],
+          "triangles": 688,
+          "nodes": {
+            "BirchTree": {
+              "type": "MESH",
+              "parent": "ReserveKit",
+              "pivot_m": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            }
+          }
+        },
+        "BirdNest": {
+          "bounds_min_m": [
+            -0.26806,
+            0.0,
+            -0.27185
+          ],
+          "bounds_max_m": [
+            0.26806,
+            0.13996,
+            0.27185
+          ],
+          "dimensions_m": [
+            0.53612,
+            0.13996,
+            0.5437
+          ],
+          "triangles": 1472,
+          "nodes": {
+            "BirdNest": {
+              "type": "MESH",
+              "parent": "ReserveKit",
+              "pivot_m": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            }
+          }
+        },
+        "Boulder": {
+          "bounds_min_m": [
+            -0.94,
+            0.0,
+            -0.72
+          ],
+          "bounds_max_m": [
+            0.97,
+            1.13,
+            0.73
+          ],
+          "dimensions_m": [
+            1.91,
+            1.13,
+            1.45
+          ],
+          "triangles": 68,
+          "nodes": {
+            "Boulder": {
+              "type": "MESH",
+              "parent": "ReserveKit",
+              "pivot_m": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            }
+          }
+        },
+        "Bush": {
+          "bounds_min_m": [
+            -0.66,
+            0.0,
+            -0.57
+          ],
+          "bounds_max_m": [
+            0.65,
+            0.82356,
+            0.49
+          ],
+          "dimensions_m": [
+            1.31,
+            0.82356,
+            1.06
+          ],
+          "triangles": 776,
+          "nodes": {
+            "Bush": {
+              "type": "MESH",
+              "parent": "ReserveKit",
+              "pivot_m": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            }
+          }
+        },
+        "CameraTripod": {
+          "bounds_min_m": [
+            -0.41205,
+            0.0,
+            -0.251
+          ],
+          "bounds_max_m": [
+            0.41205,
+            1.4695,
+            0.471
+          ],
+          "dimensions_m": [
+            0.8241,
+            1.4695,
+            0.722
+          ],
+          "triangles": 468,
+          "nodes": {
+            "CameraTripod": {
+              "type": "MESH",
+              "parent": "ReserveKit",
+              "pivot_m": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            }
+          }
+        },
+        "CampTable": {
+          "bounds_min_m": [
+            -1.09,
+            0.0,
+            -0.60054
+          ],
+          "bounds_max_m": [
+            1.09,
+            0.83447,
+            0.60054
+          ],
+          "dimensions_m": [
+            2.18,
+            0.83447,
+            1.20108
+          ],
+          "triangles": 248,
+          "nodes": {
+            "CampTable": {
+              "type": "MESH",
+              "parent": "ReserveKit",
+              "pivot_m": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            }
+          }
+        },
+        "Cattails": {
+          "bounds_min_m": [
+            -0.61,
+            0.0,
+            -0.2585
+          ],
+          "bounds_max_m": [
+            0.64,
+            1.9,
+            0.378
+          ],
+          "dimensions_m": [
+            1.25,
+            1.9,
+            0.6365
+          ],
+          "triangles": 480,
+          "nodes": {
+            "Cattails": {
+              "type": "MESH",
+              "parent": "ReserveKit",
+              "pivot_m": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            }
+          }
+        },
+        "DeadTree": {
+          "bounds_min_m": [
+            -1.09079,
+            0.0,
+            -0.23
+          ],
+          "bounds_max_m": [
+            0.89134,
+            3.2598,
+            1.01084
+          ],
+          "dimensions_m": [
+            1.98213,
+            3.2598,
+            1.24084
+          ],
+          "triangles": 276,
+          "nodes": {
+            "DeadTree": {
+              "type": "MESH",
+              "parent": "ReserveKit",
+              "pivot_m": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            }
+          }
+        },
+        "FallenTrunk": {
+          "bounds_min_m": [
+            -1.73,
+            0.0,
+            -0.38009
+          ],
+          "bounds_max_m": [
+            1.73,
+            1.06043,
+            0.34
+          ],
+          "dimensions_m": [
+            3.46,
+            1.06043,
+            0.72009
+          ],
+          "triangles": 416,
+          "nodes": {
+            "FallenTrunk": {
+              "type": "MESH",
+              "parent": "ReserveKit",
+              "pivot_m": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            }
+          }
+        },
+        "Fern": {
+          "bounds_min_m": [
+            -0.75,
+            0.0,
+            -0.75
+          ],
+          "bounds_max_m": [
+            0.75,
+            0.67039,
+            0.75
+          ],
+          "dimensions_m": [
+            1.5,
+            0.67039,
+            1.5
+          ],
+          "triangles": 1408,
+          "nodes": {
+            "Fern": {
+              "type": "MESH",
+              "parent": "ReserveKit",
+              "pivot_m": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            }
+          }
+        },
+        "FieldNotebook": {
+          "bounds_min_m": [
+            -0.21,
+            0.0,
+            -0.145
+          ],
+          "bounds_max_m": [
+            0.21,
+            0.06203,
+            0.145
+          ],
+          "dimensions_m": [
+            0.42,
+            0.06203,
+            0.29
+          ],
+          "triangles": 804,
+          "nodes": {
+            "FieldNotebook": {
+              "type": "MESH",
+              "parent": "ReserveKit",
+              "pivot_m": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            }
+          }
+        },
+        "FlatRock": {
+          "bounds_min_m": [
+            -0.96,
+            0.0,
+            -0.657
+          ],
+          "bounds_max_m": [
+            1.035,
+            0.178,
+            0.57
+          ],
+          "dimensions_m": [
+            1.995,
+            0.178,
+            1.227
+          ],
+          "triangles": 40,
+          "nodes": {
+            "FlatRock": {
+              "type": "MESH",
+              "parent": "ReserveKit",
+              "pivot_m": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            }
+          }
+        },
+        "HeronTracks": {
+          "bounds_min_m": [
+            -0.19429,
+            0.0,
+            -0.74
+          ],
+          "bounds_max_m": [
+            0.19429,
+            0.02425,
+            0.595
+          ],
+          "dimensions_m": [
+            0.38857,
+            0.02425,
+            1.335
+          ],
+          "triangles": 320,
+          "nodes": {
+            "HeronTracks": {
+              "type": "MESH",
+              "parent": "ReserveKit",
+              "pivot_m": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            }
+          }
+        },
+        "Lantern": {
+          "bounds_min_m": [
+            -0.108,
+            0.0,
+            -0.108
+          ],
+          "bounds_max_m": [
+            0.108,
+            0.39853,
+            0.108
+          ],
+          "dimensions_m": [
+            0.216,
+            0.39853,
+            0.216
+          ],
+          "triangles": 440,
+          "nodes": {
+            "Lantern": {
+              "type": "MESH",
+              "parent": "ReserveKit",
+              "pivot_m": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            }
+          }
+        },
+        "LilyPads": {
+          "bounds_min_m": [
+            -0.68,
+            0.0,
+            -0.4698
+          ],
+          "bounds_max_m": [
+            0.64258,
+            0.097,
+            0.69973
+          ],
+          "dimensions_m": [
+            1.32258,
+            0.097,
+            1.16952
+          ],
+          "triangles": 838,
+          "nodes": {
+            "LilyPads": {
+              "type": "MESH",
+              "parent": "ReserveKit",
+              "pivot_m": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            }
+          }
+        },
+        "Mushrooms": {
+          "bounds_min_m": [
+            -0.32725,
+            0.0,
+            -0.28755
+          ],
+          "bounds_max_m": [
+            0.333,
+            0.36144,
+            0.30653
+          ],
+          "dimensions_m": [
+            0.66025,
+            0.36144,
+            0.59408
+          ],
+          "triangles": 1370,
+          "nodes": {
+            "Mushrooms": {
+              "type": "MESH",
+              "parent": "ReserveKit",
+              "pivot_m": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            }
+          }
+        },
+        "OakTree": {
+          "bounds_min_m": [
+            -2.34394,
+            0.0,
+            -2.03647
+          ],
+          "bounds_max_m": [
+            2.37735,
+            5.25383,
+            1.98647
+          ],
+          "dimensions_m": [
+            4.72129,
+            5.25383,
+            4.02293
+          ],
+          "triangles": 636,
+          "nodes": {
+            "OakTree": {
+              "type": "MESH",
+              "parent": "ReserveKit",
+              "pivot_m": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            }
+          }
+        },
+        "ObservationBlind": {
+          "bounds_min_m": [
+            -1.49,
+            0.0,
+            -0.98117
+          ],
+          "bounds_max_m": [
+            1.49,
+            2.155,
+            1.06117
+          ],
+          "dimensions_m": [
+            2.98,
+            2.155,
+            2.04234
+          ],
+          "triangles": 1360,
+          "nodes": {
+            "ObservationBlind": {
+              "type": "MESH",
+              "parent": "ReserveKit",
+              "pivot_m": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            }
+          }
+        },
+        "PineTree": {
+          "bounds_min_m": [
+            -1.17462,
+            0.0,
+            -1.23101
+          ],
+          "bounds_max_m": [
+            1.25,
+            4.65,
+            1.23101
+          ],
+          "dimensions_m": [
+            2.42462,
+            4.65,
+            2.46202
+          ],
+          "triangles": 720,
+          "nodes": {
+            "PineTree": {
+              "type": "MESH",
+              "parent": "ReserveKit",
+              "pivot_m": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            }
+          }
+        },
+        "RaccoonTracks": {
+          "bounds_min_m": [
+            -0.169,
+            0.0,
+            -0.67925
+          ],
+          "bounds_max_m": [
+            0.169,
+            0.018,
+            0.626
+          ],
+          "dimensions_m": [
+            0.338,
+            0.018,
+            1.30525
+          ],
+          "triangles": 1548,
+          "nodes": {
+            "RaccoonTracks": {
+              "type": "MESH",
+              "parent": "ReserveKit",
+              "pivot_m": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            }
+          }
+        },
+        "Stump": {
+          "bounds_min_m": [
+            -0.52823,
+            0.0,
+            -0.60204
+          ],
+          "bounds_max_m": [
+            0.62556,
+            0.60577,
+            0.60261
+          ],
+          "dimensions_m": [
+            1.15379,
+            0.60577,
+            1.20465
+          ],
+          "triangles": 604,
+          "nodes": {
+            "Stump": {
+              "type": "MESH",
+              "parent": "ReserveKit",
+              "pivot_m": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            }
+          }
+        },
+        "SupplyCrate": {
+          "bounds_min_m": [
+            -0.3485,
+            0.0,
+            -0.2885
+          ],
+          "bounds_max_m": [
+            0.3485,
+            0.5205,
+            0.2805
+          ],
+          "dimensions_m": [
+            0.697,
+            0.5205,
+            0.569
+          ],
+          "triangles": 372,
+          "nodes": {
+            "SupplyCrate": {
+              "type": "MESH",
+              "parent": "ReserveKit",
+              "pivot_m": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            }
+          }
+        },
+        "TrailMarker": {
+          "bounds_min_m": [
+            -0.43,
+            0.0,
+            -0.113
+          ],
+          "bounds_max_m": [
+            0.43,
+            1.74,
+            0.095
+          ],
+          "dimensions_m": [
+            0.86,
+            1.74,
+            0.208
+          ],
+          "triangles": 160,
+          "nodes": {
+            "TrailMarker": {
+              "type": "MESH",
+              "parent": "ReserveKit",
+              "pivot_m": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            }
+          }
+        }
+      },
+      "bytes": 889656,
+      "sha256": "ce2d6395e161039b68a6965cf30e0939609f7aa23537fd73644a9508a8c9dff5"
+    },
+    "researcher-raincoat": {
+      "bounds_min_m": [
+        -0.371,
+        0.0,
+        -0.404
+      ],
+      "bounds_max_m": [
+        0.371,
+        1.94,
+        0.4245
+      ],
+      "dimensions_m": [
+        0.742,
+        1.94,
+        0.8285
+      ],
+      "triangles": 1402,
+      "nodes": {
+        "Researcher": {
+          "type": "EMPTY",
+          "parent": null,
+          "pivot_m": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "Body": {
+          "type": "MESH",
+          "parent": "Researcher",
+          "pivot_m": [
+            0.0,
+            1.04,
+            0.0
+          ]
+        },
+        "ArmL": {
+          "type": "MESH",
+          "parent": "Body",
+          "pivot_m": [
+            -0.24,
+            1.34,
+            0.0
+          ]
+        },
+        "ArmR": {
+          "type": "MESH",
+          "parent": "Body",
+          "pivot_m": [
+            0.24,
+            1.34,
+            0.0
+          ]
+        },
+        "CameraGrip": {
+          "type": "EMPTY",
+          "parent": "Body",
+          "pivot_m": [
+            0.0,
+            1.065,
+            -0.24
+          ]
+        },
+        "Camera": {
+          "type": "MESH",
+          "parent": "CameraGrip",
+          "pivot_m": [
+            0.0,
+            1.065,
+            -0.24
+          ]
+        },
+        "Head": {
+          "type": "MESH",
+          "parent": "Body",
+          "pivot_m": [
+            0.0,
+            1.455,
+            0.0
+          ]
+        },
+        "LegL": {
+          "type": "MESH",
+          "parent": "Body",
+          "pivot_m": [
+            -0.115,
+            0.89,
+            0.0
+          ]
+        },
+        "LegR": {
+          "type": "MESH",
+          "parent": "Body",
+          "pivot_m": [
+            0.115,
+            0.89,
+            0.0
+          ]
+        },
+        "RainGear": {
+          "type": "MESH",
+          "parent": "Body",
+          "pivot_m": [
+            0.0,
+            1.04,
+            0.0
+          ]
+        },
+        "TinGrip": {
+          "type": "EMPTY",
+          "parent": "Body",
+          "pivot_m": [
+            0.31,
+            0.82,
+            -0.28
+          ]
+        }
+      },
+      "bytes": 95044,
+      "sha256": "0da6b093398f9962addd9d7c9d34960687501bcb6d07c126ec40728ee2be1704"
+    },
+    "researcher-vest": {
+      "bounds_min_m": [
+        -0.371,
+        0.0,
+        -0.404
+      ],
+      "bounds_max_m": [
+        0.371,
+        1.94,
+        0.434
+      ],
+      "dimensions_m": [
+        0.742,
+        1.94,
+        0.838
+      ],
+      "triangles": 1344,
+      "nodes": {
+        "Researcher": {
+          "type": "EMPTY",
+          "parent": null,
+          "pivot_m": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "Body": {
+          "type": "MESH",
+          "parent": "Researcher",
+          "pivot_m": [
+            0.0,
+            1.04,
+            0.0
+          ]
+        },
+        "ArmL": {
+          "type": "MESH",
+          "parent": "Body",
+          "pivot_m": [
+            -0.24,
+            1.34,
+            0.0
+          ]
+        },
+        "ArmR": {
+          "type": "MESH",
+          "parent": "Body",
+          "pivot_m": [
+            0.24,
+            1.34,
+            0.0
+          ]
+        },
+        "CameraGrip": {
+          "type": "EMPTY",
+          "parent": "Body",
+          "pivot_m": [
+            0.0,
+            1.065,
+            -0.24
+          ]
+        },
+        "Camera": {
+          "type": "MESH",
+          "parent": "CameraGrip",
+          "pivot_m": [
+            0.0,
+            1.065,
+            -0.24
+          ]
+        },
+        "FieldVest": {
+          "type": "MESH",
+          "parent": "Body",
+          "pivot_m": [
+            0.0,
+            1.04,
+            0.0
+          ]
+        },
+        "Head": {
+          "type": "MESH",
+          "parent": "Body",
+          "pivot_m": [
+            0.0,
+            1.455,
+            0.0
+          ]
+        },
+        "LegL": {
+          "type": "MESH",
+          "parent": "Body",
+          "pivot_m": [
+            -0.115,
+            0.89,
+            0.0
+          ]
+        },
+        "LegR": {
+          "type": "MESH",
+          "parent": "Body",
+          "pivot_m": [
+            0.115,
+            0.89,
+            0.0
+          ]
+        },
+        "TinGrip": {
+          "type": "EMPTY",
+          "parent": "Body",
+          "pivot_m": [
+            0.31,
+            0.82,
+            -0.28
+          ]
+        }
+      },
+      "bytes": 90084,
+      "sha256": "9d80d41b67224265aff1c509be0516bc6d8d75f94ccb4e8a4be4c0bd12736b99"
+    },
+    "raccoon-dark": {
+      "bounds_min_m": [
+        -0.2728,
+        0.0,
+        -0.602
+      ],
+      "bounds_max_m": [
+        0.2728,
+        0.703,
+        0.976
+      ],
+      "dimensions_m": [
+        0.5456,
+        0.703,
+        1.578
+      ],
+      "triangles": 2164,
+      "nodes": {
+        "Raccoon": {
+          "type": "EMPTY",
+          "parent": null,
+          "pivot_m": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "Body": {
+          "type": "MESH",
+          "parent": "Raccoon",
+          "pivot_m": [
+            0.0,
+            0.34,
+            0.04
+          ]
+        },
+        "Head": {
+          "type": "MESH",
+          "parent": "Body",
+          "pivot_m": [
+            0.0,
+            0.45,
+            -0.26
+          ]
+        },
+        "TinGrip": {
+          "type": "EMPTY",
+          "parent": "Head",
+          "pivot_m": [
+            0.0,
+            0.2,
+            -0.61
+          ]
+        },
+        "HindLegL": {
+          "type": "MESH",
+          "parent": "Body",
+          "pivot_m": [
+            -0.1798,
+            0.3,
+            0.24
+          ]
+        },
+        "HindLegR": {
+          "type": "MESH",
+          "parent": "Body",
+          "pivot_m": [
+            0.1798,
+            0.3,
+            0.24
+          ]
+        },
+        "LegL": {
+          "type": "MESH",
+          "parent": "Body",
+          "pivot_m": [
+            -0.1798,
+            0.3,
+            -0.19
+          ]
+        },
+        "LegR": {
+          "type": "MESH",
+          "parent": "Body",
+          "pivot_m": [
+            0.1798,
+            0.3,
+            -0.19
+          ]
+        },
+        "ShoulderRuff": {
+          "type": "MESH",
+          "parent": "Body",
+          "pivot_m": [
+            0.0,
+            0.34,
+            0.04
+          ]
+        },
+        "Tail": {
+          "type": "MESH",
+          "parent": "Body",
+          "pivot_m": [
+            0.0,
+            0.38,
+            0.29
+          ]
+        }
+      },
+      "bytes": 136444,
+      "sha256": "180880a8102596e555c5a3081f45023c6cc23e63837def028210e6f00a152e3b"
+    },
+    "heron-reed": {
+      "bounds_min_m": [
+        -1.03,
+        0.0,
+        -0.75815
+      ],
+      "bounds_max_m": [
+        1.03,
+        1.56,
+        0.505
+      ],
+      "dimensions_m": [
+        2.06,
+        1.56,
+        1.26315
+      ],
+      "triangles": 1916,
+      "nodes": {
+        "Heron": {
+          "type": "EMPTY",
+          "parent": null,
+          "pivot_m": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "Body": {
+          "type": "MESH",
+          "parent": "Heron",
+          "pivot_m": [
+            0.0,
+            0.9,
+            0.035
+          ]
+        },
+        "LegL": {
+          "type": "MESH",
+          "parent": "Body",
+          "pivot_m": [
+            -0.102,
+            0.74,
+            0.02
+          ]
+        },
+        "LegR": {
+          "type": "MESH",
+          "parent": "Body",
+          "pivot_m": [
+            0.102,
+            0.74,
+            0.02
+          ]
+        },
+        "Neck": {
+          "type": "MESH",
+          "parent": "Body",
+          "pivot_m": [
+            0.0,
+            0.96,
+            -0.17
+          ]
+        },
+        "Head": {
+          "type": "MESH",
+          "parent": "Neck",
+          "pivot_m": [
+            0.0,
+            1.446,
+            -0.3
+          ]
+        },
+        "Crest": {
+          "type": "MESH",
+          "parent": "Head",
+          "pivot_m": [
+            0.0,
+            1.446,
+            -0.3
+          ]
+        },
+        "WingL": {
+          "type": "MESH",
+          "parent": "Body",
+          "pivot_m": [
+            -0.18,
+            0.955,
+            -0.015
+          ]
+        },
+        "WingR": {
+          "type": "MESH",
+          "parent": "Body",
+          "pivot_m": [
+            0.18,
+            0.955,
+            -0.015
+          ]
+        }
+      },
+      "bytes": 115820,
+      "sha256": "71b7f16326e747333ee7a6f8695b3b449e140b517c262df488d3fa111386d1b1"
+    }
+  }
+}

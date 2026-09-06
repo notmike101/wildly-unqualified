@@ -1,0 +1,59 @@
+{
+  "standingEyeHeight": 1.6,
+  "crouchingEyeHeight": 0.9,
+  "screenRays": {
+    "at140": [],
+    "at160": [
+      {
+        "name": "PanelLMesh",
+        "distance": 1.9649999998509884
+      },
+      {
+        "name": "PanelRMesh",
+        "distance": 1.9649999998509884
+      },
+      {
+        "name": "PanelLMesh",
+        "distance": 1.9649999998509886
+      },
+      {
+        "name": "PanelRMesh",
+        "distance": 1.9649999998509886
+      },
+      {
+        "name": "PanelLMesh",
+        "distance": 2.0350000001490116
+      },
+      {
+        "name": "PanelLMesh",
+        "distance": 2.0350000001490116
+      },
+      {
+        "name": "PanelRMesh",
+        "distance": 2.0350000001490116
+      },
+      {
+        "name": "PanelRMesh",
+        "distance": 2.0350000001490116
+      }
+    ],
+    "at090": [
+      {
+        "name": "PanelLMesh",
+        "distance": 1.9649999998509882
+      },
+      {
+        "name": "PanelRMesh",
+        "distance": 1.9649999998509882
+      },
+      {
+        "name": "PanelLMesh",
+        "distance": 2.0350000001490116
+      },
+      {
+        "name": "PanelRMesh",
+        "distance": 2.0350000001490116
+      }
+    ]
+  }
+}
