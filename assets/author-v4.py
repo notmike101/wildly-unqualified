@@ -16,7 +16,7 @@ import sys
 import traceback
 
 import bpy
-from mathutils import Euler, Vector
+from mathutils import Euler, Quaternion, Vector
 
 SOURCE=Path(__file__).resolve().parent
 sys.path.insert(0,str(SOURCE))
@@ -55,6 +55,7 @@ def focus(items):
 def arrange():
     for i,root in enumerate(STATE["models"]):
         root.location=b.blender(((i%3-1)*2.6,0,(i//3)*2.4))
+        if root["partName"]=="SquirrelCache":root.location=b.blender((4.5,0,5))
     STATE["human"].location=b.blender((-5.1,0,1.4))
     bpy.context.view_layer.update()
 
@@ -67,6 +68,16 @@ def build(name):
     STATE["models"].append(root)
     arrange();focus([root,STATE["human"]])
     log("MODEL_CONSTRUCTED_VISIBLE",name=name,foreground=foreground())
+
+
+def revise(name):
+    """Replace only an owned v4 model in the current scene after a checked edit."""
+    assert foreground() and not bpy.app.background
+    old=next(root for root in STATE["models"] if root["partName"]==name)
+    index=STATE["models"].index(old);parent=old.parent
+    for obj in reversed(b.objects(old)):b.PIVOTS.pop(obj,None);bpy.data.objects.remove(obj,do_unlink=True)
+    new=shapes.BUILDERS[name]();shapes.ground(new);new.parent=parent
+    STATE["models"][index]=new;arrange();focus([new])
 
 
 def export(stage):
@@ -88,6 +99,16 @@ def export(stage):
             measured["attachments"]={obj["partName"]:[round(float(v),5) for v in b.PIVOTS[obj]] for obj in b.objects(model)}
             measured["parents"]={obj["partName"]:obj.parent["partName"] if obj.parent else None for obj in b.objects(model)}
             measured["pose_rotations_xyz_radians"]=shapes.ACTION_POSES.get(model["partName"],{})
+            if measured["pose_rotations_xyz_radians"]:
+                pose(model)
+                action=b.measure(model)
+                measured["action_bounds"]={"min":action["bounds_min_m"],"max":action["bounds_max_m"]}
+                measured["action_photo_points"]={}
+                for obj in b.objects(model):
+                    if obj["partName"] in ("PhotoHead","PhotoBody"):
+                        p=obj.matrix_world.translation
+                        measured["action_photo_points"][obj["partName"]]=[round(v,5) for v in (p.x,p.z,-p.y)]
+                pose(model,False)
             measured["colliders"]=shapes.PROXIES.get(model["partName"],[])
             props[model["partName"]]=measured
         bpy.ops.object.select_all(action="DESELECT")
@@ -106,12 +127,17 @@ def export(stage):
 def save():
     bpy.context.preferences.filepaths.save_version=0
     bpy.ops.wm.save_as_mainfile(filepath=str(SOURCE/"library-v4.blend"),check_existing=False)
+    manifest=json.loads((SOURCE/"manifest-v4.json").read_text())
+    manifest["scene_sha256"]=hashlib.sha256((SOURCE/"library-v4.blend").read_bytes()).hexdigest()
+    manifest["previews"]={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in SOURCE.glob("preview-v4-*.png")}
+    (SOURCE/"manifest-v4.json").write_text(json.dumps(manifest,indent=2)+"\n")
 
 
 def labels():
     for obj in STATE["labels"]:bpy.data.objects.remove(obj,do_unlink=True)
     STATE["labels"]=[]
     for root in STATE["models"]:
+        if root.hide_render:continue
         text=bpy.data.curves.new("GalleryLabel","FONT");text.body=root["partName"];text.size=.18;text.align_x="CENTER"
         obj=bpy.data.objects.new("Label_"+root["partName"],text);bpy.context.collection.objects.link(obj)
         obj.location=root.location+b.blender((0,.03,-.85))
@@ -169,10 +195,7 @@ def action_sheet():
         if root["partName"] in shapes.PROXIES:
             for obj in b.objects(root):obj.hide_render=True
             continue
-        for obj in b.objects(root):
-            rotation=shapes.ACTION_POSES.get(root["partName"],{}).get(obj["partName"])
-            if rotation:
-                x,y,z=rotation;obj.rotation_euler=(x,-z,y)
+        pose(root)
     render("preview-v4-actions.png",9)
     bpy.app.timers.register(restore,first_interval=3)
     return None
@@ -181,10 +204,23 @@ def action_sheet():
 def restore():
     if bpy.app.is_job_running("RENDER") or not foreground():return 2
     for root in STATE["models"]:
-        for obj in b.objects(root):obj.rotation_euler=(0,0,0);obj.hide_render=False
+        pose(root,False)
+        for obj in b.objects(root):obj.hide_render=False
     labels();focus(STATE["models"]+[STATE["human"]]);save()
     log("COMPLETE_VISIBLE",models=len(STATE["models"]),stage=STATE["stage"])
     return None
+
+
+def pose(root, active=True):
+    for obj in b.objects(root):
+        rotation=shapes.ACTION_POSES.get(root["partName"],{}).get(obj["partName"])
+        if rotation:
+            # Conjugate the game XYZ quaternion by the established Y-up basis.
+            x,y,z=rotation
+            q=(Quaternion((1,0,0),x) @ Quaternion((0,1,0),y) @ Quaternion((0,0,1),z)) if active else Quaternion()
+            obj.rotation_mode="QUATERNION"
+            obj.rotation_quaternion=Quaternion((q.w,q.x,-q.z,q.y))
+    bpy.context.view_layer.update()
 
 
 def continue_models():
