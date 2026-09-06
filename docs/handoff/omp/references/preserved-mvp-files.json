@@ -1,0 +1,207 @@
+[
+  {
+    "path": "D:\\friendslop-games\\games\\.artifacts\\wildly-unqualified\\releases\\forest-mvp-1-2026-09-06T03-42-48-626Z\\package-lock.json",
+    "length": 44550,
+    "sha256": "2B9467D50E34D880D92D30AF2B125BD7CA7F1A2271AABDA052C63597B2183572"
+  },
+  {
+    "path": "D:\\friendslop-games\\games\\.artifacts\\wildly-unqualified\\releases\\forest-mvp-1-2026-09-06T03-42-48-626Z\\package.json",
+    "length": 1816,
+    "sha256": "4D7E3ABDCAAB601F85A43E2CB4E1DA56537173CC5691B338B4B42A4F9BD6A9A4"
+  },
+  {
+    "path": "D:\\friendslop-games\\games\\.artifacts\\wildly-unqualified\\releases\\forest-mvp-1-2026-09-06T03-42-48-626Z\\SERVER.md",
+    "length": 9462,
+    "sha256": "8732113D4D041B2D25C5943F912A5635B9AC4C841139E1EBB4809D64902B32E0"
+  },
+  {
+    "path": "D:\\friendslop-games\\games\\.artifacts\\wildly-unqualified\\releases\\forest-mvp-1-2026-09-06T03-42-48-626Z\\wildly-unqualified\\encounters.ts",
+    "length": 24944,
+    "sha256": "4EFBECF72D823EE882980500BE7ED84731029086216835262B303D0C26330BE1"
+  },
+  {
+    "path": "D:\\friendslop-games\\games\\.artifacts\\wildly-unqualified\\releases\\forest-mvp-1-2026-09-06T03-42-48-626Z\\wildly-unqualified\\game.ts",
+    "length": 52421,
+    "sha256": "ED05E00D35EC83BF9F88830A11DA6D5B123AB78FF7D05BA42EA39E3952A0CA40"
+  },
+  {
+    "path": "D:\\friendslop-games\\games\\.artifacts\\wildly-unqualified\\releases\\forest-mvp-1-2026-09-06T03-42-48-626Z\\wildly-unqualified\\level.ts",
+    "length": 27831,
+    "sha256": "696019F7AB917CA5A16305DD6D1CDFDE39D21C005F86257AB9BA2F2365FB2EB0"
+  },
+  {
+    "path": "D:\\friendslop-games\\games\\.artifacts\\wildly-unqualified\\releases\\forest-mvp-1-2026-09-06T03-42-48-626Z\\wildly-unqualified\\physics.ts",
+    "length": 11395,
+    "sha256": "8A51EC218A570921463592543A3660CAFA6FF1942CD664B04A920D6A5B01C3CB"
+  },
+  {
+    "path": "D:\\friendslop-games\\games\\.artifacts\\wildly-unqualified\\releases\\forest-mvp-1-2026-09-06T03-42-48-626Z\\wildly-unqualified\\save.ts",
+    "length": 28664,
+    "sha256": "4665E06BB065AD5CE87C81C3F9CB9808C6A33D18CF4D234CB30FDF33347B7F72"
+  },
+  {
+    "path": "D:\\friendslop-games\\games\\.artifacts\\wildly-unqualified\\releases\\forest-mvp-1-2026-09-06T03-42-48-626Z\\wildly-unqualified\\server.ts",
+    "length": 27349,
+    "sha256": "C0E5C1F8660AACF0F5D0858583E6879EB8B3DA24251B70AF243393A78A21C5DE"
+  },
+  {
+    "path": "D:\\friendslop-games\\games\\.artifacts\\wildly-unqualified\\releases\\forest-mvp-1-2026-09-06T03-42-48-626Z\\wildly-unqualified\\shared.ts",
+    "length": 16489,
+    "sha256": "D94D1BA8314B0E304A44430E0F32F3087F6B0B0F9B1741FCCDD62C93239286EA"
+  },
+  {
+    "path": "D:\\friendslop-games\\games\\.artifacts\\wildly-unqualified\\releases\\forest-mvp-1-2026-09-06T03-42-48-626Z\\wildly-unqualified\\web\\index.html",
+    "length": 6859,
+    "sha256": "2A4CC88CBC2DAAF087DBB9E12BBD73FE7D3C29DDD60C9DFF2102C2EF6C6C73B5"
+  },
+  {
+    "path": "D:\\friendslop-games\\games\\.artifacts\\wildly-unqualified\\releases\\forest-mvp-1-2026-09-06T03-42-48-626Z\\wildly-unqualified\\web\\assets\\index-C-4DfThH.js",
+    "length": 981097,
+    "sha256": "D07C75208F4F87E887B4C9CF4E22A6A0985FE96C581A710B90AD6C91D75622D3"
+  },
+  {
+    "path": "D:\\friendslop-games\\games\\.artifacts\\wildly-unqualified\\releases\\forest-mvp-1-2026-09-06T03-42-48-626Z\\wildly-unqualified\\web\\assets\\index-yUq1JVPQ.css",
+    "length": 7791,
+    "sha256": "0CEB7C43283CE2CD7EF2F61640A21FF975E99E66E7AB0A544391802670140D3A"
+  },
+  {
+    "path": "D:\\friendslop-games\\games\\.artifacts\\wildly-unqualified\\releases\\forest-mvp-1-2026-09-06T03-42-48-626Z\\wildly-unqualified\\web\\models\\deer-v3.glb",
+    "length": 61988,
+    "sha256": "5D076278E0F7B152BCCF2CBD28BD0C9DBF33B1426224042FD70DB18DFC7ED2DE"
+  },
+  {
+    "path": "D:\\friendslop-games\\games\\.artifacts\\wildly-unqualified\\releases\\forest-mvp-1-2026-09-06T03-42-48-626Z\\wildly-unqualified\\web\\models\\expedition-kit-v3.glb",
+    "length": 74392,
+    "sha256": "C1365464C33BCD755721FBB62D70850A6D2DBC082229AD447340C4C5282354CB"
+  },
+  {
+    "path": "D:\\friendslop-games\\games\\.artifacts\\wildly-unqualified\\releases\\forest-mvp-1-2026-09-06T03-42-48-626Z\\wildly-unqualified\\web\\models\\field-kit.glb",
+    "length": 112592,
+    "sha256": "56EF5DDF1168D3569DB3FAB4809406B04741C9336CC03FFB611F9416FC2EFE4F"
+  },
+  {
+    "path": "D:\\friendslop-games\\games\\.artifacts\\wildly-unqualified\\releases\\forest-mvp-1-2026-09-06T03-42-48-626Z\\wildly-unqualified\\web\\models\\forest-kit-v3.glb",
+    "length": 2091920,
+    "sha256": "FA56FDF272282DB3DE69A9B1910B9A8D82D465022A8B308855BF60F5CAFC63D4"
+  },
+  {
+    "path": "D:\\friendslop-games\\games\\.artifacts\\wildly-unqualified\\releases\\forest-mvp-1-2026-09-06T03-42-48-626Z\\wildly-unqualified\\web\\models\\headwear-v3.glb",
+    "length": 38208,
+    "sha256": "D8D670D4E8751CBC98BAB83D5EDA7FF715C222C46F9EF298E1139CB18F7BD24F"
+  },
+  {
+    "path": "D:\\friendslop-games\\games\\.artifacts\\wildly-unqualified\\releases\\forest-mvp-1-2026-09-06T03-42-48-626Z\\wildly-unqualified\\web\\models\\heron-reed.glb",
+    "length": 115820,
+    "sha256": "71B7F16326E747333EE7A6F8695B3B449E140B517C262DF488D3FA111386D1B1"
+  },
+  {
+    "path": "D:\\friendslop-games\\games\\.artifacts\\wildly-unqualified\\releases\\forest-mvp-1-2026-09-06T03-42-48-626Z\\wildly-unqualified\\web\\models\\heron.glb",
+    "length": 113348,
+    "sha256": "822AFB824EB92E1AEE9BF036CADB4B6DA7E59359BE1766EC9E77677F9247E2D5"
+  },
+  {
+    "path": "D:\\friendslop-games\\games\\.artifacts\\wildly-unqualified\\releases\\forest-mvp-1-2026-09-06T03-42-48-626Z\\wildly-unqualified\\web\\models\\raccoon-dark.glb",
+    "length": 136444,
+    "sha256": "180880A8102596E555C5A3081F45023C6CC23E63837DEF028210E6F00A152E3B"
+  },
+  {
+    "path": "D:\\friendslop-games\\games\\.artifacts\\wildly-unqualified\\releases\\forest-mvp-1-2026-09-06T03-42-48-626Z\\wildly-unqualified\\web\\models\\raccoon.glb",
+    "length": 130936,
+    "sha256": "03CDE0C6E80D4E746DFE92686FF7258314883F78BFDF3A06B6CC81959B89F74C"
+  },
+  {
+    "path": "D:\\friendslop-games\\games\\.artifacts\\wildly-unqualified\\releases\\forest-mvp-1-2026-09-06T03-42-48-626Z\\wildly-unqualified\\web\\models\\researcher-forest-v3.glb",
+    "length": 75100,
+    "sha256": "C03F7FFCC852458F1E281EA8126D0D1633A26DB5F186C1D8D89267D9B2224884"
+  },
+  {
+    "path": "D:\\friendslop-games\\games\\.artifacts\\wildly-unqualified\\releases\\forest-mvp-1-2026-09-06T03-42-48-626Z\\wildly-unqualified\\web\\models\\researcher-raincoat.glb",
+    "length": 95044,
+    "sha256": "0DA6B093398F9962ADDD9D7C9D34960687501BCB6D07C126EC40728EE2BE1704"
+  },
+  {
+    "path": "D:\\friendslop-games\\games\\.artifacts\\wildly-unqualified\\releases\\forest-mvp-1-2026-09-06T03-42-48-626Z\\wildly-unqualified\\web\\models\\researcher-vest.glb",
+    "length": 90084,
+    "sha256": "9D80D41B67224265AFF1C509BE0516BC6D8D75F94CCB4E8A4BE4C0BD12736B99"
+  },
+  {
+    "path": "D:\\friendslop-games\\games\\.artifacts\\wildly-unqualified\\releases\\forest-mvp-1-2026-09-06T03-42-48-626Z\\wildly-unqualified\\web\\models\\researcher.glb",
+    "length": 76956,
+    "sha256": "D32D7B65543DA3BE76C48F9E53345EEA86ADE9FA7BC4C6888305B7B94B99FFA4"
+  },
+  {
+    "path": "D:\\friendslop-games\\games\\.artifacts\\wildly-unqualified\\releases\\forest-mvp-1-2026-09-06T03-42-48-626Z\\wildly-unqualified\\web\\models\\reserve-kit.glb",
+    "length": 889656,
+    "sha256": "CE2D6395E161039B68A6965CF30E0939609F7AA23537FD73644A9508A8C9DFF5"
+  },
+  {
+    "path": "D:\\friendslop-games\\games\\wildly-unqualified\\public\\models\\deer-v3.glb",
+    "length": 61988,
+    "sha256": "5D076278E0F7B152BCCF2CBD28BD0C9DBF33B1426224042FD70DB18DFC7ED2DE"
+  },
+  {
+    "path": "D:\\friendslop-games\\games\\wildly-unqualified\\public\\models\\expedition-kit-v3.glb",
+    "length": 74392,
+    "sha256": "C1365464C33BCD755721FBB62D70850A6D2DBC082229AD447340C4C5282354CB"
+  },
+  {
+    "path": "D:\\friendslop-games\\games\\wildly-unqualified\\public\\models\\field-kit.glb",
+    "length": 112592,
+    "sha256": "56EF5DDF1168D3569DB3FAB4809406B04741C9336CC03FFB611F9416FC2EFE4F"
+  },
+  {
+    "path": "D:\\friendslop-games\\games\\wildly-unqualified\\public\\models\\forest-kit-v3.glb",
+    "length": 2091920,
+    "sha256": "FA56FDF272282DB3DE69A9B1910B9A8D82D465022A8B308855BF60F5CAFC63D4"
+  },
+  {
+    "path": "D:\\friendslop-games\\games\\wildly-unqualified\\public\\models\\headwear-v3.glb",
+    "length": 38208,
+    "sha256": "D8D670D4E8751CBC98BAB83D5EDA7FF715C222C46F9EF298E1139CB18F7BD24F"
+  },
+  {
+    "path": "D:\\friendslop-games\\games\\wildly-unqualified\\public\\models\\heron-reed.glb",
+    "length": 115820,
+    "sha256": "71B7F16326E747333EE7A6F8695B3B449E140B517C262DF488D3FA111386D1B1"
+  },
+  {
+    "path": "D:\\friendslop-games\\games\\wildly-unqualified\\public\\models\\heron.glb",
+    "length": 113348,
+    "sha256": "822AFB824EB92E1AEE9BF036CADB4B6DA7E59359BE1766EC9E77677F9247E2D5"
+  },
+  {
+    "path": "D:\\friendslop-games\\games\\wildly-unqualified\\public\\models\\raccoon-dark.glb",
+    "length": 136444,
+    "sha256": "180880A8102596E555C5A3081F45023C6CC23E63837DEF028210E6F00A152E3B"
+  },
+  {
+    "path": "D:\\friendslop-games\\games\\wildly-unqualified\\public\\models\\raccoon.glb",
+    "length": 130936,
+    "sha256": "03CDE0C6E80D4E746DFE92686FF7258314883F78BFDF3A06B6CC81959B89F74C"
+  },
+  {
+    "path": "D:\\friendslop-games\\games\\wildly-unqualified\\public\\models\\researcher-forest-v3.glb",
+    "length": 75100,
+    "sha256": "C03F7FFCC852458F1E281EA8126D0D1633A26DB5F186C1D8D89267D9B2224884"
+  },
+  {
+    "path": "D:\\friendslop-games\\games\\wildly-unqualified\\public\\models\\researcher-raincoat.glb",
+    "length": 95044,
+    "sha256": "0DA6B093398F9962ADDD9D7C9D34960687501BCB6D07C126EC40728EE2BE1704"
+  },
+  {
+    "path": "D:\\friendslop-games\\games\\wildly-unqualified\\public\\models\\researcher-vest.glb",
+    "length": 90084,
+    "sha256": "9D80D41B67224265AFF1C509BE0516BC6D8D75F94CCB4E8A4BE4C0BD12736B99"
+  },
+  {
+    "path": "D:\\friendslop-games\\games\\wildly-unqualified\\public\\models\\researcher.glb",
+    "length": 76956,
+    "sha256": "D32D7B65543DA3BE76C48F9E53345EEA86ADE9FA7BC4C6888305B7B94B99FFA4"
+  },
+  {
+    "path": "D:\\friendslop-games\\games\\wildly-unqualified\\public\\models\\reserve-kit.glb",
+    "length": 889656,
+    "sha256": "CE2D6395E161039B68A6965CF30E0939609F7AA23537FD73644A9508A8C9DFF5"
+  }
+]
