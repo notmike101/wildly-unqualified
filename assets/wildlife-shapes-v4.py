@@ -239,26 +239,27 @@ def mallard():
 
 
 PROXIES={
-    "BeaverLodge":[{"min":[-1.13,0,-.8],"max":[-.43,.75,.8]}, {"min":[.43,0,-.8],"max":[1.13,.75,.8]}, {"min":[-.43,.65,-.8],"max":[.43,1.15,.8]}],
-    "BadgerDen":[{"min":[-.85,0,-.48],"max":[-.31,.68,.48]}, {"min":[.31,0,-.48],"max":[.85,.68,.48]}, {"min":[-.31,.5,-.48],"max":[.31,.86,.48]}],
+    "BeaverLodge":[{"min":[-1.31,0,-.80],"max":[-.43,1.49,.80]}, {"min":[.43,0,-.80],"max":[1.31,1.49,.80]}, {"min":[-.43,.90,-.80],"max":[.43,1.49,.80]}],
+    "BadgerDen":[{"min":[-.94,0,-.57],"max":[-.30,1.07,.57]}, {"min":[.30,0,-.57],"max":[.94,1.07,.57]}, {"min":[-.30,.63,-.57],"max":[.30,1.07,.57]}],
     "BranchPile":[], "SquirrelCache":[]}
 
 
 def den(name, scale=1):
     root=b.empty(name);m=b.Mesh()
-    # Three actual open tunnel sides; no dark opaque plane across the entrance.
-    for sign in (-1,1):
-        m.box((sign*.57*scale,.30*scale,0),(.5*scale,.60*scale,.95*scale),"Mud")
-        m.ellipsoid((sign*.61*scale,.36*scale,.09*scale),(.25*scale,.37*scale,.53*scale),"Mud")
-    m.box((0,.66*scale,.07*scale),(.70*scale,.25*scale,1.08*scale),"Mud")
-    m.ellipsoid((0,.74*scale,.07*scale),(.62*scale,.16*scale,.50*scale),"Mud")
+    # Faceted earthen arch: solid wedges around a genuinely open tunnel.
+    # No opaque black disc, intersecting boxes or hidden filled interior.
+    outer=[(-.92,0),(-.86,.50),(-.55,.90),(0,1.05),(.55,.90),(.86,.50),(.92,0)]
+    inner=[(-.31,0),(-.31,.42),(-.29,.66),(0,.72),(.29,.66),(.31,.42),(.31,0)]
+    for i in range(6):
+        polygon=[(x*scale,y*scale,-.55*scale) for x,y in (outer[i],outer[i+1],inner[i+1],inner[i])]
+        m.prism(polygon,(0,0,1.10*scale),"Mud" if i%2 else "Bark")
     if name=="BeaverLodge":
         for side in (-1,1):
             for j in range(7):
                 z=(-.45+j*.15)*scale
-                m.tube((side*.78*scale,.10*scale,z),(side*.22*scale,.79*scale,z+.11*scale),.05*scale,"Wood",sides=7)
+                m.tube((side*.82*scale,.18*scale,z),(side*.18*scale,1.00*scale,z+.08*scale),.05*scale,"Wood",sides=7)
         for j in range(6):
-            m.tube((-.52*scale,(.80+j*.009)*scale,(-.38+j*.16)*scale),(.55*scale,.83*scale,(-.30+j*.16)*scale),.045*scale,"Bark",sides=7)
+            m.tube((-.50*scale,.95*scale,(-.36+j*.13)*scale),(.51*scale,.95*scale,(-.30+j*.13)*scale),.045*scale,"Wood",sides=7)
     m.finish("Shell",parent=root)
     b.empty("Entrance",(0,.22*scale,-.49*scale),root)
     b.empty("BranchWork" if name=="BeaverLodge" else "Retreat",(0,.10*scale,.40*scale),root)
@@ -268,9 +269,10 @@ def den(name, scale=1):
 def branch_pile():
     root=b.empty("BranchPile");m=b.Mesh()
     for i in range(9):
-        x=(i%3-1)*.22;z=(i//3-1)*.18;y=.045+(i%3)*.065
-        m.tube((x-.38,y,z-.2),(x+.39,y+.08,z+.3),.045,"Bark",.027,sides=7)
-        m.tube((x,y+.04,z),(x-.16,y+.2,z+.24),.026,"Wood",.009,sides=7)
+        x=(i%3-1)*.16;z=(i//3-1)*.16;y=.045+(i%3)*.065
+        dx=.43*math.cos(i*.65);dz=.43*math.sin(i*.65)
+        m.tube((x-dx,y,z-dz),(x+dx,y+.04,z+dz),.045,"Bark",.027,sides=7)
+        m.tube((x,y+.03,z),(x-.14,y+.12,z+.21),.026,"Wood",.009,sides=7)
     m.finish("Branches",parent=root);b.empty("BranchGrip",(0,.20,0),root)
     # Ground the lowest vertex of the diagonal branch tubes precisely.
     ground(root)
@@ -302,7 +304,7 @@ def ground(root):
 
 
 BUILDERS={"Fox":fox,"Squirrel":squirrel,"Owl":owl,"Rabbit":rabbit,"Beaver":beaver,"Otter":otter,"Badger":badger,"Woodpecker":woodpecker,"Mallard":mallard,
-          "BeaverLodge":lambda:den("BeaverLodge",1.35),"BranchPile":branch_pile,"BadgerDen":lambda:den("BadgerDen"),"SquirrelCache":squirrel_cache}
+          "BeaverLodge":lambda:den("BeaverLodge",1.4),"BranchPile":branch_pile,"BadgerDen":lambda:den("BadgerDen"),"SquirrelCache":squirrel_cache}
 
 # Game-coordinate XYZ rotations, radians, for reproducible rigid-pivot inspection.
 # These demonstrate available articulation; production state machines own timing.

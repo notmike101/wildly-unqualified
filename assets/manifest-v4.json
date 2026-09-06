@@ -1,6 +1,6 @@
 {
   "version": 4,
-  "stage": "animals",
+  "stage": "complete",
   "coordinates": "metres; Y up; forward -Z; ground Y=0; L is negative X",
   "contract": {
     "Fox": {
@@ -404,6 +404,30 @@
               0
             ]
           },
+          "action_bounds": {
+            "min": [
+              -0.23,
+              -0.02833,
+              -0.61766
+            ],
+            "max": [
+              0.23,
+              0.55512,
+              0.58826
+            ]
+          },
+          "action_photo_points": {
+            "PhotoHead": [
+              0.0,
+              0.4369,
+              -0.34872
+            ],
+            "PhotoBody": [
+              0.0,
+              0.33,
+              0.04
+            ]
+          },
           "colliders": []
         },
         "Beaver": {
@@ -519,6 +543,30 @@
               0.08,
               0,
               0
+            ]
+          },
+          "action_bounds": {
+            "min": [
+              -0.26,
+              -0.03746,
+              -0.50817
+            ],
+            "max": [
+              0.26,
+              0.56033,
+              1.05254
+            ]
+          },
+          "action_photo_points": {
+            "PhotoHead": [
+              0.0,
+              0.41824,
+              -0.30514
+            ],
+            "PhotoBody": [
+              0.0,
+              0.32,
+              0.04
             ]
           },
           "colliders": []
@@ -638,6 +686,30 @@
               0
             ]
           },
+          "action_bounds": {
+            "min": [
+              -0.18,
+              -0.01394,
+              -0.60525
+            ],
+            "max": [
+              0.22796,
+              0.95566,
+              0.94687
+            ]
+          },
+          "action_photo_points": {
+            "PhotoHead": [
+              0.0,
+              0.66832,
+              -0.38915
+            ],
+            "PhotoBody": [
+              0.0,
+              0.48,
+              0.02
+            ]
+          },
           "colliders": []
         },
         "Mallard": {
@@ -736,6 +808,30 @@
               0,
               0,
               -0.4
+            ]
+          },
+          "action_bounds": {
+            "min": [
+              -0.20739,
+              0.0,
+              -0.31542
+            ],
+            "max": [
+              0.21685,
+              0.60491,
+              0.46316
+            ]
+          },
+          "action_photo_points": {
+            "PhotoHead": [
+              -0.01611,
+              0.49901,
+              -0.10651
+            ],
+            "PhotoBody": [
+              0.0,
+              0.248,
+              0.04
             ]
           },
           "colliders": []
@@ -838,6 +934,30 @@
               0
             ]
           },
+          "action_bounds": {
+            "min": [
+              -0.22453,
+              -0.02187,
+              -0.52228
+            ],
+            "max": [
+              0.27562,
+              0.385,
+              0.93388
+            ]
+          },
+          "action_photo_points": {
+            "PhotoHead": [
+              -0.05274,
+              0.28,
+              -0.36653
+            ],
+            "PhotoBody": [
+              0.0,
+              0.22,
+              0.03
+            ]
+          },
           "colliders": []
         },
         "Owl": {
@@ -936,6 +1056,30 @@
               0,
               0,
               -0.75
+            ]
+          },
+          "action_bounds": {
+            "min": [
+              -0.23111,
+              -0.0,
+              -0.25103
+            ],
+            "max": [
+              0.23111,
+              0.79043,
+              0.295
+            ]
+          },
+          "action_photo_points": {
+            "PhotoHead": [
+              -0.01299,
+              0.58,
+              -0.03098
+            ],
+            "PhotoBody": [
+              0.0,
+              0.3,
+              -0.0
             ]
           },
           "colliders": []
@@ -1048,6 +1192,30 @@
               -0.25,
               0,
               0
+            ]
+          },
+          "action_bounds": {
+            "min": [
+              -0.198,
+              -0.0476,
+              -0.30018
+            ],
+            "max": [
+              0.198,
+              0.76959,
+              0.36228
+            ]
+          },
+          "action_photo_points": {
+            "PhotoHead": [
+              0.0,
+              0.37789,
+              -0.16146
+            ],
+            "PhotoBody": [
+              0.0,
+              0.26,
+              0.04
             ]
           },
           "colliders": []
@@ -1167,6 +1335,30 @@
               0
             ]
           },
+          "action_bounds": {
+            "min": [
+              -0.149,
+              0.0,
+              -0.21074
+            ],
+            "max": [
+              0.18309,
+              0.7,
+              0.44944
+            ]
+          },
+          "action_photo_points": {
+            "PhotoHead": [
+              0.0,
+              0.46185,
+              -0.07373
+            ],
+            "PhotoBody": [
+              0.0,
+              0.25,
+              0.02
+            ]
+          },
           "colliders": []
         },
         "Woodpecker": {
@@ -1273,6 +1465,290 @@
               -0.2
             ]
           },
+          "action_bounds": {
+            "min": [
+              -0.09574,
+              0.0,
+              -0.18787
+            ],
+            "max": [
+              0.09574,
+              0.463,
+              0.23
+            ]
+          },
+          "action_photo_points": {
+            "PhotoHead": [
+              0.0,
+              0.36883,
+              -0.01287
+            ],
+            "PhotoBody": [
+              0.0,
+              0.21,
+              0.015
+            ]
+          },
+          "colliders": []
+        }
+      }
+    },
+    "wildlife-habitat-v4": {
+      "sha256": "59f6d127ff28b8547043f09c45e1452453f2f649eef170063fa96b7b51ef0f1f",
+      "bytes": 105216,
+      "props": {
+        "BadgerDen": {
+          "bounds_min_m": [
+            -0.92,
+            0.0,
+            -0.55
+          ],
+          "bounds_max_m": [
+            0.92,
+            1.05,
+            0.55
+          ],
+          "dimensions_m": [
+            1.84,
+            1.05,
+            1.1
+          ],
+          "triangles": 72,
+          "attachments": {
+            "BadgerDen": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "Entrance": [
+              0.0,
+              0.22,
+              -0.49
+            ],
+            "Retreat": [
+              0.0,
+              0.1,
+              0.4
+            ],
+            "Shell": [
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          "parents": {
+            "BadgerDen": "wildlife-habitat-v4",
+            "Entrance": "BadgerDen",
+            "Retreat": "BadgerDen",
+            "Shell": "BadgerDen"
+          },
+          "pose_rotations_xyz_radians": {},
+          "colliders": [
+            {
+              "min": [
+                -0.94,
+                0,
+                -0.57
+              ],
+              "max": [
+                -0.3,
+                1.07,
+                0.57
+              ]
+            },
+            {
+              "min": [
+                0.3,
+                0,
+                -0.57
+              ],
+              "max": [
+                0.94,
+                1.07,
+                0.57
+              ]
+            },
+            {
+              "min": [
+                -0.3,
+                0.63,
+                -0.57
+              ],
+              "max": [
+                0.3,
+                1.07,
+                0.57
+              ]
+            }
+          ]
+        },
+        "BeaverLodge": {
+          "bounds_min_m": [
+            -1.288,
+            0.0,
+            -0.77
+          ],
+          "bounds_max_m": [
+            1.288,
+            1.47,
+            0.81146
+          ],
+          "dimensions_m": [
+            2.576,
+            1.47,
+            1.58146
+          ],
+          "triangles": 552,
+          "attachments": {
+            "BeaverLodge": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "BranchWork": [
+              0.0,
+              0.14,
+              0.56
+            ],
+            "Entrance": [
+              0.0,
+              0.308,
+              -0.686
+            ],
+            "Shell": [
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          "parents": {
+            "BeaverLodge": "wildlife-habitat-v4",
+            "BranchWork": "BeaverLodge",
+            "Entrance": "BeaverLodge",
+            "Shell": "BeaverLodge"
+          },
+          "pose_rotations_xyz_radians": {},
+          "colliders": [
+            {
+              "min": [
+                -1.31,
+                0,
+                -0.8
+              ],
+              "max": [
+                -0.43,
+                1.49,
+                0.8
+              ]
+            },
+            {
+              "min": [
+                0.43,
+                0,
+                -0.8
+              ],
+              "max": [
+                1.31,
+                1.49,
+                0.8
+              ]
+            },
+            {
+              "min": [
+                -0.43,
+                0.9,
+                -0.8
+              ],
+              "max": [
+                0.43,
+                1.49,
+                0.8
+              ]
+            }
+          ]
+        },
+        "BranchPile": {
+          "bounds_min_m": [
+            -0.59204,
+            0.0,
+            -0.58605
+          ],
+          "bounds_max_m": [
+            0.59234,
+            0.30209,
+            0.59179
+          ],
+          "dimensions_m": [
+            1.18438,
+            0.30209,
+            1.17784
+          ],
+          "triangles": 432,
+          "attachments": {
+            "BranchPile": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "Branches": [
+              0.0,
+              -0.00118,
+              0.0
+            ],
+            "BranchGrip": [
+              0.0,
+              0.19882,
+              0.0
+            ]
+          },
+          "parents": {
+            "BranchPile": "wildlife-habitat-v4",
+            "Branches": "BranchPile",
+            "BranchGrip": "BranchPile"
+          },
+          "pose_rotations_xyz_radians": {},
+          "colliders": []
+        },
+        "SquirrelCache": {
+          "bounds_min_m": [
+            -0.31,
+            0.0,
+            -0.2663
+          ],
+          "bounds_max_m": [
+            0.31,
+            0.1,
+            0.2663
+          ],
+          "dimensions_m": [
+            0.62,
+            0.1,
+            0.53259
+          ],
+          "triangles": 764,
+          "attachments": {
+            "SquirrelCache": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "Cache": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "Food": [
+              0.0,
+              0.065,
+              0.0
+            ]
+          },
+          "parents": {
+            "SquirrelCache": "wildlife-habitat-v4",
+            "Cache": "SquirrelCache",
+            "Food": "SquirrelCache"
+          },
+          "pose_rotations_xyz_radians": {},
           "colliders": []
         }
       }
@@ -1282,7 +1758,14 @@
   "operation": "Actual visible foreground Blender; timer-staged console authoring; no MCP or background execution",
   "sources": {
     "author.py": "78674d4c119730bea1d7d05e1d6c44c4083df6f1ccbe752067e6095b170e897d",
-    "author-v4.py": "01fefee4c66ff5fdf3245c17fe8f12e80e0642b7ad452a6c458ee9e869209b2b",
-    "wildlife-shapes-v4.py": "911bab3bbdd875f3431520a73daaa406842453b18a047dd4d53ddf59d23c4574"
+    "author-v4.py": "997ceaf3bf9bd5911654a5f827f2cad2229d17f3c010032eb0f9506cc0c5aa81",
+    "wildlife-shapes-v4.py": "166976cbf8d2ef24649447ff0a113516b48ab190642c1458d5dcefbda80d1be8"
+  },
+  "scene_sha256": "e78940df64f9e817ea9c758dd36e9a15ee56ffb9f2db8567dac8315536d51841",
+  "previews": {
+    "preview-v4-actions.png": "a3f50ff25c414df04573e0cd6b481d5767184a23a6251a7a5103d7d18695c4d8",
+    "preview-v4-animals.png": "04faf351d4111d9bdf5c9c3b25034c9196e1c8c168849408ad7a795000788ec0",
+    "preview-v4-gallery.png": "aea6b0ae24d4889d6db653dfbba52b8d7ff65f514ee7d59631197853dc9084ec",
+    "preview-v4-representatives.png": "67d1730ebc9cfa38cb6b3267669aed931c12d821e49b723b5f6f334c46e05431"
   }
 }

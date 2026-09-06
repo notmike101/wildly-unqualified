@@ -10,7 +10,7 @@ Install this repository's pinned checker dependencies with `npm ci --ignore-scri
 
 The first milestone exports Fox, Squirrel and Owl and renders `preview-v4-representatives.png`. Inspect it, then call `v4.continue_models()` for the other six animals. After the nine-species gallery, call `v4.finish()` for the four habitat props, complete gallery, and articulated action sheet. Each model has its own silhouette and anatomy; color changes alone are not used as species variants.
 
-Run `node assets/check-v4.mjs --representatives` for the first milestone and `node assets/check-v4.mjs` for the complete library. The checker loads actual binary GLBs with Three.js GLTFLoader and Khronos gltf-validator. It compares geometry bounds, triangles, semantic pivots, hierarchy and source/export hashes against the measured manifest. The initial unbuilt contract failed with `Fox: v4 model has not been built/exported` before any v4 geometry was authored.
+Run `node assets/check-v4.mjs --representatives` for the first milestone, `node assets/check-v4.mjs --animals` for the nine animals, and `node assets/check-v4.mjs` for the complete library. The checker loads actual binary GLBs with Three.js GLTFLoader and Khronos gltf-validator. It compares geometry bounds, triangles, semantic pivots, hierarchy and source/export hashes against the measured manifest. The initial unbuilt contract failed with `Fox: v4 model has not been built/exported` before any v4 geometry was authored.
 
 ## Integration contract
 
@@ -18,10 +18,14 @@ Game coordinates are metres, +Y up, forward -Z, left negative X. Every exported 
 
 These are rigid-part rigs, without skinned deformation or baked animation clips. The action sheet demonstrates available articulation, not production behavior timing or collision acceptance. Tasks 4–5 must transform the recorded subject points through the actual live/frozen pose and evaluate small-animal photographic size at nearby camera approaches. Ground, waterline and perch placement remain runtime responsibilities. Do not use the full tail/ear height as a substitute for checking whether the head and body are visible.
 
+The manifest also contains measured `action_bounds` and `action_photo_points` for the exact demonstration pose. The checker independently applies the recorded XYZ rotations to the GLTFLoader hierarchy and matches both quantities within 0.15 mm. These are one demonstration pose per species, not a conservative envelope for every future animation. Blender applies a quaternion basis conversion so multi-axis head poses agree with Three.js XYZ rotation order.
+
 Habitat entrance shells are genuinely hollow with open front/back passages; their separately recorded conservative solid proxies leave the entrance clear. BranchPile and SquirrelCache are small nonblocking details. No terrain deletion, crafting inventory or gameplay code is included.
 
 ## Inspection record
 
 - Representative milestone: fox narrow muzzle, triangular ears, dark stockings and bushy tail; squirrel seated haunches, separate forepaws and curled upright tail; owl facial discs, prominent eyes, feathered wings and feet. All were inspected beside the original researcher in actual Blender and in the saved 2400×1800 foreground render.
-- Source/export hashes and exact measured dimensions are recorded in the manifest. Scene and final preview hashes will be recorded at completion below.
+- Complete gallery and action sheet: all nine species, all four habitat props and their labels were inspected in the saved foreground renders. The cache was moved into an unobscured gallery position. Habitat refinement replaced rectangular shells with faceted earthen arches and an irregular branch pile. The badger-den clearance test first failed at animal height, then passed after the arch revision. Both entrances pass actual mesh rays across a 0.48 m width at 0.61 m height, and the solid proxies preserve that opening.
+- Source/export hashes, exact measured dimensions, saved scene hash and all four final preview hashes are recorded in `manifest-v4.json`. The actual final scene is saved with neutral animal poses and all thirteen roots visible in its inspection layout. The exported GLBs have each individual root at the origin; gallery placement is excluded from export.
+- Complete asset check: thirteen roots passed with zero glTF-validator errors and warnings. Wildlife uses 1,196–2,420 triangles per species; habitat props use 72–764 triangles each. No external texture payloads are used.
 - Existing v1–v3 source scenes, manifests, previews and model exports are preserved unchanged.
