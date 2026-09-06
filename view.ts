@@ -768,6 +768,7 @@ export async function createView(scene: THREE.Scene, world: ReserveBlueprint) {
     const geometry = new Set<THREE.BufferGeometry>(),
       materials = new Set<THREE.Material>(ownedMaterials);
     scene.traverse((o) => {
+      if (o instanceof THREE.InstancedMesh) o.dispose();
       if (o instanceof THREE.Mesh) {
         geometry.add(o.geometry);
         for (const m of Array.isArray(o.material) ? o.material : [o.material])
