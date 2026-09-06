@@ -1,4 +1,12 @@
-import { type Animal, type Quat, type Vec3 } from "./shared.ts";
+import {
+  rayBlocked,
+  type Animal,
+  type Quat,
+  type Vec3,
+  type Box,
+} from "./shared.ts";
+import type { ReserveBlueprint } from "./world.ts";
+import { SUPPORT_MESHES } from "./support-meshes.ts";
 import { WILDLIFE_POINTS, SQUIRREL_CLIMB } from "./wildlife-data.ts";
 export function rotate(p: Vec3, q: Quat): Vec3 {
   const [x, y, z, w] = q,
@@ -152,3 +160,73 @@ export function wildlifeSubjectPoints(a: Animal, tick: number): Vec3[] | null {
     around(around(p.photoHead, p.head, rotations.Head), p.body, rotations.Body),
   ];
 }
+
+/** Tight visual support geometry inside the deliberately generous carry colliders. */
+export function sightBlocked(
+  world: ReserveBlueprint,
+  from: Vec3,
+  to: Vec3,
+  boxes: Box[],
+) {
+  if (!rayBlocked(from, to, boxes)) return false;
+  let supports = sightSupports.get(world);
+  if (!supports) {
+    supports = world.placements.filter((p) => SUPPORT_MESHES[p.model]);
+    sightSupports.set(world, supports);
+  }
+  const hitSupports = new Set<string>();
+  for (const box of boxes) {
+    if (!rayBlocked(from, to, [box])) continue;
+    const support = supports.find((p) => box.id.startsWith(p.id + "-"));
+    if (!support) return true;
+    hitSupports.add(support.id);
+  }
+  const sub = (a: Vec3, b: Vec3) => a.map((v, i) => v - b[i]) as Vec3;
+  const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const cross = (a: Vec3, b: Vec3): Vec3 => [
+    a[1] * b[2] - a[2] * b[1],
+    a[2] * b[0] - a[0] * b[2],
+    a[0] * b[1] - a[1] * b[0],
+  ];
+  for (const placement of supports) {
+    if (!hitSupports.has(placement.id)) continue;
+    const mesh = SUPPORT_MESHES[placement.model];
+    const local = (p: Vec3) =>
+      rotate(sub(p, placement.position), xyz([0, -placement.yaw, 0])).map(
+        (v, i) => v / placement.scale[i],
+      ) as Vec3;
+    const start = local(from),
+      end = local(to);
+    if (
+      !rayBlocked(start, end, [
+        { id: "support", min: mesh.min as Vec3, max: mesh.max as Vec3 },
+      ])
+    )
+      continue;
+    const direction = sub(end, start),
+      v = mesh.triangles;
+    for (let i = 0; i < v.length; i += 9) {
+      const a: Vec3 = [v[i], v[i + 1], v[i + 2]],
+        b: Vec3 = [v[i + 3], v[i + 4], v[i + 5]],
+        c: Vec3 = [v[i + 6], v[i + 7], v[i + 8]];
+      const e1 = sub(b, a),
+        e2 = sub(c, a),
+        p = cross(direction, e2),
+        det = dot(e1, p);
+      if (Math.abs(det) < 1e-10) continue;
+      const t = sub(start, a),
+        u = dot(t, p) / det;
+      if (u < 0 || u > 1) continue;
+      const q = cross(t, e1),
+        w = dot(direction, q) / det;
+      if (w < 0 || u + w > 1) continue;
+      const amount = dot(e2, q) / det;
+      if (amount > 1e-5 && amount < 1 - 1e-5) return true;
+    }
+  }
+  return false;
+}
+const sightSupports = new WeakMap<
+  ReserveBlueprint,
+  ReserveBlueprint["placements"]
+>();

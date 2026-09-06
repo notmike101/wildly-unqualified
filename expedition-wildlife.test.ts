@@ -3,6 +3,13 @@ import { test, type TestContext } from "node:test";
 import { addPlayer, advanceRun, applyCommand, createRun } from "./game.ts";
 import { animalRoute } from "./encounters.ts";
 import { distance, type Animal, type Vec3 } from "./shared.ts";
+import {
+  crew,
+  command,
+  walkTo,
+  cameraApproach,
+  input,
+} from "./expedition-test-helpers.ts";
 
 const DT = 1 / 60;
 type Sample = { tick: number; behavior: string; position: Vec3 };
@@ -205,4 +212,74 @@ test("otter enters its pond at a floating datum then returns to bank grooming", 
     "a swimming otter returns to supported bank grooming",
   );
   bounded(samples, animal, rest.point);
+});
+
+test("repeated raccoons keep separate bodies while approaching shared woodland sites", () => {
+  const run = createRun(7, "shared-sites");
+  addPlayer(run, "a", "A");
+  addPlayer(run, "b", "B");
+  applyCommand(run, "a", { worldId: run.worldId, type: "start", seq: 1 });
+  const residents = run.animals.filter((a) => a.species === "raccoon");
+  for (let tick = 0; tick < 120 * 60; tick++) {
+    advanceRun(run, DT);
+    if (tick < 60) continue;
+    for (let i = 0; i < residents.length; i++)
+      for (let j = i + 1; j < residents.length; j++)
+        assert.ok(
+          distance(residents[i].pose.position, residents[j].pose.position) >=
+            0.45,
+          `shared-site overlap at tick ${run.tick}: ${residents[i].id}/${residents[j].id}`,
+        );
+  }
+});
+
+test("every raccoon including bound targets gets another wash turn after yielding at the shared site", (t) => {
+  const run = crew(7);
+  const tin = run.tin.pose.position;
+  walkTo(run, [tin[0], 0, tin[2] - 0.7]);
+  command(run, "interact");
+  assert.equal(
+    run.tin.holder,
+    "a",
+    "ordinary E picked up the actual shared tin",
+  );
+  const residents = run.animals.filter((a) => a.species === "raccoon");
+  cameraApproach(run, residents[0].id);
+  const resident = run.world.residents.find((r) => r.id === residents[0].id)!;
+  const wash = run.world.pockets
+    .find((p) => p.id === resident.home)!
+    .anchors.find((a) => a.kind === "wash" && !a.id.endsWith("-start"))!.point;
+  walkTo(run, [wash[0], 0, wash[2] + 1.5]);
+  input(run);
+  advanceRun(run, DT);
+  command(run, "use");
+  assert.ok(run.tin.open && run.tin.portions > 0);
+  const turns = new Map(residents.map((a) => [a.id, 0]));
+  const last = new Map(residents.map((a) => [a.id, a.behavior]));
+  for (let tick = 0; tick < 150 * 60; tick++) {
+    input(run);
+    advanceRun(run, DT);
+    for (const a of residents) {
+      if (a.behavior === "wash" && last.get(a.id) !== "wash")
+        turns.set(a.id, turns.get(a.id)! + 1);
+      last.set(a.id, a.behavior);
+      for (const b of residents)
+        if (a.id !== b.id)
+          assert.ok(
+            distance(a.pose.position, b.pose.position) >= 0.45,
+            `overlap while ${a.id}/${b.id} wash or yield`,
+          );
+    }
+  }
+  t.diagnostic(
+    JSON.stringify({
+      turns: Object.fromEntries(turns),
+      states: residents.map((a) => [a.id, a.behavior, a.pose.position]),
+    }),
+  );
+  for (const a of residents)
+    assert.ok(
+      turns.get(a.id)! >= 2,
+      `${a.id} never gets a repeat action turn after yielding`,
+    );
 });

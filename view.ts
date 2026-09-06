@@ -6,7 +6,7 @@ import {
   animalArticulation,
   fixtureBoxes,
 } from "./level.ts";
-import type { ReserveBlueprint } from "./world.ts";
+import { residentName, type ReserveBlueprint } from "./world.ts";
 import {
   eye,
   distance,
@@ -19,7 +19,7 @@ import {
   type Vec3,
 } from "./shared.ts";
 import { addForest, findPart } from "./forest-view.ts";
-import { wildlifeParts } from "./wildlife.ts";
+import { wildlifeParts, sightBlocked } from "./wildlife.ts";
 
 export const CREW_COLORS = [0xf4bd4f, 0xef7166, 0x51bddb, 0xb397ee];
 export const CAMERA_FAR = 360;
@@ -412,6 +412,30 @@ export async function createView(scene: THREE.Scene, world: ReserveBlueprint) {
       o.visible = true;
       o.position.set(...a.pose.position);
       o.quaternion.set(...a.pose.rotation);
+      const fieldLabel = playerLabel(
+        a.id,
+        residentName(world, a.id),
+        world.residents
+          .filter((r) => r.species === a.species)
+          .findIndex((r) => r.id === a.id) % 4,
+      );
+      fieldLabel.position.set(
+        a.pose.position[0],
+        a.pose.position[1] +
+          (a.species === "deer" ? 2.2 : a.species === "heron" ? 1.9 : 1.15),
+        a.pose.position[2],
+      );
+      fieldLabel.scale.set(2.1, 0.36, 1);
+      fieldLabel.visible =
+        !photo &&
+        !!local &&
+        distance(local.position, a.pose.position) < 18 &&
+        !sightBlocked(
+          world,
+          eye(local),
+          [a.pose.position[0], a.pose.position[1] + 0.5, a.pose.position[2]],
+          occluders,
+        );
       const phase = state.tick / 60;
       if (!["raccoon", "deer", "heron"].includes(a.species)) {
         for (const [name, angles] of Object.entries(

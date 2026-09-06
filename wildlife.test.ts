@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import {
   Vector3,
   Raycaster,
@@ -11,9 +12,101 @@ import {
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { findPart } from "./forest-view.ts";
 import { subjectPoints } from "./level.ts";
-import { wildlifeParts, rotate, xyz } from "./wildlife.ts";
+import { wildlifeParts, rotate, xyz, sightBlocked } from "./wildlife.ts";
+import { SUPPORT_SOURCE_SHA256 } from "./support-meshes.ts";
+import { generateReserve } from "./world.ts";
 import { ARCH_STANCES, SQUIRREL_CLIMB } from "./wildlife-data.ts";
-import { type Animal, type Behavior } from "./shared.ts";
+import { rayBlocked, type Animal, type Behavior, type Vec3 } from "./shared.ts";
+
+test("support sight refinement matches preserved opaque GLBs through four quarter turns", async () => {
+  const bytes = await readFile(
+    new URL("./public/models/forest-kit-v3.glb", import.meta.url),
+  );
+  assert.equal(
+    createHash("sha256").update(bytes).digest("hex"),
+    SUPPORT_SOURCE_SHA256,
+  );
+  const gltf = await new GLTFLoader().parseAsync(
+    bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+    "",
+  );
+  const world = generateReserve(7, "sight-geometry");
+  // Geometry fixtures only: the separate command tests reach and photograph real birds.
+  for (const name of ["RootArch", "SnagTall"]) {
+    const source = findPart(gltf.scene, name)!;
+    source.removeFromParent();
+    source.position.set(0, 0, 0);
+    source.quaternion.identity();
+    source.traverse((o) => {
+      const mesh = o as Mesh;
+      if (mesh.isMesh)
+        for (const material of Array.isArray(mesh.material)
+          ? mesh.material
+          : [mesh.material])
+          material.side = DoubleSide;
+    });
+    source.updateMatrixWorld(true);
+    const original = world.placements.find((p) => p.model === name)!;
+    const probes: [Vec3, Vec3, boolean][] =
+      name === "RootArch"
+        ? [
+            [[-2.2, 1, 2], [-2.2, 1, -2], true],
+            [[0, 3.1, 2], [0, 3.1, -2], false],
+          ]
+        : [
+            [[0, 3, 2], [0, 3, -2], true],
+            [[0, 3, 2], [0, 3, 0.74], false],
+          ];
+    for (let turn = 0; turn < 4; turn++) {
+      const placement = {
+        ...original,
+        position: [17, 0, -11] as Vec3,
+        yaw: (turn * Math.PI) / 2,
+      };
+      const fixture = { ...world, placements: [placement] };
+      const transform = (p: Vec3) =>
+        rotate(p, xyz([0, placement.yaw, 0])).map(
+          (v, i) => v + placement.position[i],
+        ) as Vec3;
+      for (const [from, to, blocked] of probes) {
+        const direction = new Vector3(...to).sub(new Vector3(...from));
+        const actual =
+          new Raycaster(
+            new Vector3(...from),
+            direction.clone().normalize(),
+            1e-5,
+            direction.length() - 1e-5,
+          ).intersectObject(source, true).length > 0;
+        assert.equal(actual, blocked, `${name} actual mesh probe`);
+        const corners = [
+          [-3, 0, -2],
+          [3, 14, 2],
+        ].map((p) => transform(p as Vec3));
+        const box = {
+          id: placement.id + "-probe",
+          min: corners[0].map((v, i) => Math.min(v, corners[1][i])) as Vec3,
+          max: corners[0].map((v, i) => Math.max(v, corners[1][i])) as Vec3,
+        };
+        assert.equal(
+          sightBlocked(fixture, transform(from), transform(to), [box]),
+          actual,
+          `${name} turn ${turn}`,
+        );
+        assert.ok(
+          rayBlocked(transform(from), transform(to), [box]),
+          "conservative movement box remains solid",
+        );
+        assert.equal(
+          sightBlocked(fixture, transform(from), transform(to), [
+            { ...box, id: "unrelated-wall" },
+          ]),
+          true,
+          "unrelated geometry is never waived",
+        );
+      }
+    }
+  }
+});
 
 test("frozen v4 characteristic poses agree with real exported head/body attachments", async () => {
   const bytes = await readFile(

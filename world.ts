@@ -25,6 +25,64 @@ export const RESERVE_SPECIES = [
   "woodpecker",
   "mallard",
 ] as const;
+export function residentName(
+  world: Pick<ReserveBlueprint, "residents">,
+  id: string,
+): string {
+  const resident = world.residents.find((r) => r.id === id);
+  if (!resident) return "Wildlife";
+  const index = world.residents
+    .filter((r) => r.species === resident.species)
+    .findIndex((r) => r.id === id);
+  const names = [
+    "Cedar",
+    "Birch",
+    "Alder",
+    "Willow",
+    "Hazel",
+    "Maple",
+    "Aspen",
+    "Rowan",
+  ];
+  return `${names[index % names.length]} ${resident.species}`;
+}
+export function commissionInstructions(
+  world: ReserveBlueprint,
+  c: Commission,
+): string {
+  const names = c.subjects.map((id) => residentName(world, id)).join(" and ");
+  const species = world.residents.find((r) => r.id === c.subjects[0])!.species;
+  if (c.kind === "behavior") {
+    const actions: Record<ReserveSpecies, string> = {
+      raccoon: "rinsing food at the brook; hold the open tin beside the water",
+      deer: "grazing quietly",
+      heron: "preening after you give it space",
+      fox: "pouncing along the tracks",
+      rabbit: "nibbling at its feeding patch",
+      squirrel: "working at its ground cache after climbing",
+      beaver: "gnawing branches at its feeding patch",
+      otter: "grooming on the bank after a swim",
+      badger: "digging at its den",
+      owl: "roosting on the low arch",
+      woodpecker: "tapping the dead trunk",
+      mallard: "dabbling in its pond",
+    };
+    return `Photograph ${names} ${actions[species]}. Keep its head and body clear in the frame.`;
+  }
+  if (c.kind === "setup")
+    return `Set an open decoy by the feeding patch, open the tin nearby and photograph ${names} from behind the placed screen. Give it quiet space.`;
+  if (c.kind === "composition")
+    return `Include ${names} and the nearby ${world.placements.find((p) => p.id === c.landmark)?.model === "HollowLog" ? "hollow log" : "mossy boulder"} clearly in one frame. Try the side approach.`;
+  if (c.kind === "passage")
+    return `Follow the footprints near ${names}'s patch. Photograph it returning along that trail after its short circuit.`;
+  if (c.kind === "pair")
+    return species === "raccoon"
+      ? `Frame ${names} together: let the heron display after bait, then hold the open tin 3–8 metres away for the raccoon.`
+      : `Frame ${names} together at their shared feeding patch during their calm feeding or branch-work routines.`;
+  if (c.kind === "incident")
+    return `Optional: photograph ${names} with a borrowed crew hat or investigating a nearby spill. Recover the hat or supplies afterwards.`;
+  return `Optional: take a clear field portrait of ${names} in its home area.`;
+}
 export type ReserveSpecies = (typeof RESERVE_SPECIES)[number];
 export type Anchor = {
   id: string;
@@ -1031,7 +1089,7 @@ function bindCommissions(w: ReserveBlueprint, random: () => number) {
                       : kind === "setup" || kind === "pair"
                         ? "feed"
                         : routine.anchor;
-                return {
+                const commission: Commission = {
                   id: `commission-${i}`,
                   required: i < 6,
                   kind,
@@ -1046,7 +1104,7 @@ function bindCommissions(w: ReserveBlueprint, random: () => number) {
                       : kind === "passage"
                         ? "passage"
                         : null,
-                  title: `${r.species}: ${kind}`,
+                  title: `${residentName(w, r.id)} · ${kind === "behavior" ? routine.behavior : kind === "composition" ? "landmark portrait" : kind === "passage" ? "trail study" : kind === "setup" ? "feeding setup" : kind === "pair" ? "shared portrait" : kind === "incident" ? "field mishap" : "cameo"}`,
                   instructions:
                     kind === "setup"
                       ? "Bring the tin, screen and decoy; prepare cover and photograph the feeding setup."
@@ -1054,6 +1112,8 @@ function bindCommissions(w: ReserveBlueprint, random: () => number) {
                         ? "Follow the local passage anchors and frame the repeatable route."
                         : `Photograph ${rs.map((r) => r.species).join(" and ")} at ${r.home} during ${kind}.`,
                 };
+                commission.instructions = commissionInstructions(w, commission);
+                return commission;
               });
               return;
             }

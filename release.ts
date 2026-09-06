@@ -22,6 +22,7 @@ const runtime = [
   "world.ts",
   "wildlife.ts",
   "wildlife-data.ts",
+  "support-meshes.ts",
 ];
 export async function buildRelease(
   destination = resolve(

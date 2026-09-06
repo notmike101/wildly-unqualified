@@ -29,6 +29,9 @@ test("portable release contains the exact runtime lock and no credentials or dev
       "shared.ts",
       "web",
       "world.ts",
+      "wildlife.ts",
+      "wildlife-data.ts",
+      "support-meshes.ts",
     ].sort(),
   );
   assert.equal(
