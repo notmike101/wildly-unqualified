@@ -1,3 +1,4 @@
+import { addFieldScenery } from "./view-scenery.ts";
 import * as THREE from "three/webgpu";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import {
@@ -5,7 +6,6 @@ import {
   PROP_DEFINITIONS,
   animalArticulation,
   fixtureBoxes,
-  type WorldPlacement,
 } from "./level.ts";
 import { residentName, type ReserveBlueprint } from "./world.ts";
 import {
@@ -15,15 +15,13 @@ import {
   equipmentTarget,
   heldProp,
   propPoint,
-  type PhotoFrame,
   type Snapshot,
   type Vec3,
 } from "./shared.ts";
-import { addForest, findPart, instanceModel } from "./forest-view.ts";
-import { wildlifeParts, sightBlocked, bankStance, rotate } from "./wildlife.ts";
-
-export const CREW_COLORS = [0xf4bd4f, 0xef7166, 0x51bddb, 0xb397ee];
-export const CAMERA_FAR = 360;
+import { addForest, findPart } from "./forest-view.ts";
+import { wildlifeParts, sightBlocked } from "./wildlife.ts";
+import { CREW_COLORS } from "./view-constants.ts";
+export { CREW_COLORS, CAMERA_FAR } from "./view-constants.ts";
 const palette = CREW_COLORS;
 
 export function alignLocalCarry(
@@ -44,18 +42,8 @@ export function alignLocalCarry(
       p.position = shift(p.position);
 }
 
-const assetLoads = new Map<string, ReturnType<GLTFLoader["loadAsync"]>>();
-export function loadAsset(name: string, loader: GLTFLoader) {
-  let promise = assetLoads.get(name);
-  if (!promise) {
-    promise = loader.loadAsync(`/models/${name}.glb`).catch((error) => {
-      if (assetLoads.get(name) === promise) assetLoads.delete(name);
-      throw error;
-    });
-    assetLoads.set(name, promise);
-  }
-  return promise;
-}
+import { loadAsset } from "./view-assets.ts";
+export { loadAsset } from "./view-assets.ts";
 export async function createView(scene: THREE.Scene, world: ReserveBlueprint) {
   const loader = new GLTFLoader();
   const assets = new Map<string, THREE.Group>();
@@ -138,91 +126,7 @@ export async function createView(scene: THREE.Scene, world: ReserveBlueprint) {
   }
   const forest = addForest(scene, assets, world);
   errors.push(...forest.errors);
-  function sign(text: string, position: Vec3, rotation = 0) {
-    const canvas = document.createElement("canvas");
-    canvas.width = 512;
-    canvas.height = 170;
-    const c = canvas.getContext("2d")!;
-    c.fillStyle = "#254b37";
-    c.fillRect(0, 0, 512, 170);
-    c.strokeStyle = "#dacf9a";
-    c.lineWidth = 5;
-    c.strokeRect(10, 10, 492, 150);
-    c.fillStyle = "#f4edcd";
-    c.font = "bold 31px Georgia";
-    c.textAlign = "center";
-    c.fillText(text, 256, 75);
-    c.font = "17px sans-serif";
-    c.fillText("WILLOWMERE FIELD SOCIETY", 256, 115);
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    const m = new THREE.MeshStandardMaterial({ map: tex, roughness: 1 });
-    ownedMaterials.add(m);
-    const s = new THREE.Mesh(new THREE.PlaneGeometry(1.85, 0.7), m);
-    s.position.set(position[0], position[1] + 1.75, position[2] + 0.165);
-    s.rotation.y = rotation;
-    scene.add(s);
-  }
-  for (const p of world.placements.filter((p) => p.model === "TrailBoard"))
-    sign("WILLOWMERE", p.position, p.yaw);
-  for (const anchor of world.pockets
-    .flatMap((p) => p.anchors)
-    .filter((a) => ["feed", "wash"].includes(a.kind))) {
-    const marker = mesh(new THREE.RingGeometry(1.2, 1.27, 24), 0xcac198, [
-      anchor.point[0],
-      anchor.point[1] + 0.04,
-      anchor.point[2],
-    ]);
-    marker.rotation.x = -Math.PI / 2;
-  }
-  for (const point of world.navNodes.filter((n) => n.id.includes("-camera-"))) {
-    const marker = mesh(new THREE.RingGeometry(0.3, 0.35, 16), 0xdec378, [
-      point.position[0],
-      point.position[1] + 0.026,
-      point.position[2],
-    ]);
-    marker.rotation.x = -Math.PI / 2;
-  }
-  // Reuse the authored paw impressions as quiet trail clues; these flat marks
-  // are scenery, not a second navigation or objective state.
-  const tracks: WorldPlacement[] = [];
-  for (const pocket of world.pockets) {
-    const path = pocket.anchors.filter(
-      (a) => a.kind === "passage" && !a.id.endsWith("-start"),
-    );
-    for (let i = 1; i < path.length; i++) {
-      const a = path[i - 1].point,
-        b = path[i].point,
-        length = distance(a, b);
-      for (let along = 0.6; along < length; along += 1.3)
-        tracks.push({
-          id: `track-${tracks.length}`,
-          model: "RaccoonTracks",
-          position: a.map(
-            (v, axis) =>
-              v + ((b[axis] - v) * along) / length + (axis === 1 ? 0.035 : 0),
-          ) as Vec3,
-          yaw: Math.atan2(a[0] - b[0], a[2] - b[2]),
-          scale: [0.8, 1, 0.8],
-          solids: [],
-          occluders: [],
-        });
-    }
-  }
-  const trackModel = findPart(assets.get("reserve-kit")!, "RaccoonTracks");
-  if (trackModel && tracks.length) scene.add(instanceModel(trackModel, tracks));
-  for (const resident of world.residents.filter(
-    (r) => r.species === "beaver",
-  )) {
-    const stance = bankStance(world, resident.id),
-      offset = rotate([0, 0, -0.75], stance.rotation);
-    const pile = field(
-      "BranchPile",
-      stance.position.map((v, i) => v + offset[i]) as Vec3,
-      0.6,
-    );
-    if (pile) pile.quaternion.set(...stance.rotation);
-  }
+  addFieldScenery(scene, world, assets, ownedMaterials, mesh, field);
   const tin =
     field("Tin", [...world.tinStart]) ??
     mesh(new THREE.CylinderGeometry(0.147, 0.147, 0.218, 10), 0xcaae60, [
@@ -800,116 +704,5 @@ export async function createView(scene: THREE.Scene, world: ReserveBlueprint) {
   };
 }
 
-export async function capturePhoto(
-  renderer: THREE.WebGPURenderer,
-  scene: THREE.Scene,
-  frame: PhotoFrame,
-  world: ReserveBlueprint,
-  apply: () => void,
-  restore: () => void,
-): Promise<Blob> {
-  if (frame.worldId !== world.id) throw Error("Capture world mismatch");
-  const target = new THREE.RenderTarget(640, 360, {
-    type: THREE.UnsignedByteType,
-    format: THREE.RGBAFormat,
-  });
-  target.texture.colorSpace = THREE.SRGBColorSpace;
-  const cam = new THREE.PerspectiveCamera(
-    frame.camera.fov,
-    16 / 9,
-    0.05,
-    CAMERA_FAR,
-  );
-  cam.position.set(...frame.camera.position);
-  cam.rotation.set(frame.camera.pitch, frame.camera.yaw, 0, "YXZ");
-  const previous = renderer.getRenderTarget();
-  try {
-    try {
-      apply();
-      renderer.setRenderTarget(target);
-      renderer.render(scene, cam);
-    } finally {
-      renderer.setRenderTarget(previous);
-      restore();
-    }
-    const pixels = await renderer.readRenderTargetPixelsAsync(
-      target,
-      0,
-      0,
-      640,
-      360,
-    );
-    const canvas = document.createElement("canvas");
-    canvas.width = 640;
-    canvas.height = 360;
-    canvas
-      .getContext("2d")!
-      .putImageData(
-        new ImageData(
-          new Uint8ClampedArray(
-            new Uint8Array(pixels.buffer, pixels.byteOffset, pixels.byteLength),
-          ),
-          640,
-          360,
-        ),
-        0,
-        0,
-      );
-    for (const quality of [0.85, 0.65, 0.4, 0.2]) {
-      const blob = await new Promise<Blob | null>((r) =>
-        canvas.toBlob(r, "image/jpeg", quality),
-      );
-      if (blob && blob.size <= 65536) return blob;
-    }
-    throw Error("Photo could not fit the album. Please try again.");
-  } finally {
-    target.dispose();
-  }
-}
-
-let audio: AudioContext | undefined;
-export function playSound(
-  kind:
-    | "shutter"
-    | "whistle"
-    | "notice"
-    | "rattle"
-    | "impact"
-    | "alert"
-    | "footstep",
-  volume: number,
-) {
-  if (volume <= 0) return;
-  audio ??= new AudioContext();
-  void audio.resume();
-  const oscillator = audio.createOscillator(),
-    gain = audio.createGain();
-  oscillator.connect(gain);
-  gain.connect(audio.destination);
-  const t = audio.currentTime;
-  oscillator.type = ["shutter", "rattle", "impact"].includes(kind)
-    ? "square"
-    : "sine";
-  oscillator.frequency.setValueAtTime(
-    kind === "whistle"
-      ? 1200
-      : kind === "shutter"
-        ? 150
-        : kind === "rattle"
-          ? 260
-          : kind === "impact"
-            ? 90
-            : kind === "footstep"
-              ? 70
-              : 420,
-    t,
-  );
-  oscillator.frequency.exponentialRampToValueAtTime(
-    kind === "whistle" ? 1600 : kind === "alert" ? 750 : 80,
-    t + 0.12,
-  );
-  gain.gain.setValueAtTime(volume * 0.08, t);
-  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
-  oscillator.start(t);
-  oscillator.stop(t + 0.16);
-}
+export { capturePhoto } from "./photo-capture.ts";
+export { playSound } from "./legacy-sound.ts";

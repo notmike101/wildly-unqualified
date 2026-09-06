@@ -1,3 +1,9 @@
+import { renderReassign, installJoinForm } from "./client-admission.ts";
+import { renderHud } from "./hud.ts";
+import { settings, setupSettings } from "./client-settings.ts";
+import { api } from "./client-api.ts";
+import { interpolateSnapshot } from "./client-interpolation.ts";
+import { initializeGraphics } from "./client-graphics.ts";
 import { renderNotebook, drawMap } from "./notebook.ts";
 import * as THREE from "three/webgpu";
 import {
@@ -6,21 +12,11 @@ import {
   alignLocalCarry,
   playSound,
   CREW_COLORS,
-  CAMERA_FAR,
 } from "./view.ts";
-import {
-  PROP_DEFINITIONS,
-  fixtureBoxes,
-  fixtureSurfaces,
-  fixtureLatch,
-  subjectPoints,
-} from "./level.ts";
-import { sightBlocked, rotate } from "./wildlife.ts";
+import { PROP_DEFINITIONS, fixtureBoxes, fixtureSurfaces } from "./level.ts";
 import {
   validateReserve,
   reserveHash,
-  residentName,
-  commissionInstructions,
   type ReserveBlueprint,
 } from "./world.ts";
 import {
@@ -28,14 +24,8 @@ import {
   eye,
   forward,
   movePlayer,
-  heldProp,
-  equipmentTarget,
-  equipmentUseTarget,
-  recoveryTarget,
   playerSpeed,
   propBoxes,
-  rayBlocked,
-  propRayBlocked,
   type ClientMessage,
   type Input,
   type PhotoFrame,
@@ -71,48 +61,6 @@ declare global {
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) =>
   document.getElementById(id) as T;
-const keyDefaults = {
-  forward: "KeyW",
-  back: "KeyS",
-  left: "KeyA",
-  right: "KeyD",
-  run: "ShiftLeft",
-  crouch: "KeyC",
-  interact: "KeyE",
-  use: "KeyQ",
-  drop: "KeyG",
-  ping: "KeyF",
-  notebook: "Tab",
-};
-type Keys = typeof keyDefaults;
-type Settings = {
-  sensitivity: number;
-  invert: boolean;
-  volume: number;
-  keys: Keys;
-};
-let settings: Settings = {
-  sensitivity: 1,
-  invert: false,
-  volume: 0.5,
-  keys: { ...keyDefaults },
-};
-try {
-  const stored = JSON.parse(localStorage.getItem("wu-settings") ?? "null");
-  if (stored) {
-    settings.sensitivity = Math.max(
-      0.3,
-      Math.min(3, Number(stored.sensitivity) || 1),
-    );
-    settings.invert = !!stored.invert;
-    settings.volume = Math.max(0, Math.min(1, Number(stored.volume) || 0));
-    for (const key of Object.keys(keyDefaults) as (keyof Keys)[])
-      if (typeof stored.keys?.[key] === "string")
-        settings.keys[key] = stored.keys[key];
-  }
-} catch {
-  /* Corrupt local preferences never block admission. */
-}
 const pressed = new Set<string>();
 let crouch = false,
   yaw = 0,
@@ -157,12 +105,6 @@ const pendingFrames = new Map<
 const assetErrors: string[] = [];
 let adapterInfo: unknown;
 const heard = new Set<string>();
-const propNames = {
-  case: "field case",
-  plank: "crossing plank",
-  screen: "observation screen",
-  decoy: "wildlife decoy",
-};
 Object.defineProperty(window, "wildly", {
   get: () => ({
     snapshot: latest ? structuredClone(latest) : null,
@@ -193,9 +135,6 @@ function notify(message: string) {
   $("notice").textContent = message;
   clearTimeout(noticeTimer);
   noticeTimer = window.setTimeout(() => ($("notice").textContent = ""), 6500);
-}
-function saveSettings() {
-  localStorage.setItem("wu-settings", JSON.stringify(settings));
 }
 function command(
   type: Exclude<ClientMessage["type"], "input" | "ping" | "favorite">,
@@ -258,7 +197,8 @@ function showDialog(id: string) {
     renderNotebook(latest, localId, commissionTitle, toggleFavorite);
     drawMap(latest, world, CREW_COLORS);
   }
-  if (id === "settings") void renderReassign();
+  if (id === "settings")
+    void renderReassign(() => ({ isHost, latest }), notify);
 }
 function toggleCamera() {
   viewfinder = !viewfinder;
@@ -277,25 +217,6 @@ function lookAround() {
   void renderer.domElement.requestPointerLock();
 }
 
-async function api(path: string, body?: unknown) {
-  const response = await fetch(
-    path,
-    body === undefined
-      ? {}
-      : {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        },
-  );
-  const result = await response.json();
-  if (!response.ok)
-    throw Object.assign(
-      Error(result.error ?? `Request failed (${response.status})`),
-      { status: response.status },
-    );
-  return result;
-}
 async function acceptSession(session: {
   playerId: string;
   host: boolean;
@@ -532,263 +453,7 @@ function receive(state: Snapshot) {
     showDialog("notebook");
 }
 function updateHud() {
-  if (!latest) return;
-  const s = latest;
-  $("connection").textContent =
-    `${s.players.filter((p) => p.connected).length}/4 in reserve · ${Math.round(rtt)} ms`;
-  const list = $("assignments");
-  list.replaceChildren();
-  for (const commission of world!.commissions) {
-    const li = document.createElement("li");
-    li.className = s.completed.includes(commission.id) ? "done" : "";
-    li.textContent = `${commission.required ? "" : "Optional: "}${commission.title}`;
-    const small = document.createElement("small");
-    small.textContent = commissionInstructions(world!, commission);
-    li.append(small);
-    list.append(li);
-  }
-  const holder = s.tin.holder?.startsWith("animal:")
-    ? "The raccoon has your tin."
-    : s.tin.holder === localId
-      ? "You are carrying the tin."
-      : s.tin.holder
-        ? `${s.players.find((p) => p.id === s.tin.holder)?.name ?? "A friend"} has the tin.`
-        : "Tin placed in the reserve.";
-  const me = s.players.find((p) => p.id === localId);
-  const carried = heldProp(localId, s.props);
-  const occupied = carried?.holders.filter(Boolean).length ?? 0;
-  $("equipment").textContent = carried
-    ? `${propNames[carried.kind]} · ${occupied}/${carried.kind === "decoy" ? 1 : 2} handles held${carried.kind === "case" ? ` · lid ${carried.open ? "open" : "closed"} · ${s.spareBait} spare portions` : carried.kind === "decoy" ? ` · bait cup ${carried.open ? "filled" : "empty"}` : ""}`
-    : `${holder} · ${s.tin.portions} bait portions · ${s.spareBait} in the field case`;
-  const walls = [...world!.walls, ...fixtureBoxes(world!.fixtures, s.route)];
-  const reachWalls = [
-    ...walls,
-    ...s.props.flatMap((prop) => propBoxes(prop, PROP_DEFINITIONS[prop.kind])),
-  ];
-  const gate = world!.fixtures
-      .filter((f) => f.kind === "gate")
-      .map((f) => ({ ...f, latch: fixtureLatch(f, s.route) }))
-      .filter((f) => f.latch)
-      .sort((a, b) =>
-        me ? distance(eye(me), a.latch!) - distance(eye(me), b.latch!) : 0,
-      )[0],
-    latch = gate?.latch;
-  const gateReachable =
-    !!me &&
-    !!latch &&
-    distance(eye(me), latch) <= 2 &&
-    !rayBlocked(eye(me), latch, [
-      ...world!.walls,
-      ...s.props.flatMap((prop) =>
-        propBoxes(prop, PROP_DEFINITIONS[prop.kind]),
-      ),
-    ]);
-  const target = me && equipmentTarget(me, s.props, PROP_DEFINITIONS, walls);
-  const recovery = me && recoveryTarget(me, s, PROP_DEFINITIONS, walls);
-  const useTarget =
-    me && equipmentUseTarget(me, s.props, PROP_DEFINITIONS, walls);
-  const tinReachable =
-    !!me &&
-    (!s.tin.holder || s.tin.holder?.startsWith("animal:")) &&
-    distance(eye(me), s.tin.pose.position) <= 2 &&
-    !rayBlocked(eye(me), s.tin.pose.position, reachWalls);
-  const targetProp =
-    target &&
-    me &&
-    (!tinReachable ||
-      distance(eye(me), target.point) < distance(eye(me), s.tin.pose.position))
-      ? s.props.find((p) => p.id === target.propId)
-      : undefined;
-  const key = (name: keyof Keys) =>
-    settings.keys[name].replace(/^(Key|Digit)/, "");
-  const clue =
-    me &&
-    world!.commissions
-      .map((c) => ({
-        title: c.title,
-        position: world!.pockets.find((p) => p.id === c.pocket)!.position,
-      }))
-      .filter(
-        (c) =>
-          distance(c.position, me.position) <= 3 &&
-          !rayBlocked(eye(me), c.position, reachWalls),
-      )
-      .sort(
-        (a, b) =>
-          distance(a.position, me.position) - distance(b.position, me.position),
-      )[0];
-  const interact = carried
-    ? `Place ${propNames[carried.kind]}`
-    : s.tin.holder === localId
-      ? "Place tin"
-      : recovery
-        ? recovery.kind === "spill"
-          ? "Collect spilled bait"
-          : `Retrieve ${s.players.find((p) => p.id === recovery.id)?.name ?? "crew"}'s hat`
-        : targetProp
-          ? `Take ${propNames[targetProp.kind]} handle ${(target?.handle ?? 0) + 1}`
-          : gateReachable
-            ? `${s.route[gate.id].open ? "Close" : "Open"} trail gate`
-            : tinReachable
-              ? s.tin.holder?.startsWith("animal:")
-                ? "Reclaim tin"
-                : "Pick up tin"
-              : clue
-                ? `Read ${clue.title}`
-                : "";
-  const use =
-    carried?.kind === "case"
-      ? `${carried.open ? "Close" : "Open"} case lid`
-      : useTarget?.part === "bait-cup"
-        ? s.props.find((prop) => prop.id === useTarget.propId)?.open
-          ? "Decoy bait cup filled"
-          : "Fill decoy bait cup"
-        : s.tin.holder === localId
-          ? me &&
-            s.tin.portions < 4 &&
-            s.spareBait > 0 &&
-            s.props.some(
-              (prop) =>
-                prop.kind === "case" &&
-                prop.open &&
-                Math.hypot(
-                  me.position[0] - prop.pose.position[0],
-                  me.position[2] - prop.pose.position[2],
-                ) < 2.5,
-            )
-            ? "Refill tin from case"
-            : me &&
-                Math.hypot(
-                  me.position[0] - world!.camp[0],
-                  me.position[2] - world!.camp[2],
-                ) <= 5 &&
-                (s.tin.portions < 4 || s.spareBait < 8)
-              ? "Refill field supplies"
-              : me &&
-                  world!.pockets.some((p) =>
-                    p.anchors.some(
-                      (a) =>
-                        a.kind === "feed" &&
-                        distance(me.position, a.point) < 2.5,
-                    ),
-                  )
-                ? "Bait local feeding patch"
-                : "Rattle tin"
-          : "Whistle";
-  $("context-action").textContent =
-    me && !s.paused && s.phase !== "exhibition"
-      ? [
-          interact && `${key("interact")} · ${interact}`,
-          `${key("use")} · ${use}`,
-          (carried || s.tin.holder === localId) && `${key("drop")} · Drop`,
-        ]
-          .filter(Boolean)
-          .join("   ")
-      : "";
-  $("phase-hint").textContent =
-    s.phase === "camp"
-      ? "Gather at camp. The host begins when at least two friends are here."
-      : s.phase === "exhibition"
-        ? "A very questionable success. Open the notebook and choose your favorites."
-        : world!.commissions
-              .filter((c) => c.required)
-              .every((c) => s.completed.includes(c.id))
-          ? `All six required commissions recorded. Return to camp for the exhibition · ${s.ready.length}/${s.players.filter((p) => p.connected).length} ready.`
-          : `${Math.floor(s.seconds / 60)}:${String(Math.floor(s.seconds) % 60).padStart(2, "0")} in the field · Woodland → clearing → wetland. Prepare a route and bring the crew home.`;
-  $("start-button").hidden = !(isHost && s.phase === "camp");
-  $<HTMLButtonElement>("shutter-button").disabled =
-    s.paused || s.phase !== "outing";
-  $<HTMLButtonElement>("start-button").disabled =
-    s.players.filter((p) => p.connected).length < 2;
-  $("pause-banner").hidden =
-    !s.paused || s.phase === "camp" || s.phase === "exhibition";
-  $("pause-reason").textContent = s.pauseReason;
-  $("pause-button").hidden = !isHost || s.phase !== "outing";
-  const complete = world!.commissions
-    .filter((c) => c.required)
-    .every((c) => s.completed.includes(c.id));
-  $("ready-button").hidden = !complete || s.phase !== "outing";
-  $("finish-button").hidden = !isHost || !complete || s.phase !== "outing";
-  const atCamp = (p: Player) =>
-    Math.hypot(
-      p.position[0] - world!.camp[0],
-      p.position[2] - world!.camp[2],
-    ) <= 6;
-  const ready = $<HTMLButtonElement>("ready-button");
-  ready.textContent = s.ready.includes(localId)
-    ? "Ready for exhibition ✓"
-    : me && atCamp(me)
-      ? "Ready for exhibition"
-      : "Return to camp to mark ready";
-  ready.disabled = s.paused || !me || !atCamp(me) || s.ready.includes(localId);
-  $<HTMLButtonElement>("finish-button").disabled =
-    s.paused ||
-    !s.players
-      .filter((p) => p.connected)
-      .every((p) => atCamp(p) && s.ready.includes(p.id));
-  $("crew").replaceChildren(
-    ...s.players.map((p) => {
-      const span = document.createElement("span");
-      span.textContent = `${p.slot + 1}. ${p.name}${p.id === localId ? " (you)" : ""}${p.connected ? (s.ready.includes(p.id) ? " · ready ✓" : "") : " · returning"}`;
-      span.style.borderColor = `#${CREW_COLORS[p.slot].toString(16).padStart(6, "0")}`;
-      return span;
-    }),
-  );
-  const behavior = {
-    wander: "exploring",
-    approach: "approaching",
-    inspect: "inspecting the tin",
-    carry: "carrying your tin",
-    investigate: "investigating",
-    feed: "feeding",
-    alert: "alert",
-    retreat: "moving away",
-    settle: "settling",
-    display: "wings spread",
-    graze: "grazing",
-    wash: "washing food",
-    preen: "preening",
-    "hat-reach": "reaching for a hat",
-    pounce: "pouncing",
-    nibble: "nibbling",
-    cache: "caching",
-    gnaw: "gnawing",
-    groom: "grooming",
-    dig: "digging",
-    roost: "roosting",
-    tap: "tapping",
-    dabble: "dabbling",
-    stalk: "stalking quietly",
-    passage: "following a wildlife trail",
-    freeze: "holding still",
-    bound: "bounding",
-    climb: "climbing",
-    descend: "climbing down",
-    perch: "resting on a perch",
-    fly: "flying to a nearby perch",
-    swim: "swimming",
-    surface: "surfacing",
-    sniff: "sniffing the ground",
-  };
-  $("camera-hint").textContent = me
-    ? s.animals
-        .filter((a) => {
-          return (
-            distance(me.position, a.pose.position) < 20 &&
-            subjectPoints(a, s.tick).every((local) => {
-              const point = rotate(local, a.pose.rotation).map(
-                (v, i) => v + a.pose.position[i],
-              ) as Vec3;
-              return (
-                !sightBlocked(world!, eye(me), point, walls) &&
-                !propRayBlocked(eye(me), point, s.props, PROP_DEFINITIONS)
-              );
-            })
-          );
-        })
-        .map((a) => `${residentName(world!, a.id)}: ${behavior[a.behavior]}`)
-        .join(" · ") || "Find a clear angle; give wildlife room."
-    : "";
+  renderHud(latest, world, localId, isHost, rtt, settings);
   if ($<HTMLDialogElement>("notebook").open) {
     renderNotebook(latest, localId, commissionTitle, toggleFavorite);
     drawMap(latest, world, CREW_COLORS);
@@ -874,102 +539,10 @@ function queuePhoto(frame: PhotoFrame, verdict: PhotoVerdict) {
     })
     .catch((e) => notify(String(e)));
 }
-async function renderReassign() {
-  if (!isHost || !latest) return;
-  try {
-    const info = await api("/api/invite");
-    const waiting: { id: string; name: string }[] = info.pending ?? [];
-    $("reassign").hidden = waiting.length === 0;
-    $("reassign-list").replaceChildren();
-    for (const p of waiting) {
-      const row = document.createElement("p");
-      row.textContent = p.name + " → ";
-      const select = document.createElement("select");
-      for (const slot of latest.players.filter((p) => !p.connected)) {
-        const option = document.createElement("option");
-        option.value = slot.id;
-        option.textContent = slot.name;
-        select.append(option);
-      }
-      row.append(select);
-      const b = document.createElement("button");
-      b.textContent = "Restore slot";
-      b.onclick = () =>
-        void api("/api/reassign", {
-          slotId: select.value,
-          admittedPlayerId: p.id,
-        })
-          .then(() => renderReassign())
-          .catch((e) => notify(String(e)));
-      row.append(b);
-      $("reassign-list").append(row);
-    }
-  } catch (e) {
-    notify(String(e));
-  }
-}
 async function start() {
-  if (!navigator.gpu)
-    throw Error(
-      "WebGPU is unavailable. Use an up-to-date desktop browser with hardware acceleration.",
-    );
-  const adapter = await navigator.gpu.requestAdapter();
-  if (!adapter) throw Error("No WebGPU adapter is available on this device.");
-  adapterInfo = {
-    vendor: adapter.info.vendor,
-    architecture: adapter.info.architecture,
-    device: adapter.info.device,
-    description: adapter.info.description,
-    isFallbackAdapter: adapter.info.isFallbackAdapter,
-  };
-  const device = await adapter.requestDevice();
-  renderer = new THREE.WebGPURenderer({ antialias: true, device });
-  await renderer.init();
-  if (
-    !(renderer.backend as unknown as { isWebGPUBackend?: boolean })
-      .isWebGPUBackend
-  )
-    throw Error("A real WebGPU backend is required.");
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
-  renderer.shadowMap.enabled = true;
-  scene = new THREE.Scene();
-  camera = new THREE.PerspectiveCamera(60, 16 / 9, 0.05, CAMERA_FAR);
-  camera.position.set(0, 1.6, 0);
-  $("viewport").append(renderer.domElement);
-  renderer.domElement.setAttribute(
-    "aria-label",
-    "Explore Willowmere wildlife reserve",
-  );
-  const resize = () => {
-    const w = Math.min(innerWidth, (innerHeight * 16) / 9),
-      h = (w * 9) / 16,
-      x = (innerWidth - w) / 2,
-      y = (innerHeight - h) / 2;
-    renderer.setSize(w, h);
-    Object.assign(renderer.domElement.style, {
-      position: "absolute",
-      left: `${x}px`,
-      top: `${y}px`,
-      width: `${w}px`,
-      height: `${h}px`,
-    });
-    Object.assign($("viewfinder").style, {
-      inset: "auto",
-      left: `${x}px`,
-      top: `${y}px`,
-      width: `${w}px`,
-      height: `${h}px`,
-    });
-  };
-  resize();
-
-  document.body.dataset.ready = "webgpu";
-  device.lost.then((info) => {
-    notify(
-      `Graphics device lost: ${info.message}. Reload to rejoin; the server keeps the outing.`,
-    );
-    neutralize();
-  });
+  const graphics = await initializeGraphics(notify, neutralize);
+  ({ renderer, scene, camera, adapterInfo } = graphics);
+  const { resize } = graphics;
   let last = performance.now();
   renderer.setAnimationLoop(() => {
     const now = performance.now(),
@@ -998,67 +571,11 @@ async function start() {
         for (const k of history.keys())
           if (k < predTick - 120) history.delete(k);
       }
-      const renderState: Snapshot = {
-        ...latest,
-        players: latest.players.map((p) => ({
-          ...p,
-          position: [...p.position],
-        })),
-        animals: latest.animals.map((a) => ({
-          ...a,
-          pose: { ...a.pose, position: [...a.pose.position] },
-        })),
-        tin: {
-          ...latest.tin,
-          pose: { ...latest.tin.pose, position: [...latest.tin.pose.position] },
-        },
-        props: latest.props.map((prop) => ({
-          ...prop,
-          pose: {
-            position: [...prop.pose.position],
-            rotation: [...prop.pose.rotation],
-          },
-        })),
-      };
-      const alpha = Math.min(1, (now - latestAt) / 100);
-      if (prior && !latest.paused) {
-        for (const p of renderState.players) {
-          const before = prior.players.find((x) => x.id === p.id);
-          if (before)
-            p.position = p.position.map(
-              (n, i) => before.position[i] + (n - before.position[i]) * alpha,
-            ) as [number, number, number];
-        }
-        for (const a of renderState.animals) {
-          const before = prior.animals.find((x) => x.id === a.id);
-          if (before)
-            a.pose.position = a.pose.position.map(
-              (n, i) =>
-                before.pose.position[i] + (n - before.pose.position[i]) * alpha,
-            ) as [number, number, number];
-        }
-        renderState.tin.pose.position = renderState.tin.pose.position.map(
-          (n, i) =>
-            prior!.tin.pose.position[i] +
-            (n - prior!.tin.pose.position[i]) * alpha,
-        ) as [number, number, number];
-        for (const prop of renderState.props) {
-          const before = prior.props.find((p) => p.id === prop.id);
-          if (
-            !before ||
-            before.placed !== prop.placed ||
-            before.holders.some((id, i) => id !== prop.holders[i])
-          )
-            continue;
-          prop.pose.position = prop.pose.position.map(
-            (n, i) =>
-              before.pose.position[i] + (n - before.pose.position[i]) * alpha,
-          ) as [number, number, number];
-          prop.pose.rotation = new THREE.Quaternion(...before.pose.rotation)
-            .slerp(new THREE.Quaternion(...prop.pose.rotation), alpha)
-            .toArray() as [number, number, number, number];
-        }
-      }
+      const renderState = interpolateSnapshot(
+        latest,
+        prior,
+        Math.min(1, (now - latestAt) / 100),
+      );
       if (predicted) alignLocalCarry(renderState, localId, predicted.position);
       view.update(renderState, localId);
       if (predicted) {
@@ -1085,32 +602,7 @@ async function start() {
 function historyReplace() {
   window.history.replaceState(null, "", location.pathname + location.search);
 }
-$<HTMLFormElement>("join-form").onsubmit = async (e) => {
-  e.preventDefault();
-  const button = $("join-form").querySelector("button")!;
-  button.disabled = true;
-  $("join-status").textContent = "Joining the field crew…";
-  try {
-    let secret = $<HTMLInputElement>("secret").value.trim();
-    try {
-      if (secret.includes("://"))
-        secret =
-          new URLSearchParams(new URL(secret).hash.slice(1)).get("key") ??
-          secret;
-    } catch {}
-    await acceptSession(
-      await api("/api/join", {
-        name: $<HTMLInputElement>("name").value.trim(),
-        secret,
-      }),
-    );
-    $<HTMLInputElement>("secret").value = "";
-  } catch (error) {
-    $("join-status").textContent = String(error);
-  } finally {
-    button.disabled = false;
-  }
-};
+installJoinForm(acceptSession);
 for (const b of document.querySelectorAll<HTMLButtonElement>("[data-close]"))
   b.onclick = () => $<HTMLDialogElement>(b.dataset.close!).close();
 $("notebook-button").onclick = () => showDialog("notebook");
@@ -1158,34 +650,7 @@ $("retry-photos").onclick = () => {
       "No local pending frames. Rejoining also restores saved pending photos.",
     );
 };
-$<HTMLInputElement>("sensitivity").value = String(settings.sensitivity);
-$<HTMLInputElement>("invert").checked = settings.invert;
-$<HTMLInputElement>("volume").value = String(settings.volume);
-for (const id of ["sensitivity", "invert", "volume"])
-  $(id).onchange = () => {
-    settings.sensitivity = Number($<HTMLInputElement>("sensitivity").value);
-    settings.invert = $<HTMLInputElement>("invert").checked;
-    settings.volume = Number($<HTMLInputElement>("volume").value);
-    saveSettings();
-  };
-for (const action of Object.keys(keyDefaults) as (keyof Keys)[]) {
-  const label = document.createElement("label");
-  label.textContent = action;
-  const control = document.createElement("input");
-  control.value = settings.keys[action];
-  control.readOnly = true;
-  control.setAttribute("aria-label", `Rebind ${action}`);
-  control.onkeydown = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.code === "Escape") return;
-    settings.keys[action] = e.code;
-    control.value = e.code;
-    saveSettings();
-  };
-  label.append(control);
-  $("bindings").append(label);
-}
+setupSettings();
 window.addEventListener("keydown", (e) => {
   if (
     !localId ||
