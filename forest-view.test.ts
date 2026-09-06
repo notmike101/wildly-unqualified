@@ -1,3 +1,4 @@
+import { generateReserve } from "./world.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import * as THREE from "three/webgpu";
@@ -67,12 +68,15 @@ test("forest instances keep each authored transform and the model's local branch
   (trunk.material as THREE.Material).dispose();
 });
 
-test("the brook and both wash pools remain visible above the trail surface", () => {
+test("generated brook wash pools remain visible above the trail surface", () => {
   const scene = new THREE.Scene();
-  const forest = addForest(scene, new Map());
+  const world = generateReserve(1, "forest-test"),
+    forest = addForest(scene, new Map(), world);
   scene.updateMatrixWorld(true);
-  const [a, b] = WOODLAND_WASH_SITES;
-  const points = [a, b, [(a[0] + b[0]) / 2, 0, (a[2] + b[2]) / 2]];
+  const points = world.pockets
+    .flatMap((p) => p.anchors)
+    .filter((a) => a.kind === "wash")
+    .map((a) => a.point);
   try {
     for (const point of points) {
       const ray = new THREE.Raycaster(

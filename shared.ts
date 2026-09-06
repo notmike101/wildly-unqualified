@@ -1,10 +1,23 @@
+import type { ReserveBlueprint } from "./world.ts";
 export type Vec3 = [number, number, number];
 export type Quat = [number, number, number, number];
 export type Pose = { position: Vec3; rotation: Quat };
 export type Box = { id: string; min: Vec3; max: Vec3 };
 export type CrewSlot = 0 | 1 | 2 | 3;
 export type Habitat = "woodland" | "clearing" | "wetland";
-export type Species = "raccoon" | "heron" | "deer";
+export type Species =
+  | "raccoon"
+  | "deer"
+  | "heron"
+  | "fox"
+  | "rabbit"
+  | "squirrel"
+  | "beaver"
+  | "otter"
+  | "badger"
+  | "owl"
+  | "woodpecker"
+  | "mallard";
 export type Behavior =
   | "wander"
   | "approach"
@@ -19,7 +32,16 @@ export type Behavior =
   | "graze"
   | "wash"
   | "hat-reach"
-  | "preen";
+  | "preen"
+  | "pounce"
+  | "nibble"
+  | "cache"
+  | "gnaw"
+  | "groom"
+  | "dig"
+  | "roost"
+  | "tap"
+  | "dabble";
 export type Assignment =
   | "raccoon-inspect"
   | "heron-display"
@@ -61,6 +83,10 @@ export type RouteState = {
   crossing: "left" | "right" | null;
   gateOpen: boolean;
 };
+export type FixtureState = Record<
+  string,
+  { open: boolean; seat: string | null }
+>;
 export type Spill = {
   id: string;
   position: Vec3;
@@ -69,7 +95,7 @@ export type Spill = {
 };
 export type CrewHat = {
   owner: string;
-  carrier: "owner" | "raccoon" | "ground";
+  carrier: "owner" | "ground" | `animal:${string}`;
   position: Vec3;
   untilTick: number;
   protectedUntilTick: number;
@@ -127,25 +153,25 @@ export type PhotoFrame = {
   players: Player[];
   animals: Animal[];
   tin: Tin;
-  world: WorldConfig;
+  worldId: string;
   props: FieldProp[];
-  route: RouteState;
+  route: FixtureState;
   spills: Spill[];
   hats: CrewHat[];
 };
-export type PhotoVerdict = { credits: Assignment[]; reason: string };
+export type PhotoVerdict = { credits: string[]; reason: string };
 export type PhotoRecord = {
   id: string;
   photographer: string;
   tick: number;
-  credits: Assignment[];
+  credits: string[];
   assists: string[];
   favorites: string[];
   incident: "spill" | "hat" | null;
   thumbnail: "pending" | "ready";
 };
 export type Snapshot = {
-  version: 2;
+  version: 3;
   tick: number;
   seconds: number;
   phase: "camp" | "outing" | "exhibition";
@@ -154,20 +180,20 @@ export type Snapshot = {
   players: Player[];
   animals: Animal[];
   tin: Tin;
-  world: WorldConfig;
+  worldId: string;
   props: FieldProp[];
-  route: RouteState;
+  route: FixtureState;
   spills: Spill[];
   hats: CrewHat[];
   spareBait: number;
-  baitPatch: number;
+  baitPatches: Record<string, number>;
   observations: string[];
-  completed: Assignment[];
+  completed: string[];
   album: PhotoRecord[];
   ready: string[];
   pings: { player: string; point: Vec3; until: number }[];
 };
-export type ClientMessage =
+export type ClientMessage = { worldId: string } & (
   | { type: "input"; value: Input }
   | {
       type:
@@ -185,14 +211,17 @@ export type ClientMessage =
       seq: number;
     }
   | { type: "ping"; seq: number; point: Vec3 }
-  | { type: "favorite"; seq: number; photoId: string; selected: boolean };
+  | { type: "favorite"; seq: number; photoId: string; selected: boolean }
+);
 export type ServerMessage =
+  | { type: "world"; id: string; hash: string; blueprint: ReserveBlueprint }
   | { type: "snapshot"; value: Snapshot }
   | { type: "photo"; frame: PhotoFrame; verdict: PhotoVerdict }
   | { type: "notice"; text: string }
   | { type: "welcome"; playerId: string; host: boolean }
   | {
       type: "cue";
+      worldId: string;
       id: string;
       kind: "whistle" | "rattle" | "shutter" | "impact" | "alert";
       source: string;
@@ -411,8 +440,10 @@ function number(v: unknown, min: number, max: number): number {
 }
 export function parseMessage(value: unknown): ClientMessage {
   const m = object(value);
+  if (typeof m.worldId !== "string" || !/^[-_a-zA-Z0-9]{1,64}$/.test(m.worldId))
+    throw Error("Invalid world ID");
   if (m.type === "input") {
-    keys(m, ["type", "value"]);
+    keys(m, ["type", "worldId", "value"]);
     const v = object(m.value);
     keys(v, ["seq", "x", "z", "yaw", "pitch", "run", "crouch"]);
     number(v.seq, 1, Number.MAX_SAFE_INTEGER);
@@ -444,10 +475,10 @@ export function parseMessage(value: unknown): ClientMessage {
     keys(
       m,
       m.type === "ping"
-        ? ["type", "seq", "point"]
+        ? ["type", "worldId", "seq", "point"]
         : m.type === "favorite"
-          ? ["type", "seq", "photoId", "selected"]
-          : ["type", "seq"],
+          ? ["type", "worldId", "seq", "photoId", "selected"]
+          : ["type", "worldId", "seq"],
     );
     number(m.seq, 1, Number.MAX_SAFE_INTEGER);
     if (!Number.isSafeInteger(m.seq)) throw Error("Invalid sequence");
@@ -463,7 +494,7 @@ export function parseMessage(value: unknown): ClientMessage {
     if (m.type === "ping") {
       if (!Array.isArray(m.point) || m.point.length !== 3)
         throw Error("Invalid point");
-      m.point.forEach((n) => number(n, -100, 100));
+      m.point.forEach((n) => number(n, -512, 512));
     }
   }
   return structuredClone(value) as ClientMessage;
@@ -563,7 +594,7 @@ export function movePlayer(
           return distance(point) <= distance(p.position) + 1e-9;
         })
       ) {
-        p.position[axis] = Math.max(-100, Math.min(100, next));
+        p.position[axis] = next;
         if (height !== null) p.position[1] = height;
       }
     }

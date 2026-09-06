@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as Shared from "./shared.ts";
 import {
-  parseMessage,
+  parseMessage as parseWorldMessage,
   movePlayer,
   rayBlocked,
   surfaceHeight,
@@ -11,6 +11,13 @@ import {
   type Walkable,
   type FieldProp,
 } from "./shared.ts";
+function parseMessage(value: unknown) {
+  return parseWorldMessage(
+    value && typeof value === "object"
+      ? { worldId: "test-world", ...value }
+      : value,
+  );
+}
 const equipmentTarget = (Shared as any).equipmentTarget;
 const equipmentUseTarget = (Shared as any).equipmentUseTarget;
 const playerSpeed = (Shared as any).playerSpeed;
@@ -39,6 +46,7 @@ const input: Input = {
 
 test("favorites accept only a bounded canonical photo ID, boolean and safe sequence", () => {
   const message = {
+    worldId: "test-world",
     type: "favorite",
     seq: 1,
     photoId: "photo-1",
@@ -143,6 +151,7 @@ test("small steps can escape an existing box overlap along either axis", () => {
 
 test("wire parser refuses nonfinite, unknown, extra and oversized input", () => {
   assert.deepEqual(parseMessage({ type: "input", value: input }), {
+    worldId: "test-world",
     type: "input",
     value: input,
   });
@@ -258,4 +267,17 @@ test("compound prop boxes preserve openings and carry speed follows holder count
   assert.equal(playerSpeed("p1", movement, [item]), 5);
   const limited = movePlayer(player, movement, 0.25, [], [], 0.8);
   assert.ok(limited.position[0] > 0.19 && limited.position[0] < 0.21);
+});
+
+test("wire commands require a bounded exact world identity before gameplay validation", () => {
+  assert.throws(
+    () => parseWorldMessage({ type: "photo", seq: 1 }),
+    /world|message/i,
+  );
+  for (const worldId of ["", "../reserve", "a".repeat(65), null, 3])
+    assert.throws(() => parseWorldMessage({ type: "photo", seq: 1, worldId }));
+  assert.deepEqual(
+    parseWorldMessage({ type: "photo", seq: 1, worldId: "outing-1" }),
+    { type: "photo", seq: 1, worldId: "outing-1" },
+  );
 });

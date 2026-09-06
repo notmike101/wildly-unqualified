@@ -19,12 +19,13 @@ const runtime = [
   "shared.ts",
   "level.ts",
   "encounters.ts",
+  "world.ts",
 ];
 export async function buildRelease(
   destination = resolve(
     root,
     ".artifacts/wildly-unqualified/releases",
-    "forest-mvp-1-" + new Date().toISOString().replace(/[:.]/g, "-"),
+    "forest-expedition-1-" + new Date().toISOString().replace(/[:.]/g, "-"),
   ),
 ) {
   const output = resolve(destination),

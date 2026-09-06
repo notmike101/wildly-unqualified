@@ -1,17 +1,10 @@
 import type { RunState } from "./game.ts";
 import {
-  CONTENT_VERSION,
-  HABITAT_SITES,
-  NAV_NODES,
   PROP_DEFINITIONS,
   RULES,
-  STASH,
+  fixtureBoxes,
+  fixtureSurfaces,
   TIN_HALF,
-  WALKABLES,
-  WALLS,
-  WOODLAND_WASH_SITES,
-  routeBoxes,
-  routeSurfaces,
 } from "./level.ts";
 import {
   distance,
@@ -22,9 +15,8 @@ import {
   surfaceHeight,
   type Animal,
   type Box,
-  type RouteState,
   type Vec3,
-  type WorldConfig,
+  type Walkable,
 } from "./shared.ts";
 
 export type AnimalMemory = {
@@ -35,51 +27,92 @@ export type AnimalMemory = {
   habituatedUntilTick: number;
   hatTarget: string | null;
 };
-export function chooseOuting(seed: number): WorldConfig {
-  if (!Number.isInteger(seed) || seed < 0 || seed > 0xffffffff)
-    throw Error("World seed must be a uint32 integer");
-  const bits =
-    (seed ^ (seed >>> 6) ^ (seed >>> 12) ^ (seed >>> 18) ^ (seed >>> 24)) >>> 0;
-  return {
-    content: CONTENT_VERSION,
-    seed,
-    sites: {
-      woodland: (bits & 1) as 0 | 1,
-      clearing: ((bits >>> 1) & 1) as 0 | 1,
-      wetland: ((bits >>> 2) & 1) as 0 | 1,
-    },
-    assignments: [
-      bits & 8 ? "raccoon-wash" : "raccoon-inspect",
-      bits & 16 ? "deer-decoy" : "deer-graze",
-      bits & 32 ? "heron-preen" : "heron-display",
-      "pond-pair",
-    ],
-  };
-}
+type Navigation = Pick<RunState, "world" | "route">;
+const anchorsFor = (run: RunState, a: Animal) => {
+  const resident = run.world.residents.find((r) => r.id === a.id)!;
+  return run.world.pockets
+    .find((p) => p.id === resident.home)!
+    .anchors.filter((anchor) => resident.anchors.includes(anchor.id));
+};
+const homeFor = (run: RunState, a: Animal): Vec3 =>
+  run.world.residents.find((r) => r.id === a.id)!.spawn;
+const anchorFor = (run: RunState, a: Animal, kind: string): Vec3 =>
+  anchorsFor(run, a).find((anchor) => anchor.kind === kind)?.point ??
+  homeFor(run, a);
 const flatDistance = (a: Vec3, b: Vec3) => Math.hypot(a[0] - b[0], a[2] - b[2]);
-const ground = (point: Vec3, route: RouteState): Vec3 | null => {
-  const heights = [...WALKABLES, ...routeSurfaces(route)]
-    .map((s) => surfaceHeight(s, point[0], point[2]))
-    .filter((h): h is number => h !== null);
-  return heights.length ? [point[0], Math.max(...heights), point[2]] : null;
+const geometryCache = new WeakMap<
+  Navigation["world"],
+  Map<
+    string,
+    { walls: Box[]; surfaces: Walkable[]; routes: Map<string, Vec3[]> }
+  >
+>();
+function geometry(run: Navigation) {
+  let cache = geometryCache.get(run.world);
+  if (!cache) {
+    cache = new Map();
+    geometryCache.set(run.world, cache);
+  }
+  const key = JSON.stringify(run.route);
+  let value = cache.get(key);
+  if (!value) {
+    value = {
+      routes: new Map(),
+      walls: [
+        ...run.world.walls,
+        ...fixtureBoxes(run.world.fixtures, run.route),
+      ],
+      surfaces: [
+        ...run.world.walkables,
+        ...fixtureSurfaces(run.world.fixtures, run.route),
+      ],
+    };
+    cache.set(key, value);
+  }
+  return value;
+}
+const ground = (
+  point: Vec3,
+  run: Navigation,
+  surfaces = geometry(run).surfaces,
+): Vec3 | null => {
+  let height = -Infinity;
+  for (const surface of surfaces) {
+    const y = surfaceHeight(surface, point[0], point[2]);
+    if (y !== null) height = Math.max(height, y);
+  }
+  return height === -Infinity ? null : [point[0], height, point[2]];
 };
 // ponytail: a 30cm animal radius and authored graph suit these three actors; use species hulls if larger wildlife is added.
 const radius = 0.3;
-function clear(from: Vec3, to: Vec3, route: RouteState, extra: Box[] = []) {
-  const walls = [...WALLS, ...routeBoxes(route), ...extra].filter(
+function clear(from: Vec3, to: Vec3, run: Navigation, extra: Box[] = []) {
+  const current = geometry(run),
+    minX = Math.min(from[0], to[0]),
+    maxX = Math.max(from[0], to[0]),
+    minZ = Math.min(from[2], to[2]),
+    maxZ = Math.max(from[2], to[2]);
+  const surfaces = current.surfaces.filter(
+    (s) =>
+      s.max[0] >= minX &&
+      s.min[0] <= maxX &&
+      s.max[2] >= minZ &&
+      s.min[2] <= maxZ,
+  );
+  const walls = [...current.walls, ...extra].filter(
     (b) =>
       b.max[0] + radius >= Math.min(from[0], to[0]) &&
       b.min[0] - radius <= Math.max(from[0], to[0]) &&
       b.max[2] + radius >= Math.min(from[2], to[2]) &&
       b.min[2] - radius <= Math.max(from[2], to[2]),
   );
-  const count = Math.max(1, Math.ceil(flatDistance(from, to) / 0.15));
-  let previous = ground(from, route);
+  const count = Math.max(1, Math.ceil(flatDistance(from, to) / 0.05));
+  let previous = ground(from, run, surfaces);
   if (!previous) return false;
   for (let i = 0; i <= count; i++) {
     const point = ground(
       from.map((n, axis) => n + ((to[axis] - n) * i) / count) as Vec3,
-      route,
+      run,
+      surfaces,
     );
     if (
       !point ||
@@ -99,38 +132,58 @@ function clear(from: Vec3, to: Vec3, route: RouteState, extra: Box[] = []) {
   }
   return true;
 }
-const graphCache = new Map<string, Map<string, string[]>>();
-function graph(route: RouteState) {
-  const key = JSON.stringify(route);
-  let value = graphCache.get(key);
+const graphCache = new WeakMap<
+  Navigation["world"],
+  Map<string, Map<string, string[]>>
+>();
+function graph(run: Navigation) {
+  const key = JSON.stringify(run.route),
+    cache =
+      graphCache.get(run.world) ?? new Map<string, Map<string, string[]>>();
+  graphCache.set(run.world, cache);
+  let value = cache.get(key);
   if (!value) {
     value = new Map(
-      NAV_NODES.map((n) => [
+      run.world.navNodes.map((n) => [
         n.id,
         n.links.filter((id) => {
-          const next = NAV_NODES.find((n) => n.id === id);
-          return next && clear(n.position, next.position, route);
+          const next = run.world.navNodes.find((n) => n.id === id);
+          return next && clear(n.position, next.position, run);
         }),
       ]),
     );
-    graphCache.set(key, value);
+    cache.set(key, value);
   }
   return value;
 }
 function routeTo(
   from: Vec3,
   target: Vec3,
-  route: RouteState,
+  run: Navigation,
   extra: Box[] = [],
 ): Vec3[] {
-  if (clear(from, target, route, extra)) return [ground(target, route)!];
-  const nodes = NAV_NODES,
-    links = graph(route),
+  if (!clear(from, from, run, extra) || !clear(target, target, run, extra))
+    return [];
+  if (clear(from, target, run, extra)) return [ground(target, run)!];
+  const cache = geometry(run).routes,
+    query = JSON.stringify([from, target, extra]),
+    cached = cache.get(query);
+  if (cached) return cached.map((p) => [...p]);
+  const remember = (points: Vec3[]) => {
+    if (cache.size >= 256) cache.delete(cache.keys().next().value!);
+    cache.set(
+      query,
+      points.map((p) => [...p]),
+    );
+    return points;
+  };
+  const nodes = run.world.navNodes,
+    links = graph(run),
     costs = new Map<string, number>(),
     previous = new Map<string, string | null>(),
     visited = new Set<string>();
   for (const n of nodes)
-    if (clear(from, n.position, route, extra)) {
+    if (clear(from, n.position, run, extra)) {
       costs.set(n.id, distance(from, n.position));
       previous.set(n.id, null);
     }
@@ -142,7 +195,7 @@ function routeTo(
       .sort((a, b) => costs.get(a.id)! - costs.get(b.id)!)[0];
     if (!at || costs.get(at.id)! >= best) break;
     visited.add(at.id);
-    if (clear(at.position, target, route, extra)) {
+    if (clear(at.position, target, run, extra)) {
       best = costs.get(at.id)! + distance(at.position, target);
       end = at.id;
     }
@@ -150,7 +203,7 @@ function routeTo(
       const next = nodes.find((n) => n.id === id)!;
       if (
         visited.has(id) ||
-        (extra.length && !clear(at.position, next.position, route, extra))
+        (extra.length && !clear(at.position, next.position, run, extra))
       )
         continue;
       const cost = costs.get(at.id)! + distance(at.position, next.position);
@@ -160,19 +213,19 @@ function routeTo(
       }
     }
   }
-  if (!end) return [];
-  const result = [ground(target, route)!];
+  if (!end) return remember([]);
+  const result = [ground(target, run)!];
   for (let id: string | null = end; id; id = previous.get(id) ?? null)
-    result.unshift(ground(nodes.find((n) => n.id === id)!.position, route)!);
-  return result;
+    result.unshift(ground(nodes.find((n) => n.id === id)!.position, run)!);
+  return remember(result);
 }
 export function animalRoute(
   from: Vec3,
   toNode: string,
-  route: RouteState,
+  run: Navigation,
 ): Vec3[] {
-  const target = NAV_NODES.find((n) => n.id === toNode);
-  return target ? routeTo(from, target.position, route) : [];
+  const target = run.world.navNodes.find((n) => n.id === toNode);
+  return target ? routeTo(from, target.position, run) : [];
 }
 const paths = new WeakMap<
   Animal,
@@ -187,7 +240,7 @@ function walk(
   extra: Box[],
 ) {
   a.target = [...target];
-  const key = JSON.stringify(run.route);
+  const key = `${run.world.id}:${JSON.stringify(run.route)}`;
   let path = paths.get(a);
   if (
     !path ||
@@ -198,7 +251,7 @@ function walk(
     path = {
       target: [...target],
       route: key,
-      points: routeTo(a.pose.position, target, run.route, extra),
+      points: routeTo(a.pose.position, target, run, extra),
     };
     paths.set(a, path);
   }
@@ -214,9 +267,9 @@ function walk(
         a.pose.position[2] +
           (next[2] - a.pose.position[2]) * (length ? amount / length : 0),
       ],
-      run.route,
+      run,
     );
-  if (!point || !clear(a.pose.position, point, run.route, extra)) {
+  if (!point || !clear(a.pose.position, point, run, extra)) {
     paths.delete(a);
     return false;
   }
@@ -247,13 +300,13 @@ export function localRecoveryPoint(run: RunState, origin: Vec3): Vec3 | null {
           origin[1],
           origin[2] + Math.sin((i * Math.PI) / 4) * radius,
         ],
-        run.route,
+        run,
       );
       if (
         point &&
         Math.abs(point[1] - origin[1]) < 4 &&
-        clear(point, point, run.route, extra) &&
-        NAV_NODES.some((n) => clear(point, n.position, run.route, extra))
+        clear(point, point, run, extra) &&
+        run.world.navNodes.some((n) => clear(point, n.position, run, extra))
       )
         return point;
     }
@@ -274,7 +327,7 @@ function choose(
   extra: Box[],
 ) {
   const valid = candidates.filter(
-    (c) => routeTo(a.pose.position, c.point, run.route, extra).length,
+    (c) => routeTo(a.pose.position, c.point, run, extra).length,
   );
   const options =
     valid.length > 1 ? valid.filter((c) => c.id !== memory.goal) : valid;
@@ -294,7 +347,10 @@ function disturbed(run: RunState, a: Animal, extra: Box[]) {
       a.pose.position[1] + 1,
       a.pose.position[2],
     ],
-    boxes = [...WALLS, ...routeBoxes(run.route)];
+    boxes = [
+      ...run.world.walls,
+      ...fixtureBoxes(run.world.fixtures, run.route),
+    ];
   return (
     run.events.some(
       (e) =>
@@ -334,6 +390,22 @@ function approachPoint(
   separation = 0.85,
   ignoredProp?: string,
 ): Vec3 | null {
+  const eyes: Vec3 = [
+      a.pose.position[0],
+      a.pose.position[1] + 0.5,
+      a.pose.position[2],
+    ],
+    lure: Vec3 = [point[0], Math.max(0.5, point[1]), point[2]];
+  if (
+    rayBlocked(eyes, lure, geometry(run).walls) ||
+    propRayBlocked(
+      eyes,
+      lure,
+      run.props.filter((p) => p.id !== ignoredProp),
+      PROP_DEFINITIONS,
+    )
+  )
+    return null;
   const angle = Math.atan2(
     a.pose.position[2] - point[2],
     a.pose.position[0] - point[0],
@@ -345,18 +417,18 @@ function approachPoint(
       point[2] + Math.sin(angle + turn) * separation,
     ];
     if (
-      routeTo(a.pose.position, candidate, run.route, extra).length &&
       !rayBlocked(
         [candidate[0], 0.5, candidate[2]],
         [point[0], Math.max(0.5, point[1]), point[2]],
-        [...WALLS, ...routeBoxes(run.route)],
+        [...run.world.walls, ...fixtureBoxes(run.world.fixtures, run.route)],
       ) &&
       !propRayBlocked(
         [candidate[0], 0.5, candidate[2]],
         [point[0], Math.max(0.5, point[1]), point[2]],
         run.props.filter((p) => p.id !== ignoredProp),
         PROP_DEFINITIONS,
-      )
+      ) &&
+      routeTo(a.pose.position, candidate, run, extra).length
     )
       return candidate;
   }
@@ -369,9 +441,10 @@ function raccoonStep(
   dt: number,
   extra: Box[],
 ) {
-  const home = HABITAT_SITES.woodland[run.world.sites.woodland],
-    wash = WOODLAND_WASH_SITES[run.world.sites.woodland];
-  if (run.tin.holder === "animal:raccoon") {
+  const home = homeFor(run, a),
+    wash = anchorFor(run, a, "wash"),
+    stash = anchorFor(run, a, "rest");
+  if (run.tin.holder === `animal:${a.id}`) {
     m.hatTarget = null;
     const whistle = [...run.events]
       .reverse()
@@ -398,7 +471,7 @@ function raccoonStep(
         return;
       }
       goal(m, "carry-stash");
-      a.target = [...STASH];
+      a.target = [...stash];
     }
     a.behavior = "carry";
     if (walk(run, a, a.target, 1.9, dt, extra)) {
@@ -468,7 +541,7 @@ function raccoonStep(
         p.id === id &&
         p.connected &&
         distance(p.position, a.pose.position) <= 1.2 &&
-        clear(a.pose.position, p.position, run.route, extra) &&
+        clear(a.pose.position, p.position, run, extra) &&
         run.hats.some(
           (h) =>
             h.owner === id &&
@@ -478,7 +551,7 @@ function raccoonStep(
     );
   if (a.behavior === "hat-reach") {
     const owner = m.hatTarget ? hatOwner(m.hatTarget) : undefined;
-    if (!owner || run.hats.some((h) => h.carrier === "raccoon")) {
+    if (!owner || run.hats.some((h) => h.carrier.startsWith("animal:"))) {
       m.hatTarget = null;
       a.behavior = "wander";
       a.remaining = 0;
@@ -492,7 +565,7 @@ function raccoonStep(
       a.remaining = Math.max(0, a.remaining - dt);
       if (a.remaining > 1e-6) return;
       const hat = run.hats.find((h) => h.owner === owner.id)!;
-      hat.carrier = "raccoon";
+      hat.carrier = `animal:${a.id}`;
       hat.untilTick = run.tick + 1800;
       hat.protectedUntilTick = run.tick + 3600;
       m.hatTarget = null;
@@ -508,7 +581,7 @@ function raccoonStep(
   if (
     !lure &&
     a.behavior === "wander" &&
-    !run.hats.some((h) => h.carrier === "raccoon")
+    !run.hats.some((h) => h.carrier.startsWith("animal:"))
   ) {
     const owner = run.players.find((p) => hatOwner(p.id));
     if (owner) {
@@ -565,13 +638,13 @@ function raccoonStep(
       !run.tin.holder &&
       flatDistance(a.pose.position, run.tin.pose.position) < 1.5
     ) {
-      const stash = routeTo(a.pose.position, STASH, run.route, extra).length
-        ? STASH
+      const target = routeTo(a.pose.position, stash, run, extra).length
+        ? stash
         : home;
-      run.tin.holder = "animal:raccoon";
+      run.tin.holder = `animal:${a.id}`;
       run.tinRevision++;
       a.behavior = "carry";
-      a.target = [...stash];
+      a.target = [...target];
       return;
     }
     a.behavior = "wander";
@@ -629,27 +702,28 @@ function raccoonStep(
   a.remaining = Math.max(0, a.remaining - dt);
   if (a.remaining) return;
   if (
-    !["woodland-rest", "woodland-edge"].includes(m.goal) ||
+    !anchorsFor(run, a).some((anchor) => anchor.id === m.goal) ||
     flatDistance(a.pose.position, a.target) < 0.2
   ) {
-    const wetland = HABITAT_SITES.wetland[run.world.sites.wetland],
-      base: Vec3 =
-        flatDistance(a.pose.position, home) < 16
-          ? home
-          : [wetland[0] - 6, 0, wetland[2] - 1];
+    const resident = run.world.residents.find((r) => r.id === a.id)!,
+      pocket = run.world.pockets.find((p) => p.id === resident.home)!,
+      feed = pocket.anchors.find((a) => a.kind === "feed"),
+      sharesHerons = run.world.residents.some(
+        (r) => r.home === resident.home && r.species === "heron",
+      );
     choose(
       run,
       a,
       m,
-      flatDistance(a.pose.position, home) < 16
-        ? [
-            { id: "woodland-rest", point: [base[0] - 3, 0, base[2] + 2] },
-            { id: "woodland-edge", point: [base[0] + 2, 0, base[2] + 3] },
-          ]
-        : [
-            { id: "woodland-rest", point: [wetland[0] - 6, 0, wetland[2] + 2] },
-            { id: "woodland-edge", point: [wetland[0] - 4, 0, wetland[2] + 2] },
-          ],
+      anchorsFor(run, a)
+        .filter(
+          (anchor) =>
+            ["ground", "wash", "rest", "retreat"].includes(anchor.kind) &&
+            (!sharesHerons ||
+              !feed ||
+              flatDistance(anchor.point, feed.point) >= RULES.shyRadius + 1),
+        )
+        .map((anchor) => ({ id: anchor.id, point: anchor.point })),
       extra,
     );
   }
@@ -665,8 +739,11 @@ export function stepAnimals(run: RunState, dt: number): void {
       raccoonStep(run, a, m, dt, extra);
       continue;
     }
+    // Task 5 installs species-specific routines for the nine new residents.
+    if (a.species !== "deer" && a.species !== "heron") continue;
     const habitat = a.species === "deer" ? "clearing" : "wetland",
-      home = HABITAT_SITES[habitat][run.world.sites[habitat]],
+      home = homeFor(run, a),
+      feed = anchorsFor(run, a).find((anchor) => anchor.kind === "feed"),
       noisy = disturbed(run, a, extra);
     if (noisy && !["alert", "retreat"].includes(a.behavior)) {
       a.behavior = "alert";
@@ -701,10 +778,10 @@ export function stepAnimals(run: RunState, dt: number): void {
           choices.find(
             (c) =>
               c.id !== m.goal &&
-              routeTo(a.pose.position, c.point, run.route, extra).length,
+              routeTo(a.pose.position, c.point, run, extra).length,
           ) ??
           choices.find(
-            (c) => routeTo(a.pose.position, c.point, run.route, extra).length,
+            (c) => routeTo(a.pose.position, c.point, run, extra).length,
           );
         if (choice) {
           goal(m, choice.id);
@@ -735,16 +812,16 @@ export function stepAnimals(run: RunState, dt: number): void {
         }
         continue;
       }
-      if (run.baitPatch > 0) {
+      if (feed && run.baitPatches[feed.id] > 0) {
         if (a.behavior !== "feed") {
           a.remaining = RULES.quietSeconds;
           goal(m, "wetland-feed");
         }
         a.behavior = "feed";
-        if (walk(run, a, home, 1.6, dt, extra)) {
+        if (walk(run, a, feed!.point, 1.6, dt, extra)) {
           a.remaining = Math.max(0, a.remaining - dt);
           if (!a.remaining) {
-            run.baitPatch--;
+            run.baitPatches[feed!.id]--;
             a.behavior = "display";
             a.remaining = RULES.displaySeconds;
             observe(

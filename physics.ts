@@ -1,10 +1,20 @@
 import Box3D, { type Body, type V } from "box3d-wasm/standard";
-import type { Box, FieldProp, Pose, RouteState, Tin, Vec3 } from "./shared.ts";
+import type {
+  Box,
+  FieldProp,
+  FixtureState,
+  Pose,
+  RouteState,
+  Tin,
+  Vec3,
+} from "./shared.ts";
+import type { Fixture } from "./world.ts";
 import {
   PLANK_PLACEMENTS,
   PROP_DEFINITIONS,
   TIN_HALF,
   routeBoxes,
+  fixtureBoxes,
 } from "./level.ts";
 
 type MovingBody = Body & {
@@ -32,7 +42,7 @@ export type PhysicsState = {
 export type ReservePhysics = {
   step(dt: number): PhysicsState;
   setTin(tin: Tin): void;
-  setProps(props: FieldProp[], route: RouteState): void;
+  setProps(props: FieldProp[], route: RouteState | FixtureState): void;
   dispose(): void;
 };
 export type TinPhysics = ReservePhysics;
@@ -46,7 +56,8 @@ export async function createPhysics(
   boxes: Box[],
   tin: Tin,
   props: FieldProp[] = [],
-  route: RouteState = { crossing: null, gateOpen: false },
+  route: RouteState | FixtureState = { crossing: null, gateOpen: false },
+  fixtures?: Fixture[],
 ): Promise<ReservePhysics> {
   const b3 = await (modulePromise ??= Box3D());
   const sourceNames = ["tin", ...props.map((p) => p.id)],
@@ -144,22 +155,41 @@ export async function createPhysics(
     shape.delete();
     return item;
   };
-  const setRoute = (value: RouteState) => {
-    const key = `${value.crossing ?? "none"}:${value.gateOpen}`;
+  const setRoute = (value: RouteState | FixtureState) => {
+    const key = JSON.stringify(value);
     if (routeKey === key) return;
     for (const item of routeBodies) {
       (item as MovingBody).destroy();
       item.delete();
     }
-    routeBodies = routeBoxes(value).map(createStaticBox);
+    routeBodies = (
+      fixtures
+        ? fixtureBoxes(fixtures, value as FixtureState)
+        : routeBoxes(value as RouteState)
+    ).map(createStaticBox);
     routeKey = key;
-    if (value.crossing)
+    const seats = fixtures
+      ? fixtures.flatMap((fixture) => {
+          const state = (value as FixtureState)[fixture.id];
+          return fixture.kind === "crossing" && state.open && state.seat
+            ? [{ id: fixture.plankId!, pose: fixture.seats[state.seat] }]
+            : [];
+        })
+      : (value as RouteState).crossing
+        ? [
+            {
+              id: "seated-crossing",
+              pose: PLANK_PLACEMENTS[(value as RouteState).crossing!],
+            },
+          ]
+        : [];
+    for (const seat of seats)
       routeBodies.push(
         createPropBody(
           {
-            id: "seated-crossing",
+            id: seat.id,
             kind: "plank",
-            pose: structuredClone(PLANK_PLACEMENTS[value.crossing]),
+            pose: structuredClone(seat.pose),
             velocity: [0, 0, 0],
             angularVelocity: [0, 0, 0],
             holders: [null, null],
@@ -171,7 +201,10 @@ export async function createPhysics(
         ),
       );
   };
-  const setProps = (values: FieldProp[], nextRoute: RouteState) => {
+  const setProps = (
+    values: FieldProp[],
+    nextRoute: RouteState | FixtureState,
+  ) => {
     ensure();
     const ids = new Set(values.map((value) => value.id));
     for (const id of propBodies.keys()) if (!ids.has(id)) removeProp(id);

@@ -10,7 +10,7 @@ import {
   animalArticulation,
   subjectPoints,
 } from "./level.ts";
-import { alignLocalCarry } from "./view.ts";
+import { alignLocalCarry, loadAsset } from "./view.ts";
 import { findPart } from "./forest-view.ts";
 
 test("predicted camera keeps carried geometry and its other holder together without changing authority", () => {
@@ -91,4 +91,29 @@ test("grazing and scanning photo points follow the actual imported deer rig", as
       }
     }
   }
+});
+
+test("a transient model failure can retry while concurrent and successful loads stay shared", async () => {
+  const bytes = await readFile(
+      new URL("./public/models/deer-v3.glb", import.meta.url),
+    ),
+    loader = new GLTFLoader();
+  const gltf = await loader.parseAsync(
+    bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+    "",
+  );
+  let calls = 0;
+  loader.loadAsync = () =>
+    ++calls === 1
+      ? Promise.reject(Error("transient model failure"))
+      : Promise.resolve(gltf);
+  const first = loadAsset("retry-contract-model", loader),
+    same = loadAsset("retry-contract-model", loader);
+  assert.equal(first, same);
+  await assert.rejects(first, /transient/);
+  const retry = loadAsset("retry-contract-model", loader);
+  assert.notEqual(retry, first);
+  assert.equal(await retry, gltf);
+  assert.equal(loadAsset("retry-contract-model", loader), retry);
+  assert.equal(calls, 2);
 });

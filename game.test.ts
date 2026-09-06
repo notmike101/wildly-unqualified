@@ -3,7 +3,7 @@ import { test } from "node:test";
 import {
   addPlayer,
   advanceRun,
-  applyCommand,
+  applyCommand as applyWorldCommand,
   attachPhysics,
   createRun,
   disconnectPlayer,
@@ -21,6 +21,8 @@ import {
   TIN_START,
   PLANK_PLACEMENTS,
   PROP_DEFINITIONS,
+  fixtureSurfaces,
+  fixtureBoxes,
   gateLatch,
   routeSurfaces,
   WALKABLES,
@@ -38,16 +40,49 @@ import {
   propPoint,
 } from "./shared.ts";
 
+const crossing = (run: ReturnType<typeof createRun>) =>
+  run.world.fixtures.find(
+    (f) => f.plankId === run.props.find((p) => p.kind === "plank")!.id,
+  )!;
+const seat = (run: ReturnType<typeof createRun>) =>
+  Object.values(crossing(run).seats)[0];
+function home(run: ReturnType<typeof createRun>, species: string): Vec3 {
+  const resident = run.world.residents.find((r) => r.species === species)!;
+  return run.world.pockets.find((p) => p.id === resident.home)!.position;
+}
+function anchor(
+  run: ReturnType<typeof createRun>,
+  species: string,
+  kind: string,
+): Vec3 {
+  const resident = run.world.residents.find((r) => r.species === species)!;
+  return run.world.pockets
+    .find((p) => p.id === resident.home)!
+    .anchors.find((a) => a.kind === kind)!.point;
+}
+function applyCommand(
+  run: ReturnType<typeof createRun>,
+  id: string,
+  input: Record<string, unknown>,
+) {
+  return applyWorldCommand(run, id, { worldId: run.worldId, ...input });
+}
+
 test("rejoining beside a washout finds supported ground with an escape", () => {
   const run = createRun();
   addPlayer(run, "a", "A");
   addPlayer(run, "b", "B");
   disconnectPlayer(run, "b");
-  run.players[0].position = [-14, -1, 2];
+  const water = run.world.waters[0];
+  run.players[0].position = [
+    water.min[0] - 0.5,
+    0,
+    (water.min[2] + water.max[2]) / 2,
+  ];
   addPlayer(run, "b", "B");
   const p = run.players[1];
   assert.ok(
-    WALKABLES.some(
+    run.world.walkables.some(
       (s) => surfaceHeight(s, p.position[0], p.position[2]) === p.position[1],
     ),
   );
@@ -65,8 +100,8 @@ test("rejoining beside a washout finds supported ground with an escape", () => {
             p,
             { seq: 1, x, z, yaw: 0, pitch: 0, run: false, crouch: false },
             0.25,
-            WALLS,
-            WALKABLES,
+            run.world.walls,
+            run.world.walkables,
           ).position,
         ) > 0.3,
     ),
@@ -74,10 +109,12 @@ test("rejoining beside a washout finds supported ground with an escape", () => {
 });
 
 function crew() {
-  const run = createRun();
+  const run = createRun(9);
   addPlayer(run, "a", "A");
   addPlayer(run, "b", "B");
   applyCommand(run, "a", { type: "start", seq: 1 });
+  advanceRun(run, 1 / 60);
+  for (let i = 0; i < 6; i++) advanceRun(run, 1 / 60);
   return run;
 }
 
@@ -85,12 +122,21 @@ test("an open case spills one recoverable portion on a real sharp carry turn, wi
   const run = crew(),
     p = run.players[0],
     item = run.props[0];
-  const deer = run.animals[2];
+  const deer = run.animals.find((a) => a.species === "deer")!;
   p.position = [deer.pose.position[0], 0, deer.pose.position[2] + 6];
-  assert.ok(command(run, "a", "photo")!.verdict.credits.includes("deer-graze"));
-  run.props[1].pose = structuredClone(PLANK_PLACEMENTS.left);
-  run.props[1].placed = true;
-  run.route.crossing = "left";
+  assert.ok(
+    command(run, "a", "photo")!.verdict.credits.includes(
+      run.world.commissions.find(
+        (c) => c.kind === "behavior" && c.subjects.includes(deer.id),
+      )!.id,
+    ),
+  );
+  run.props.find((p) => p.kind === "plank")!.pose = structuredClone(seat(run));
+  run.props.find((p) => p.kind === "plank")!.placed = true;
+  run.route[run.world.fixtures.find((f) => f.kind === "crossing")!.id] = {
+    open: true,
+    seat: "left",
+  };
   const progress = structuredClone([
     run.world,
     run.completed,
@@ -223,7 +269,7 @@ test("spills stay bounded, expire, and depleted camp supplies can be restored wi
   run.tin.holder = "a";
   run.tin.portions = 0;
   run.spareBait = 0;
-  p.position = [...CAMP];
+  p.position = [...run.world.camp];
   step(run, 2);
   command(run, "a", "use");
   assert.equal(run.tin.portions, 4);
@@ -248,47 +294,45 @@ function place(run: ReturnType<typeof createRun>, point: Vec3) {
   run.tin.open = true;
   run.tinRevision++;
 }
+const photoRun = createRun(2, "photo-contract-world");
+const pairCommission = photoRun.world.commissions.find(
+  (c) => c.kind === "pair",
+)!;
+const pairAnchor = photoRun.world.pockets
+  .find((p) => p.id === pairCommission.pocket)!
+  .anchors.find((a) => a.id === pairCommission.anchor)!.point;
+function photoPoint(x: number, y: number, z: number): Vec3 {
+  return [x + pairAnchor[0] - 39, y, z + pairAnchor[2] + 30];
+}
+function photoWorld(boxes: { id: string; min: Vec3; max: Vec3 }[] = []) {
+  return { ...photoRun.world, walls: [...photoRun.world.walls, ...boxes] };
+}
 function photo(): PhotoFrame {
-  const state = createRun();
-  return {
-    id: "shot",
-    tick: 1,
-    photographer: "a",
-    camera: { position: [36.5, 1.6, -22], yaw: 0, pitch: 0, fov: 60 },
-    players: [],
-    animals: [
-      {
-        id: "raccoon",
-        species: "raccoon",
-        behavior: "inspect",
-        pose: pose([34, 0, -30]),
-        remaining: 3,
-        target: [34, 0, -30],
-      },
-      {
-        id: "heron",
-        species: "heron",
-        behavior: "display",
-        pose: pose([39, 0, -30]),
-        remaining: 3,
-        target: [39, 0, -30],
-      },
-      { ...state.animals[2], behavior: "wander" },
-    ],
-    tin: {
-      pose: pose([34, 0.25, -30.8]),
-      velocity: [0, 0, 0],
-      angularVelocity: [0, 0, 0],
-      holder: null,
-      portions: 4,
-      open: true,
-    },
-    world: state.world,
-    props: state.props,
-    route: state.route,
-    spills: state.spills,
-    hats: state.hats,
-  };
+  const state = createRun(2, photoRun.worldId);
+  const r = state.animals.find(
+    (a) =>
+      a.id ===
+      pairCommission.subjects.find(
+        (id) => state.animals.find((a) => a.id === id)!.species === "raccoon",
+      ),
+  )!;
+  const h = state.animals.find(
+    (a) =>
+      a.id ===
+      pairCommission.subjects.find(
+        (id) => state.animals.find((a) => a.id === id)!.species === "heron",
+      ),
+  )!;
+  r.pose = pose(photoPoint(34, 0, -30));
+  r.behavior = "inspect";
+  h.pose = pose(photoPoint(39, 0, -30));
+  h.behavior = "display";
+  state.animals = [r, h, ...state.animals.filter((a) => a !== r && a !== h)];
+  state.tin.pose = pose(photoPoint(34, 0.109, -30.8));
+  state.tin.open = true;
+  const p = addPlayer(state, "a", "A");
+  p.position = photoPoint(36.5, 0, -22);
+  return structuredClone(makePhotoFrame(state, "a"));
 }
 
 test("authoritative interactions give each reachable handle one owner and each player one object", () => {
@@ -335,8 +379,11 @@ test("heavy carry uses full prop bounds and cannot pass through the wetland soli
     item = run.props.find((p) => p.kind === "case")!,
     p = run.players[0];
   run.tin.pose.position = [50, 1, 50];
-  item.pose.position = [39, 0.325, -40];
-  p.position = [38.25, 0, -40];
+  const water = run.world.waters[0],
+    edge = water.min[0],
+    z = (water.min[2] + water.max[2]) / 2;
+  item.pose.position = [edge - 2, 0.325, z];
+  p.position = [edge - 2.75, 0, z];
   command(run, "a", "interact");
   for (let i = 0; i < 25; i++) {
     applyCommand(run, "a", {
@@ -356,7 +403,8 @@ test("heavy carry uses full prop bounds and cannot pass through the wetland soli
   assert.ok(
     Math.max(
       ...propBoxes(item, PROP_DEFINITIONS.case).map((box) => box.max[0]),
-    ) <= 41.001,
+    ) <=
+      edge + 0.001,
   );
   assert.ok(
     run.events.some((event) => event.kind === "noise" && event.player === "a"),
@@ -429,14 +477,14 @@ test("plank seating, gate latch, case stock and local prop recovery update autho
     plank = run.props.find((prop) => prop.kind === "plank")!,
     item = run.props.find((prop) => prop.kind === "case")!;
   run.tin.pose.position = [50, 1, 50];
-  plank.pose = structuredClone(PLANK_PLACEMENTS.left);
+  plank.pose = structuredClone(seat(run));
   plank.holders[0] = "a";
   p.position = [-14, -1, 2];
   command(run, "a", "interact");
-  assert.equal(run.route.crossing, "left");
+  assert.equal(run.route[crossing(run).id].seat, "left");
   assert.equal(plank.placed, true);
 
-  const latch = gateLatch(run.route);
+  const latch = run.world.fixtures.find((f) => f.kind === "gate")!.latch!;
   p.position = [latch[0], 0, latch[2] + 1];
   const parked = run.props
     .filter((prop) => prop !== plank)
@@ -445,12 +493,25 @@ test("plank seating, gate latch, case stock and local prop recovery update autho
     ([prop], index) => (prop.pose.position = [50 + index * 3, 1, 50]),
   );
   command(run, "a", "interact");
-  assert.equal(run.route.gateOpen, true);
+  assert.equal(run.route.gate.open, true);
   parked.forEach(([prop, saved]) => (prop.pose = saved));
 
   item.pose.position = [80, -10, 80];
   command(run, "a", "recover");
-  assert.deepEqual(item.pose.position, [16, 0.325, 10]);
+  assert.ok(
+    run.world.stations.some(
+      (s) =>
+        distance(item.pose.position, [
+          s.recover[0],
+          s.recover[1] + 0.325,
+          s.recover[2],
+        ]) < 1e-6,
+    ) ||
+      distance(
+        item.pose.position,
+        run.world.props.find((p) => p.id === item.id)!.pose.position,
+      ) < 1e-6,
+  );
 
   item.pose.position = [0, 0.325, 0];
   item.holders[0] = "a";
@@ -482,12 +543,17 @@ test("ordinary recovery rescues the browser's tipped decoy and permits native ca
       0.5770582556724548,
     ],
   };
-  run.route = { crossing: "right", gateOpen: true };
-  plank.pose = structuredClone(PLANK_PLACEMENTS.right);
+  run.route.gate.open = true;
+  run.route[crossing(run).id] = { open: true, seat: "left" };
+  plank.pose = structuredClone(seat(run));
   plank.placed = true;
   run.tin.holder = "a";
   run.spareBait = 5;
-  run.baitPatch = 2;
+  run.baitPatches[
+    run.world.pockets
+      .flatMap((p) => p.anchors)
+      .find((a) => a.kind === "feed")!.id
+  ] = 2;
   run.completed = ["raccoon-inspect"];
   run.album = [
     {
@@ -508,17 +574,29 @@ test("ordinary recovery rescues the browser's tipped decoy and permits native ca
       album: run.album,
       route: run.route,
       spareBait: run.spareBait,
-      baitPatch: run.baitPatch,
+      baitPatch:
+        run.baitPatches[
+          run.world.pockets
+            .flatMap((p) => p.anchors)
+            .find((a) => a.kind === "feed")!.id
+        ],
       portions: run.tin.portions,
       tinHolder: run.tin.holder,
       plank,
     });
   const before = preserved();
   command(run, "b", "recover");
-  assert.deepEqual(decoy.pose, pose([-20, 0.5, -6]));
+  const recovered = [...decoy.pose.position] as Vec3;
+  assert.ok(
+    run.world.stations.some(
+      (s) =>
+        distance(recovered, [s.recover[0], s.recover[1] + 0.5, s.recover[2]]) <
+        1e-6,
+    ),
+  );
   assert.deepEqual(decoy.holders, [null, null]);
   assert.deepEqual(preserved(), before);
-  fern.position = [-20, 0, -5.3];
+  fern.position = [recovered[0], recovered[1] - 0.5, recovered[2] + 0.7];
   fern.yaw = 0;
   const native = await attachPhysics(run);
   try {
@@ -541,11 +619,11 @@ test("ordinary recovery rescues the browser's tipped decoy and permits native ca
       native.step(1 / 60);
     }
     assert.ok(
-      fern.position[0] > -18,
+      fern.position[0] > recovered[0] + 2,
       "recovered decoy permits sustained walking",
     );
     assert.ok(
-      decoy.pose.position[0] > -18,
+      decoy.pose.position[0] > recovered[0] + 2,
       "claimed decoy follows its carrier",
     );
     assert.equal(decoy.holders[0], "b");
@@ -575,9 +653,9 @@ test("recovery preserves modest equipment tilt, pure yaw, and held or seated equ
       }
       if (condition === "seated") {
         if (kind !== "plank") continue;
-        prop.pose = structuredClone(PLANK_PLACEMENTS.right);
+        prop.pose = structuredClone(seat(run));
         prop.placed = true;
-        run.route.crossing = "right";
+        run.route[crossing(run).id] = { open: true, seat: "left" };
       }
       run.tin.holder = "a";
       const before = structuredClone(prop);
@@ -595,14 +673,14 @@ test("plank seating rejects a pose outside the twenty degree tolerance", () => {
     plank = run.props.find((prop) => prop.kind === "plank")!,
     angle = (21 * Math.PI) / 180;
   plank.pose = {
-    position: [...PLANK_PLACEMENTS.right.position],
+    position: [...seat(run).position],
     rotation: [0, Math.sin(angle / 2), 0, Math.cos(angle / 2)],
   };
   plank.holders[0] = "a";
   run.players[0].position = [-14, -1, 5];
   run.tin.pose.position = [50, 1, 50];
   command(run, "a", "interact");
-  assert.equal(run.route.crossing, null);
+  assert.equal(run.route[crossing(run).id].seat, null);
   assert.equal(plank.placed, false);
 });
 
@@ -612,11 +690,8 @@ test("one carrier can push the staged plank from the west bank into a reachable 
     plank = run.props.find((prop) => prop.kind === "plank")!,
     local = PROP_DEFINITIONS.plank.handles[0];
   run.tin.pose.position = [50, 1, 50];
-  p.position = [
-    plank.pose.position[0],
-    -0.25,
-    plank.pose.position[2] - local[0],
-  ];
+  const handle = propPoint(local, plank.pose);
+  p.position = [handle[0], 0, handle[2] + 0.8];
   command(run, "a", "interact");
   assert.equal(plank.holders[0], "a");
   applyCommand(run, "a", {
@@ -648,9 +723,18 @@ test("one carrier can push the staged plank from the west bank into a reachable 
     step(run, 0.2);
   }
   command(run, "a", "interact");
-  assert.equal(plank.placed, true);
-  assert.equal(run.route.crossing, "right");
-  assert.deepEqual(plank.pose, PLANK_PLACEMENTS.right);
+  assert.equal(
+    plank.placed,
+    true,
+    JSON.stringify({
+      player: p.position,
+      plank: plank.pose,
+      seat: seat(run),
+      events: run.events,
+    }),
+  );
+  assert.equal(run.route[crossing(run).id].seat, "left");
+  assert.deepEqual(plank.pose, seat(run));
 });
 
 test("disconnect releases an equipment handle while the other holder can continue", () => {
@@ -666,9 +750,12 @@ test("turning held equipment sweeps its full outer bounds before a solid contact
   const run = crew(),
     item = run.props.find((prop) => prop.kind === "screen")!,
     p = run.players[0];
-  item.pose.position = [45, 0.97, -34.3];
+  const water = run.world.waters[0],
+    edge = water.min[2],
+    x = (water.min[0] + water.max[0]) / 2;
+  item.pose.position = [x, 0.97, edge - 1.3];
   item.holders[0] = "a";
-  p.position = [43.75, 0, -34.2];
+  p.position = [x - 1.25, 0, edge - 1.2];
   for (let i = 0; i < 90; i++) {
     applyCommand(run, "a", {
       type: "input",
@@ -676,7 +763,7 @@ test("turning held equipment sweeps its full outer bounds before a solid contact
         seq: p.lastSeq + 1,
         x: 0,
         z: 0,
-        yaw: Math.PI / 2,
+        yaw: -Math.PI / 2,
         pitch: 0,
         run: false,
         crouch: false,
@@ -687,7 +774,7 @@ test("turning held equipment sweeps its full outer bounds before a solid contact
   assert.ok(
     Math.max(
       ...propBoxes(item, PROP_DEFINITIONS.screen).map((box) => box.max[2]),
-    ) <= -33,
+    ) <= edge,
   );
   assert.ok(run.events.some((event) => event.kind === "noise"));
 });
@@ -847,11 +934,12 @@ test("player separation never pushes a body into a world solid", () => {
   const run = crew(),
     a = run.players[0],
     b = run.players[1];
-  a.position = [40.54, 0, -40];
-  b.position = [40.3, 0, -40];
+  const wall = run.world.walls.find((b) => b.id === "boundary-east")!;
+  a.position = [wall.min[0] - 0.46, 0, 32];
+  b.position = [wall.min[0] - 0.7, 0, 32];
   advanceRun(run, 1 / 60);
   assert.ok(
-    a.position[0] <= 40.55,
+    a.position[0] <= wall.min[0] - 0.45 + 1e-6,
     `separation pushed player into pond at ${a.position[0]}`,
   );
 });
@@ -860,8 +948,10 @@ test("player separation never pushes a supported body into the washout", () => {
   const run = crew(),
     a = run.players[0],
     b = run.players[1];
-  a.position = [-14.01, -0.99875, 2];
-  b.position = [-14.72, -0.91, 2];
+  const water = run.world.waters[0],
+    z = (water.min[2] + water.max[2]) / 2;
+  a.position = [water.min[0] - 0.01, 0, z];
+  b.position = [water.min[0] - 0.72, 0, z];
   applyCommand(run, "a", {
     type: "input",
     value: {
@@ -888,7 +978,10 @@ test("player separation never pushes a supported body into the washout", () => {
   });
   advanceRun(run, 1 / 60);
   assert.ok(
-    [...WALKABLES, ...routeSurfaces(run.route)].some(
+    [
+      ...run.world.walkables,
+      ...fixtureSurfaces(run.world.fixtures, run.route),
+    ].some(
       (surface) =>
         surfaceHeight(surface, a.position[0], a.position[2]) !== null,
     ),
@@ -951,9 +1044,9 @@ test("crew slots and seeded world identity survive reconnection", () => {
     run.hats.map((hat) => hat.owner),
     ["a", "b"],
   );
-  assert.equal(snapshot(run).version, 2);
-  assert.equal(snapshot(run).world.content, "forest-mvp-1");
-  assert.equal(snapshot(run).world.seed, 41);
+  assert.equal(snapshot(run).version, 3);
+  assert.equal(run.world.content, "forest-expedition-1");
+  assert.equal(run.world.seed, 41);
   assert.throws(() => createRun(-1), /uint32/i);
   assert.throws(() => createRun(0x100000000), /uint32/i);
 });
@@ -1015,25 +1108,38 @@ test("one physical tin has exclusive ownership and rejects pickup through walls 
   assert.ok(run.tin.pose.position[1] > 0.5);
   run.players[0].position = [0, 0, 15];
   assert.throws(() => command(run, "a", "interact"), /closer|reach/i);
-  run.players[0].position = [-31.4, 0, 1];
-  place(run, [-30, 0.25, 1]);
+  const gate = run.world.fixtures.find((f) => f.kind === "gate")!,
+    transform = {
+      position: gate.position,
+      rotation: [0, Math.sin(gate.yaw / 2), 0, Math.cos(gate.yaw / 2)] as [
+        number,
+        number,
+        number,
+        number,
+      ],
+    };
+  run.players[0].position = propPoint([0, 0, 0.7], transform);
+  place(run, propPoint([0, 0.25, -0.6], transform));
   assert.throws(() => command(run, "a", "interact"), /blocked|wall|hidden/i);
 });
 
 test("rattle brings inspection before theft; whistle diverts the same carried tin and it reaches the stash", () => {
   const run = crew(),
-    r = run.animals[0];
-  r.pose = pose(CLEARING);
-  place(run, [CLEARING[0], 0.25, CLEARING[2] + 3]);
-  run.players[0].position = [CLEARING[0], 0, CLEARING[2] + 4];
+    r = run.animals.find((a) => a.species === "raccoon")!;
+  const clearing = anchor(run, "raccoon", "ground"),
+    stash = run.world.residents.find((a) => a.id === r.id)!.spawn;
+  r.pose = pose(clearing);
+  place(run, [clearing[0], 0.25, clearing[2] + 3]);
+  run.players[0].position = [clearing[0], 0, clearing[2] + 4];
   command(run, "a", "interact");
   command(run, "a", "use");
   command(run, "a", "interact");
   step(run, 3);
   assert.equal(r.behavior, "inspect");
   assert.equal(run.tin.holder, null);
-  step(run, 4.2);
-  assert.equal(run.tin.holder, "animal:raccoon");
+  for (let i = 0; i < 80 && run.tin.holder !== `animal:${r.id}`; i++)
+    step(run, 0.1);
+  assert.equal(run.tin.holder, `animal:${r.id}`);
   run.players[1].position = [r.pose.position[0] + 3, 0, r.pose.position[2]];
   command(run, "b", "use");
   step(run, 0.2);
@@ -1049,7 +1155,10 @@ test("rattle brings inspection before theft; whistle diverts the same carried ti
   );
   step(run, 38);
   assert.equal(run.tin.holder, null);
-  assert.ok(distance(run.tin.pose.position, STASH) < 1.5);
+  assert.ok(
+    distance(run.tin.pose.position, stash) < 1.5,
+    JSON.stringify({ r, tin: run.tin, stash }),
+  );
   run.players[1].position = [
     run.tin.pose.position[0],
     0,
@@ -1061,13 +1170,19 @@ test("rattle brings inspection before theft; whistle diverts the same carried ti
 
 test("heron consumes bait once, retreats visibly from noise, then returns and displays after quiet", () => {
   const run = crew(),
-    h = run.animals[1];
-  run.baitPatch = 2;
-  run.animals[0].pose = pose(CLEARING);
-  step(run, 5.3);
+    h = run.animals.find((a) => a.species === "heron")!;
+  const patch = anchor(run, "heron", "feed"),
+    patchId = run.world.pockets
+      .find(
+        (p) => p.id === run.world.residents.find((r) => r.id === h.id)!.home,
+      )!
+      .anchors.find((a) => a.kind === "feed")!.id;
+  run.baitPatches[patchId] = 2;
+  run.animals.find((a) => a.species === "raccoon")!.pose = pose(CLEARING);
+  for (let i = 0; i < 150 && h.behavior !== "display"; i++) step(run, 0.1);
   assert.equal(h.behavior, "display");
-  assert.equal(run.baitPatch, 1);
-  run.players[0].position = [PATCH[0], 0, PATCH[2] + 4];
+  assert.equal(run.baitPatches[patchId], 1);
+  run.players[0].position = [patch[0], 0, patch[2] + 4];
   command(run, "a", "use");
   step(run, 0.2);
   assert.equal(h.behavior, "alert");
@@ -1075,20 +1190,18 @@ test("heron consumes bait once, retreats visibly from noise, then returns and di
   step(run, 1.1);
   assert.equal(h.behavior, "retreat");
   assert.ok(distance(before as Vec3, h.pose.position) > 0.2);
-  assert.equal(run.baitPatch, 1);
-  run.players[0].position = [...CAMP];
-  step(run, 18);
+  assert.equal(run.baitPatches[patchId], 1);
+  run.players[0].position = [...run.world.camp];
+  for (let i = 0; i < 350 && h.behavior !== "display"; i++) step(run, 0.1);
   assert.ok(["display", "feed"].includes(h.behavior));
-  assert.equal(run.baitPatch, 0);
+  assert.equal(run.baitPatches[patchId], 0);
   assert.ok(run.observations.some((s) => /quiet|noise|startl/i.test(s)));
 });
 
 test("photo geometry checks front, frame clipping, subject size, occlusion and actual behavior", () => {
   const frame = photo();
-  assert.deepEqual(evaluatePhoto(frame, []).credits, [
-    "raccoon-inspect",
-    "heron-display",
-    "pond-pair",
+  assert.deepEqual(evaluatePhoto(frame, photoWorld()).credits, [
+    pairCommission.id,
   ]);
   const cases: [string, (f: PhotoFrame) => void][] = [
     [
@@ -1100,13 +1213,13 @@ test("photo geometry checks front, frame clipping, subject size, occlusion and a
     [
       "clipped",
       (f) => {
-        f.camera.position[0] = 50;
+        f.camera.position[0] = photoPoint(50, 0, 0)[0];
       },
     ],
     [
       "too small",
       (f) => {
-        f.camera.position[2] = 100;
+        f.camera.position[2] = photoPoint(0, 0, 100)[2];
       },
     ],
     [
@@ -1120,33 +1233,47 @@ test("photo geometry checks front, frame clipping, subject size, occlusion and a
   for (const [label, change] of cases) {
     const f = structuredClone(frame);
     change(f);
-    assert.deepEqual(evaluatePhoto(f, []).credits, [], label);
+    assert.deepEqual(evaluatePhoto(f, photoWorld()).credits, [], label);
   }
   assert.deepEqual(
-    evaluatePhoto(frame, [{ id: "wall", min: [32, 0, -27], max: [41, 4, -26] }])
-      .credits,
+    evaluatePhoto(
+      frame,
+      photoWorld([
+        {
+          id: "wall",
+          min: photoPoint(32, 0, -27),
+          max: photoPoint(41, 4, -26),
+        },
+      ]),
+    ).credits,
     [],
   );
   const equipmentBlocked = structuredClone(frame),
     fieldCase = equipmentBlocked.props.find((prop) => prop.kind === "case")!;
-  fieldCase.pose.position = [35.25, 0.7, -26];
+  fieldCase.pose.position = photoPoint(35.25, 0.7, -26);
   assert.ok(
-    !evaluatePhoto(equipmentBlocked, []).credits.includes("raccoon-inspect"),
+    !evaluatePhoto(equipmentBlocked, photoWorld()).credits.includes(
+      pairCommission.id,
+    ),
     "field equipment must occlude photo subjects",
   );
   const distant = structuredClone(frame);
-  distant.animals[1].pose.position[0] = 43;
-  assert.ok(!evaluatePhoto(distant, []).credits.includes("pond-pair"));
+  distant.animals[1].pose.position[0] = photoPoint(43, 0, 0)[0];
+  assert.ok(
+    !evaluatePhoto(distant, photoWorld()).credits.includes(pairCommission.id),
+  );
   const closed = structuredClone(frame);
   closed.tin.open = false;
-  assert.ok(!evaluatePhoto(closed, []).credits.includes("raccoon-inspect"));
+  assert.ok(
+    !evaluatePhoto(closed, photoWorld()).credits.includes(pairCommission.id),
+  );
 });
 
 test("rejected deer portraits explain the framed selected behavior instead of offscreen wildlife", () => {
-  for (const seed of [0, 16]) {
+  for (const seed of [9, 10]) {
     const run = createRun(seed);
     addPlayer(run, "a", "A");
-    const deer = run.animals[2];
+    const deer = run.animals.find((a) => a.species === "deer")!;
     run.players[0].position = [
       deer.pose.position[0],
       0,
@@ -1154,15 +1281,12 @@ test("rejected deer portraits explain the framed selected behavior instead of of
     ];
     for (const behavior of ["alert", "settle"] as const) {
       deer.behavior = behavior;
-      const result = evaluatePhoto(makePhotoFrame(run, "a"), WALLS);
+      const result = evaluatePhoto(makePhotoFrame(run, "a"), run.world);
       assert.deepEqual(result.credits, []);
       assert.match(result.reason, /deer/i);
       assert.doesNotMatch(result.reason, /raccoon|heron|behind/i);
       if (behavior === "settle")
-        assert.match(
-          result.reason,
-          run.world.assignments.includes("deer-graze") ? /graz/i : /decoy/i,
-        );
+        assert.match(result.reason, /graze|grazing|photograph/i);
     }
   }
 });
@@ -1171,23 +1295,23 @@ test("photo subject visibility requires two points and pair distance is exactly 
   const frame = photo();
   const oneHidden = {
     id: "left",
-    min: [34.12, 0.4, -29.2] as Vec3,
-    max: [34.24, 0.65, -28.8] as Vec3,
+    min: photoPoint(34.12, 0.4, -29.2),
+    max: photoPoint(34.24, 0.65, -28.8),
   };
   assert.ok(
-    evaluatePhoto(frame, [oneHidden]).credits.includes("raccoon-inspect"),
+    evaluatePhoto(frame, photoWorld([oneHidden])).credits.includes(
+      pairCommission.id,
+    ),
   );
   const twoHidden = {
     id: "low",
-    min: [33.5, 0, -29.5] as Vec3,
-    max: [35.5, 1, -28.5] as Vec3,
+    min: photoPoint(33.5, 0, -29.5),
+    max: photoPoint(35.5, 1, -28.5),
   };
-  assert.deepEqual(evaluatePhoto(frame, [twoHidden]).credits, [
-    "heron-display",
-  ]);
+  assert.deepEqual(evaluatePhoto(frame, photoWorld([twoHidden])).credits, []);
   const blockedByTin = structuredClone(frame);
-  blockedByTin.tin.pose = pose([34.31, 0.55, -29]);
-  assert.deepEqual(evaluatePhoto(blockedByTin, []).credits, ["heron-display"]);
+  blockedByTin.tin.pose = pose(photoPoint(34.31, 0.55, -29));
+  assert.deepEqual(evaluatePhoto(blockedByTin, photoWorld()).credits, []);
   for (const [separation, want] of [
     [2.9995, false],
     [3, true],
@@ -1195,10 +1319,10 @@ test("photo subject visibility requires two points and pair distance is exactly 
     [8.0001, false],
   ] as const) {
     const f = structuredClone(frame);
-    f.animals[0].pose.position[0] = 39 - separation;
-    f.tin.pose.position[0] = 39 - separation;
+    f.animals[0].pose.position[0] = photoPoint(39 - separation, 0, 0)[0];
+    f.tin.pose.position[0] = photoPoint(39 - separation, 0, 0)[0];
     assert.equal(
-      evaluatePhoto(f, []).credits.includes("pond-pair"),
+      evaluatePhoto(f, photoWorld()).credits.includes(pairCommission.id),
       want,
       `distance ${separation}`,
     );
@@ -1208,7 +1332,13 @@ test("photo subject visibility requires two points and pair distance is exactly 
 test("nearby clues enter shared knowledge once while reachable tin actions retain priority", () => {
   const run = crew(),
     p = run.players[0],
-    clue = CLUES[0],
+    commission = run.world.commissions[0],
+    clue = {
+      title: commission.title,
+      text: commission.instructions,
+      position: run.world.pockets.find((p) => p.id === commission.pocket)!
+        .position,
+    },
     note = `${clue.title}: ${clue.text}`;
   assert.throws(() => command(run, "a", "interact"), /closer|reach/i);
   assert.ok(!run.observations.includes(note));
@@ -1229,23 +1359,22 @@ test("nearby clues enter shared knowledge once while reachable tin actions retai
 });
 
 test("photographs freeze the authoritative pose; early pair credit works and album/pending frames stay bounded", () => {
-  const run = crew();
+  const run = createRun(2, photoRun.worldId);
+  addPlayer(run, "a", "A");
+  addPlayer(run, "b", "B");
+  command(run, "a", "start");
   const f = photo();
   run.animals = f.animals;
   run.tin = f.tin;
-  run.players[0].position = [36.5, 0, -22];
+  run.players[0].position = photoPoint(36.5, 0, -22);
   const accepted = command(run, "a", "photo")!;
-  assert.deepEqual(run.completed, [
-    "raccoon-inspect",
-    "heron-display",
-    "pond-pair",
-  ]);
+  assert.deepEqual(run.completed, [pairCommission.id]);
   assert.equal(accepted.frame.camera.position[1], 1.6);
-  assert.ok(Object.isFrozen(accepted.frame.world));
+  assert.ok(Object.isFrozen(accepted.frame));
   run.props[0].open = true;
   assert.equal(accepted.frame.props[0].open, false);
   const oldX = accepted.frame.animals[0].pose.position[0];
-  run.animals[0].pose.position[0] = 12;
+  run.animals[0].pose.position[0] += 12;
   assert.equal(accepted.frame.animals[0].pose.position[0], oldX);
   assert.deepEqual(run.pendingPhotos[accepted.frame.id], accepted.frame);
   assert.throws(() => command(run, "a", "photo"), /wait|cooldown/i);
@@ -1253,7 +1382,7 @@ test("photographs freeze the authoritative pose; early pair credit works and alb
     step(run, 1.1);
     command(run, "a", "photo");
   }
-  assert.equal(run.completed.length, 3);
+  assert.equal(run.completed.length, 1);
   assert.ok(run.album.length <= 24);
   assert.equal(run.album.filter((p) => p.credits.length).length, 1);
   assert.equal(Object.keys(run.pendingPhotos).length, run.album.length);
@@ -1271,9 +1400,13 @@ test("disconnect releases the held tin and freezes timers; a guest can continue 
   run.players[0].position = [0, 0, 6];
   place(run, [0, 0.25, 5]);
   command(run, "a", "interact");
-  run.animals[1].behavior = "display";
-  run.animals[1].remaining = 3;
-  run.baitPatch = 1;
+  run.animals.find((a) => a.species === "heron")!.behavior = "display";
+  run.animals.find((a) => a.species === "heron")!.remaining = 3;
+  run.baitPatches[
+    run.world.pockets
+      .flatMap((p) => p.anchors)
+      .find((a) => a.kind === "feed")!.id
+  ] = 1;
   disconnectPlayer(run, "a");
   assert.equal(run.paused, true);
   assert.equal(run.tin.holder, null);
@@ -1283,8 +1416,15 @@ test("disconnect releases the held tin and freezes timers; a guest can continue 
   command(run, "b", "resume");
   step(run, 0.5);
   assert.equal(run.paused, false);
-  assert.ok(run.animals[1].remaining < 3);
-  assert.equal(run.baitPatch, 1);
+  assert.ok(run.animals.find((a) => a.species === "heron")!.remaining < 3);
+  assert.equal(
+    run.baitPatches[
+      run.world.pockets
+        .flatMap((p) => p.anchors)
+        .find((a) => a.kind === "feed")!.id
+    ],
+    1,
+  );
   run.players[1].position = [-10.4, 0, 1];
   addPlayer(run, "a", "A");
   assert.equal(run.players.length, 2);
@@ -1295,18 +1435,25 @@ test("disconnect releases the held tin and freezes timers; a guest can continue 
 
 test("each selected assignment, camp return and connected readiness gate the exhibition", () => {
   const run = crew();
-  for (const missing of run.world.assignments) {
-    run.completed = run.world.assignments.filter((id) => id !== missing);
-    assert.throws(() => command(run, "a", "ready-end"), /all four/i);
-    assert.throws(() => command(run, "a", "finish"), /all four/i);
+  for (const missing of run.world.commissions
+    .filter((c) => c.required)
+    .map((c) => c.id)) {
+    run.completed = run.world.commissions
+      .filter((c) => c.required)
+      .map((c) => c.id)
+      .filter((id) => id !== missing);
+    assert.throws(() => command(run, "a", "ready-end"), /all six/i);
+    assert.throws(() => command(run, "a", "finish"), /all six/i);
   }
-  run.completed = [...run.world.assignments];
-  for (const p of run.players) p.position = [...CAMP];
+  run.completed = [
+    ...run.world.commissions.filter((c) => c.required).map((c) => c.id),
+  ];
+  for (const p of run.players) p.position = [...run.world.camp];
   command(run, "a", "ready-end");
   command(run, "b", "ready-end");
   run.players[1].position[0] += 7;
   assert.throws(() => command(run, "a", "finish"), /at camp/i);
-  run.players[1].position = [...CAMP];
+  run.players[1].position = [...run.world.camp];
   command(run, "b", "ready-end");
   assert.throws(() => command(run, "a", "finish"), /ready/i);
   disconnectPlayer(run, "b");
@@ -1316,30 +1463,46 @@ test("each selected assignment, camp return and connected readiness gate the exh
 });
 
 test("bait refills and contextual recovery preserve progress; camp ending requires every connected player ready", () => {
-  const run = crew();
+  const run = crew(),
+    patch = anchor(run, "heron", "feed"),
+    patchId = run.world.pockets
+      .find(
+        (p) =>
+          p.id === run.world.residents.find((r) => r.species === "heron")!.home,
+      )!
+      .anchors.find((a) => a.kind === "feed")!.id;
   run.tin.portions = 0;
-  run.players[0].position = [...CAMP];
-  place(run, [CAMP[0], 0.25, CAMP[2] - 1]);
+  run.players[0].position = [...run.world.camp];
+  place(run, [run.world.camp[0], 0.25, run.world.camp[2] - 1]);
   command(run, "a", "interact");
   command(run, "a", "use");
   assert.equal(run.tin.portions, 4);
   step(run, 3.1);
-  run.players[0].position = [PATCH[0], 0, PATCH[2] + 1];
+  run.players[0].position = [patch[0], 0, patch[2] + 1];
   command(run, "a", "use");
   assert.equal(run.tin.portions, 3);
-  assert.equal(run.baitPatch, 1);
+  assert.equal(run.baitPatches[patchId], 1);
   command(run, "a", "drop");
   run.tin.pose.position = [80, -10, 80];
   command(run, "b", "recover");
   assert.equal(run.tin.portions, 3);
   assert.deepEqual(
     run.tin.pose.position,
-    [35, 0.109, -28],
+    [
+      run.world.tinStart,
+      ...run.world.stations.map(
+        (s) => [s.recover[0], s.recover[1] + 0.109, s.recover[2]] as Vec3,
+      ),
+    ].sort(
+      (a, b) => distance(a, [80, -10, 80]) - distance(b, [80, -10, 80]),
+    )[0],
     "recovery chooses the point nearest the lost tin",
   );
   assert.throws(() => command(run, "a", "ready-end"), /assignment|photo/i);
-  run.completed = [...run.world.assignments];
-  for (const p of run.players) p.position = [...CAMP];
+  run.completed = [
+    ...run.world.commissions.filter((c) => c.required).map((c) => c.id),
+  ];
+  for (const p of run.players) p.position = [...run.world.camp];
   command(run, "a", "ready-end");
   assert.throws(() => command(run, "a", "finish"), /ready/i);
   command(run, "b", "ready-end");
@@ -1347,100 +1510,126 @@ test("bait refills and contextual recovery preserve progress; camp ending requir
   assert.equal(run.phase, "exhibition");
 });
 
-test("one linked outing preserves the stolen tin through interruption, quiet recovery, pair photo and exhibition", () => {
-  const run = crew(),
-    tin = run.tin,
-    r = run.animals[0],
-    h = run.animals[1],
+test("a linked generated encounter preserves tin identity through theft, pause, recovery and pair credit", () => {
+  const run = createRun(2, photoRun.worldId);
+  addPlayer(run, "a", "A");
+  addPlayer(run, "b", "B");
+  command(run, "a", "start");
+  const pairPoint = (x: number, y: number, z: number) =>
+    photoPoint(78 - x, y, z);
+  const tin = run.tin,
+    r = run.animals.find(
+      (a) =>
+        a.id ===
+        pairCommission.subjects.find(
+          (id) => run.animals.find((a) => a.id === id)!.species === "raccoon",
+        ),
+    )!,
+    h = run.animals.find(
+      (a) =>
+        a.id ===
+        pairCommission.subjects.find(
+          (id) => run.animals.find((a) => a.id === id)!.species === "heron",
+        ),
+    )!,
     a = run.players[0],
     b = run.players[1];
-  const until = (predicate: () => boolean, seconds: number) => {
-    for (let i = 0; i < seconds * 10 && !predicate(); i++) step(run, 0.1);
-    assert.ok(
-      predicate(),
-      JSON.stringify({
-        r: r.behavior,
-        h: h.behavior,
-        remaining: [r.remaining, h.remaining],
-        positions: [r.pose.position, h.pose.position],
-        targets: [r.target, h.target],
-        memory: run.animalMemory,
-        tin: run.tin.pose.position,
-        bait: run.baitPatch,
-      }),
-    );
+  const until = (condition: () => boolean, seconds: number) => {
+    for (let i = 0; i < seconds * 10 && !condition(); i++) step(run, 0.1);
+    assert.ok(condition(), JSON.stringify({ r, h, tin }));
   };
-  a.position = [TIN_START[0], 0, TIN_START[2] + 0.8];
-  command(run, "a", "interact");
-  const woodland = HABITAT_SITES.woodland[run.world.sites.woodland];
-  a.position = [woodland[0], 0, woodland[2] + 3.2];
-  step(run, 1 / 60);
-  command(run, "a", "use");
-  command(run, "a", "interact");
-  b.position = [woodland[0], 0, woodland[2] + 7];
+  // The physical setup starts in the pair's bound pocket; transitions are authoritative updates.
+  r.pose = pose(pairPoint(34, 0, -30));
+  r.remaining = 0;
+  place(run, pairPoint(34, 0.109, -30.8));
   until(() => r.behavior === "inspect", 8);
-  command(run, "b", "photo");
-  assert.deepEqual(run.completed, ["raccoon-inspect"]);
-  until(() => tin.holder === "animal:raccoon", 6);
-  until(
-    () => tin.holder === null && distance(tin.pose.position, STASH) < 1,
-    90,
-  );
-  a.position = [tin.pose.position[0], 0, tin.pose.position[2] + 0.8];
-  command(run, "a", "interact");
-  a.position = [PATCH[0], 0, PATCH[2] + 1];
-  step(run, 1 / 60);
-  command(run, "a", "use");
-  a.position = [PATCH[0], 0, PATCH[2] + 6];
-  until(() => h.behavior === "display", 16);
-  b.position = [PATCH[0], 0, PATCH[2] + 4];
+  until(() => tin.holder === `animal:${r.id}`, 8);
+  b.position = [r.pose.position[0] + 3, 0, r.pose.position[2]];
   command(run, "b", "use");
   step(run, 0.2);
-  assert.equal(h.behavior, "alert");
-  a.position = [STASH[0], 0, STASH[2] + 1.1];
-  b.position = [PATCH[0] - 3, 0, PATCH[2] + 8];
-  step(run, 3.1);
-  a.position = [PATCH[0], 0, PATCH[2] + 1];
-  step(run, 1 / 60);
-  command(run, "a", "use");
-  a.position = [STASH[0], 0, STASH[2] + 1.1];
-  step(run, 1 / 60);
-  command(run, "a", "interact");
-  assert.equal(tin.portions, 2);
+  assert.equal(r.behavior, "investigate");
   command(run, "a", "pause");
   const frozen = snapshot(run);
   step(run, 20);
   assert.deepEqual(snapshot(run), frozen);
   command(run, "a", "resume");
+  b.position = [...run.world.camp];
+  until(() => tin.holder === null, 40);
   a.position = [tin.pose.position[0], 0, tin.pose.position[2] + 0.8];
   command(run, "a", "interact");
-  a.position = [...CAMP];
-  until(() => h.behavior === "feed" && h.remaining <= 3, 35);
-  a.position = [r.pose.position[0], 0, r.pose.position[2] + 1.9];
-  step(run, 1 / 60);
+  assert.equal(tin.holder, "a");
+  a.position = [pairAnchor[0], 0, pairAnchor[2] + 1];
+  for (let portion = 0; portion < 4; portion++) {
+    command(run, "a", "use");
+    if (portion < 3) step(run, 3.1);
+  }
+  assert.equal(run.baitPatches[pairCommission.anchor!], 4);
+  a.position = [...run.world.camp];
+  until(() => h.behavior === "feed" && h.remaining <= 3, 25);
+  a.position = pairPoint(34, 0, -29.8);
   command(run, "a", "interact");
-  a.position = [...CAMP];
-  until(() => h.behavior === "display" && r.behavior === "inspect", 8);
-  const pair = command(run, "b", "photo")!;
-  assert.deepEqual(
-    new Set(run.completed),
-    new Set(["raccoon-inspect", "heron-display", "pond-pair"]),
-    JSON.stringify({ r, h, verdict: pair.verdict }),
+  a.position = [...run.world.camp];
+  until(() => r.behavior === "inspect" && h.behavior === "display", 12);
+  b.position = pairPoint(36.5, 0, -22);
+  b.yaw = 0;
+  b.pitch = 0;
+  const captured = command(run, "b", "photo")!;
+  assert.ok(
+    captured.verdict.credits.includes(pairCommission.id),
+    JSON.stringify(captured.verdict),
   );
   assert.equal(run.tin, tin);
-  assert.equal(tin.portions, 2);
-  assert.equal(run.baitPatch, 0);
-  assert.ok(run.album[1].assists.includes("a"));
-  assert.ok(run.observations.some((s) => /startl|quiet/i.test(s)));
-  const deer = run.animals.find((a) => a.species === "deer")!;
-  a.position = [deer.pose.position[0], 0, deer.pose.position[2] + 7];
-  until(() => deer.behavior === "graze", 15);
-  command(run, "a", "photo");
-  assert.ok(run.completed.includes("deer-graze"));
-  a.position = [...CAMP];
-  b.position = [...CAMP];
-  command(run, "a", "ready-end");
-  command(run, "b", "ready-end");
-  command(run, "a", "finish");
-  assert.equal(run.phase, "exhibition");
+  assert.equal(tin.portions, 0);
+  until(() => run.baitPatches[pairCommission.anchor!] === 0, 15);
+  assert.equal(run.baitPatches[pairCommission.anchor!], 0);
+  assert.ok(run.album.at(-1)!.assists.includes("a"));
+  assert.ok(run.observations.some((s) => /quiet|noise|inspect/i.test(s)));
+  assert.throws(() => command(run, "a", "ready-end"), /all six/);
+  assert.equal(run.phase, "outing");
+});
+
+test("a local plank cannot bypass another crossing's water or leave its own deck strip", () => {
+  for (const variant of ["wrong-plank", "outside-strip", "rotated"] as const) {
+    const run = crew(),
+      fixture = crossing(run),
+      original = run.props.find((p) => p.id === fixture.plankId)!,
+      plank =
+        variant === "wrong-plank"
+          ? run.props.find((p) => p.kind === "plank" && p !== original)!
+          : original,
+      start = structuredClone(original.pose),
+      player = run.players[0];
+    if (plank !== original) original.pose.position = [...run.world.camp];
+    plank.pose = start;
+    if (variant === "outside-strip") plank.pose.position[2] += 1;
+    const yaw = variant === "rotated" ? 0.15 : 0;
+    plank.pose.rotation = [0, Math.sin(yaw / 2), 0, Math.cos(yaw / 2)];
+    const handle = propPoint(PROP_DEFINITIONS.plank.handles[0], plank.pose);
+    player.position = [handle[0], 0, handle[2] + 0.8];
+    player.yaw = yaw;
+    command(run, "a", "interact");
+    assert.equal(plank.holders[0], "a");
+    for (let i = 0; i < 40; i++) {
+      applyCommand(run, "a", {
+        type: "input",
+        value: {
+          seq: player.lastSeq + 1,
+          x: 1,
+          z: 0,
+          yaw,
+          pitch: 0,
+          run: false,
+          crouch: false,
+        },
+      });
+      step(run, 0.2);
+    }
+    command(run, "a", "interact");
+    assert.equal(plank.placed, false, variant);
+    assert.equal(run.route[fixture.id].open, false, variant);
+    assert.ok(
+      run.events.some((e) => e.kind === "impact"),
+      variant,
+    );
+  }
 });

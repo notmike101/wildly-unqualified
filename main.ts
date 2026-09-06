@@ -8,21 +8,16 @@ import {
   CAMERA_FAR,
 } from "./view.ts";
 import {
-  ASSIGNMENTS,
-  CAMP,
-  WOODLAND,
-  HABITAT_SITES,
-  WOODLAND_WASH_SITES,
-  WALLS,
-  WALKABLES,
-  CLUES,
-  routeBoxes,
-  routeSurfaces,
-  TRAILS,
-  WATER_BOUNDS,
   PROP_DEFINITIONS,
-  gateLatch,
+  fixtureBoxes,
+  fixtureSurfaces,
+  fixtureLatch,
 } from "./level.ts";
+import {
+  validateReserve,
+  reserveHash,
+  type ReserveBlueprint,
+} from "./world.ts";
 import {
   distance,
   eye,
@@ -50,6 +45,7 @@ declare global {
   interface Window {
     readonly wildly: {
       snapshot: Snapshot | null;
+      world: ReserveBlueprint | null;
       playerId: string;
       backend: string;
       adapter: unknown;
@@ -121,6 +117,13 @@ let crouch = false,
   isHost = false,
   closing = false,
   socket: WebSocket | undefined;
+let world: ReserveBlueprint | undefined,
+  worldReady = false,
+  installEpoch = 0,
+  installingId = "",
+  queuedSnapshot: Snapshot | undefined;
+const commissionTitle = (id: string) =>
+  world?.commissions.find((c) => c.id === id)?.title ?? id;
 let latest: Snapshot | undefined,
   prior: Snapshot | undefined,
   latestAt = 0,
@@ -159,6 +162,7 @@ const propNames = {
 Object.defineProperty(window, "wildly", {
   get: () => ({
     snapshot: latest ? structuredClone(latest) : null,
+    world: world ?? null,
     playerId: localId,
     backend: "WebGPU",
     adapter: adapterInfo,
@@ -194,9 +198,12 @@ function command(
 ) {
   send({ type, seq: ++seq });
 }
-function send(message: ClientMessage) {
-  if (socket?.readyState !== WebSocket.OPEN) return;
-  socket.send(JSON.stringify(message));
+type WithoutWorld<T> = T extends { worldId: string }
+  ? Omit<T, "worldId">
+  : never;
+function send(message: WithoutWorld<ClientMessage>) {
+  if (!worldReady || !world || socket?.readyState !== WebSocket.OPEN) return;
+  socket.send(JSON.stringify({ ...message, worldId: world.id }));
   if (message.type === "input") {
     sent.set(message.value.seq, performance.now());
     if (sent.size > 100) sent.delete(sent.keys().next().value!);
@@ -228,13 +235,13 @@ function predictStep(p: Player, held: Input, state: Snapshot): Player {
     held,
     1 / 60,
     [
-      ...WALLS,
-      ...routeBoxes(state.route),
+      ...world!.walls,
+      ...fixtureBoxes(world!.fixtures, state.route),
       ...state.props
         .filter((prop) => !prop.holders.includes(p.id) && !prop.placed)
         .flatMap((prop) => propBoxes(prop, PROP_DEFINITIONS[prop.kind])),
     ],
-    [...WALKABLES, ...routeSurfaces(state.route)],
+    [...world!.walkables, ...fixtureSurfaces(world!.fixtures, state.route)],
     playerSpeed(p.id, held, state.props),
   );
 }
@@ -315,6 +322,67 @@ async function acceptSession(session: {
   $("stop-button").hidden = !isHost;
   openSocket();
 }
+async function installWorld(
+  message: Extract<ServerMessage, { type: "world" }>,
+) {
+  const epoch = ++installEpoch;
+  installingId = message.id;
+  worldReady = false;
+  latest = undefined;
+  prior = undefined;
+  predicted = undefined;
+  history.clear();
+  sent.clear();
+  heard.clear();
+  pressed.clear();
+  queuedSnapshot = undefined;
+  for (const [id, pending] of pendingFrames)
+    if (pending.frame.worldId !== message.id) pendingFrames.delete(id);
+  $("connection").textContent = "Loading reserve...";
+  let nextView: Awaited<ReturnType<typeof createView>> | undefined;
+  try {
+    const blueprint = validateReserve(message.blueprint);
+    if (
+      message.id !== blueprint.id ||
+      (await reserveHash(blueprint)) !== message.hash
+    )
+      throw Error("Reserve digest or identity mismatch");
+    if (epoch !== installEpoch) return;
+    const nextScene = new THREE.Scene();
+    nextView = await createView(nextScene, blueprint);
+    if (epoch !== installEpoch) {
+      nextView.dispose();
+      return;
+    }
+    if (nextView.errors.length) throw Error(nextView.errors.join("; "));
+    view?.dispose();
+    view = nextView;
+    scene = nextScene;
+    world = blueprint;
+    worldReady = true;
+    reconnectAttempt = 0;
+    camera.position.set(
+      blueprint.camp[0],
+      blueprint.camp[1] + 1.6,
+      blueprint.camp[2],
+    );
+    document.body.dataset.world = blueprint.id;
+    const pending = queuedSnapshot;
+    queuedSnapshot = undefined;
+    if (pending) receive(pending);
+    for (const { frame, verdict } of pendingFrames.values())
+      if (frame.worldId === blueprint.id) queuePhoto(frame, verdict);
+  } catch (error) {
+    nextView?.dispose();
+    if (epoch !== installEpoch) return;
+    worldReady = false;
+    assetErrors.push(String(error));
+    notify(
+      `Reserve could not be loaded. Refreshing connection: ${String(error)}`,
+    );
+    socket?.close();
+  }
+}
 function openSocket() {
   if (closing) return;
   clearTimeout(retryTimer);
@@ -322,18 +390,25 @@ function openSocket() {
     `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/ws`,
   );
   socket.onopen = () => {
-    reconnectAttempt = 0;
     $("connection").textContent = "Connected · finding crew";
   };
+  const connection = socket;
   socket.onmessage = (e) => {
+    if (socket !== connection) return;
     try {
       const m = JSON.parse(e.data) as ServerMessage;
       if (m.type === "welcome") {
         localId = m.playerId;
         isHost = m.host;
       }
+      if (m.type === "world") void installWorld(m);
       if (m.type === "notice") notify(m.text);
-      if (m.type === "cue" && !heard.has(m.id)) {
+      if (
+        m.type === "cue" &&
+        worldReady &&
+        m.worldId === world?.id &&
+        !heard.has(m.id)
+      ) {
         heard.add(m.id);
         if (heard.size > 128) heard.delete(heard.values().next().value!);
         const d = predicted ? distance(eye(predicted), m.position) : 0;
@@ -344,9 +419,9 @@ function openSocket() {
         if (m.kind !== "shutter")
           notify(`${who} · ${m.kind === "impact" ? "clatter" : m.kind}`);
       }
-      if (m.type === "photo") {
+      if (m.type === "photo" && m.frame.worldId === installingId) {
         pendingFrames.set(m.frame.id, { frame: m.frame, verdict: m.verdict });
-        queuePhoto(m.frame, m.verdict);
+        if (worldReady) queuePhoto(m.frame, m.verdict);
       }
       if (m.type === "snapshot") receive(m.value);
     } catch (error) {
@@ -354,6 +429,12 @@ function openSocket() {
     }
   };
   socket.onclose = () => {
+    if (socket !== connection) return;
+    ++installEpoch;
+    worldReady = false;
+    predicted = undefined;
+    latest = undefined;
+    prior = undefined;
     neutralize();
     history.clear();
     $("connection").textContent = closing ? "Server stopped" : "Reconnecting…";
@@ -389,6 +470,16 @@ function scheduleReconnect() {
   );
 }
 function receive(state: Snapshot) {
+  if (state.version !== 3 || state.worldId !== installingId) {
+    worldReady = false;
+    predicted = undefined;
+    socket?.close();
+    return;
+  }
+  if (!worldReady || state.worldId !== world?.id) {
+    queuedSnapshot = state;
+    return;
+  }
   if (latest && state.observations.length > latest.observations.length)
     notify(state.observations.at(-1)!);
   prior = latest;
@@ -443,55 +534,47 @@ function updateHud() {
     `${s.players.filter((p) => p.connected).length}/4 in reserve · ${Math.round(rtt)} ms`;
   const list = $("assignments");
   list.replaceChildren();
-  const hints = {
-    "raccoon-inspect":
-      "Set up an open tin in the woodland; photograph its curious visitor",
-    "heron-display":
-      "Bait the marked wetland patch, step back quietly, then catch the wings",
-    "pond-pair":
-      "Bring the tin to the wetland; frame a raccoon inspection beside a heron's wing display",
-    "raccoon-wash": "Place the open tin beside the marked woodland brook",
-    "deer-graze": "Keep a quiet, covered angle on the grazing deer",
-    "deer-decoy":
-      "Move the decoy into the clearing and give the deer room to investigate",
-    "heron-preen": "Give a calm heron room to tend its feathers",
-  };
-  s.world.assignments.forEach((id) => {
+  for (const commission of world!.commissions) {
     const li = document.createElement("li");
-    li.className = s.completed.includes(id as keyof typeof ASSIGNMENTS)
-      ? "done"
-      : "";
-    li.textContent = ASSIGNMENTS[id];
+    li.className = s.completed.includes(commission.id) ? "done" : "";
+    li.textContent = `${commission.required ? "" : "Optional: "}${commission.title}`;
     const small = document.createElement("small");
-    small.textContent = hints[id];
+    small.textContent = commission.instructions;
     li.append(small);
     list.append(li);
-  });
-  const holder =
-    s.tin.holder === "animal:raccoon"
-      ? "The raccoon has your tin."
-      : s.tin.holder === localId
-        ? "You are carrying the tin."
-        : s.tin.holder
-          ? `${s.players.find((p) => p.id === s.tin.holder)?.name ?? "A friend"} has the tin.`
-          : "Tin placed in the reserve.";
+  }
+  const holder = s.tin.holder?.startsWith("animal:")
+    ? "The raccoon has your tin."
+    : s.tin.holder === localId
+      ? "You are carrying the tin."
+      : s.tin.holder
+        ? `${s.players.find((p) => p.id === s.tin.holder)?.name ?? "A friend"} has the tin.`
+        : "Tin placed in the reserve.";
   const me = s.players.find((p) => p.id === localId);
   const carried = heldProp(localId, s.props);
   const occupied = carried?.holders.filter(Boolean).length ?? 0;
   $("equipment").textContent = carried
     ? `${propNames[carried.kind]} · ${occupied}/${carried.kind === "decoy" ? 1 : 2} handles held${carried.kind === "case" ? ` · lid ${carried.open ? "open" : "closed"} · ${s.spareBait} spare portions` : carried.kind === "decoy" ? ` · bait cup ${carried.open ? "filled" : "empty"}` : ""}`
     : `${holder} · ${s.tin.portions} bait portions · ${s.spareBait} in the field case`;
-  const walls = [...WALLS, ...routeBoxes(s.route)];
+  const walls = [...world!.walls, ...fixtureBoxes(world!.fixtures, s.route)];
   const reachWalls = [
     ...walls,
     ...s.props.flatMap((prop) => propBoxes(prop, PROP_DEFINITIONS[prop.kind])),
   ];
-  const latch = gateLatch(s.route);
+  const gate = world!.fixtures
+      .filter((f) => f.kind === "gate")
+      .map((f) => ({ ...f, latch: fixtureLatch(f, s.route) }))
+      .filter((f) => f.latch)
+      .sort((a, b) =>
+        me ? distance(eye(me), a.latch!) - distance(eye(me), b.latch!) : 0,
+      )[0],
+    latch = gate?.latch;
   const gateReachable =
     !!me &&
+    !!latch &&
     distance(eye(me), latch) <= 2 &&
     !rayBlocked(eye(me), latch, [
-      ...WALLS,
+      ...world!.walls,
       ...s.props.flatMap((prop) =>
         propBoxes(prop, PROP_DEFINITIONS[prop.kind]),
       ),
@@ -502,7 +585,7 @@ function updateHud() {
     me && equipmentUseTarget(me, s.props, PROP_DEFINITIONS, walls);
   const tinReachable =
     !!me &&
-    (!s.tin.holder || s.tin.holder === "animal:raccoon") &&
+    (!s.tin.holder || s.tin.holder?.startsWith("animal:")) &&
     distance(eye(me), s.tin.pose.position) <= 2 &&
     !rayBlocked(eye(me), s.tin.pose.position, reachWalls);
   const targetProp =
@@ -516,14 +599,20 @@ function updateHud() {
     settings.keys[name].replace(/^(Key|Digit)/, "");
   const clue =
     me &&
-    CLUES.filter(
-      (c) =>
-        distance(c.position, me.position) <= 3 &&
-        !rayBlocked(eye(me), c.position, reachWalls),
-    ).sort(
-      (a, b) =>
-        distance(a.position, me.position) - distance(b.position, me.position),
-    )[0];
+    world!.commissions
+      .map((c) => ({
+        title: c.title,
+        position: world!.pockets.find((p) => p.id === c.pocket)!.position,
+      }))
+      .filter(
+        (c) =>
+          distance(c.position, me.position) <= 3 &&
+          !rayBlocked(eye(me), c.position, reachWalls),
+      )
+      .sort(
+        (a, b) =>
+          distance(a.position, me.position) - distance(b.position, me.position),
+      )[0];
   const interact = carried
     ? `Place ${propNames[carried.kind]}`
     : s.tin.holder === localId
@@ -535,9 +624,9 @@ function updateHud() {
         : targetProp
           ? `Take ${propNames[targetProp.kind]} handle ${(target?.handle ?? 0) + 1}`
           : gateReachable
-            ? `${s.route.gateOpen ? "Close" : "Open"} trail gate`
+            ? `${s.route[gate.id].open ? "Close" : "Open"} trail gate`
             : tinReachable
-              ? s.tin.holder === "animal:raccoon"
+              ? s.tin.holder?.startsWith("animal:")
                 ? "Reclaim tin"
                 : "Pick up tin"
               : clue
@@ -566,19 +655,20 @@ function updateHud() {
             ? "Refill tin from case"
             : me &&
                 Math.hypot(
-                  me.position[0] - CAMP[0],
-                  me.position[2] - CAMP[2],
+                  me.position[0] - world!.camp[0],
+                  me.position[2] - world!.camp[2],
                 ) <= 5 &&
                 (s.tin.portions < 4 || s.spareBait < 8)
               ? "Refill field supplies"
               : me &&
-                  Math.hypot(
-                    me.position[0] -
-                      HABITAT_SITES.wetland[s.world.sites.wetland][0],
-                    me.position[2] -
-                      HABITAT_SITES.wetland[s.world.sites.wetland][2],
-                  ) < 2.5
-                ? `Bait feeding patch · ${s.baitPatch}/4 portions`
+                  world!.pockets.some((p) =>
+                    p.anchors.some(
+                      (a) =>
+                        a.kind === "feed" &&
+                        distance(me.position, a.point) < 2.5,
+                    ),
+                  )
+                ? "Bait local feeding patch"
                 : "Rattle tin"
           : "Whistle";
   $("context-action").textContent =
@@ -596,8 +686,10 @@ function updateHud() {
       ? "Gather at camp. The host begins when at least two friends are here."
       : s.phase === "exhibition"
         ? "A very questionable success. Open the notebook and choose your favorites."
-        : s.world.assignments.every((id) => s.completed.includes(id))
-          ? `All four commissions recorded. Return to camp for the exhibition · ${s.ready.length}/${s.players.filter((p) => p.connected).length} ready.`
+        : world!.commissions
+              .filter((c) => c.required)
+              .every((c) => s.completed.includes(c.id))
+          ? `All six required commissions recorded. Return to camp for the exhibition · ${s.ready.length}/${s.players.filter((p) => p.connected).length} ready.`
           : `${Math.floor(s.seconds / 60)}:${String(Math.floor(s.seconds) % 60).padStart(2, "0")} in the field · Woodland → clearing → wetland. Prepare a route and bring the crew home.`;
   $("start-button").hidden = !(isHost && s.phase === "camp");
   $<HTMLButtonElement>("shutter-button").disabled =
@@ -608,11 +700,16 @@ function updateHud() {
     !s.paused || s.phase === "camp" || s.phase === "exhibition";
   $("pause-reason").textContent = s.pauseReason;
   $("pause-button").hidden = !isHost || s.phase !== "outing";
-  const complete = s.world.assignments.every((id) => s.completed.includes(id));
+  const complete = world!.commissions
+    .filter((c) => c.required)
+    .every((c) => s.completed.includes(c.id));
   $("ready-button").hidden = !complete || s.phase !== "outing";
   $("finish-button").hidden = !isHost || !complete || s.phase !== "outing";
   const atCamp = (p: Player) =>
-    Math.hypot(p.position[0] - CAMP[0], p.position[2] - CAMP[2]) <= 6;
+    Math.hypot(
+      p.position[0] - world!.camp[0],
+      p.position[2] - world!.camp[2],
+    ) <= 6;
   const ready = $<HTMLButtonElement>("ready-button");
   ready.textContent = s.ready.includes(localId)
     ? "Ready for exhibition ✓"
@@ -648,6 +745,15 @@ function updateHud() {
     wash: "washing food",
     preen: "preening",
     "hat-reach": "reaching for a hat",
+    pounce: "pouncing",
+    nibble: "nibbling",
+    cache: "caching",
+    gnaw: "gnawing",
+    groom: "grooming",
+    dig: "digging",
+    roost: "roosting",
+    tap: "tapping",
+    dabble: "dabbling",
   };
   $("camera-hint").textContent = me
     ? s.animals
@@ -708,7 +814,7 @@ function renderNotebook() {
       const image = document.createElement("img");
       image.src = `/api/photos/${encodeURIComponent(photo.id)}`;
       image.alt = photo.credits.length
-        ? photo.credits.map((c) => ASSIGNMENTS[c]).join(", ")
+        ? photo.credits.map((c) => commissionTitle(c)).join(", ")
         : "A shared field photograph";
       image.loading = "lazy";
       f.append(image);
@@ -719,7 +825,7 @@ function renderNotebook() {
       f.append(pending);
     }
     const caption = document.createElement("figcaption");
-    caption.textContent = `${latest.players.find((p) => p.id === photo.photographer)?.name ?? "Researcher"} · ${photo.credits.map((c) => ASSIGNMENTS[c]).join(" / ") || "Field moment"}${photo.assists.length ? " · helped by " + photo.assists.map((id) => latest!.players.find((p) => p.id === id)?.name ?? "a friend").join(", ") : ""}`;
+    caption.textContent = `${latest.players.find((p) => p.id === photo.photographer)?.name ?? "Researcher"} · ${photo.credits.map((c) => commissionTitle(c)).join(" / ") || "Field moment"}${photo.assists.length ? " · helped by " + photo.assists.map((id) => latest!.players.find((p) => p.id === id)?.name ?? "a friend").join(", ") : ""}`;
     f.append(caption);
     if (photo.incident) {
       const incident = document.createElement("small");
@@ -764,14 +870,18 @@ function renderNotebook() {
   }
 }
 function drawMap() {
-  if (!latest) return;
+  if (!latest || !world) return;
   const c = $<HTMLCanvasElement>("map").getContext("2d")!;
   c.fillStyle = "#e3ddbf";
   c.fillRect(0, 0, 360, 260);
-  const point = (p: number[]) => [180 + p[0] * 2, 130 + p[2] * 1.7];
+  const scale = Math.min(
+    336 / (world.bounds.max[0] - world.bounds.min[0]),
+    236 / (world.bounds.max[2] - world.bounds.min[2]),
+  );
+  const point = (p: number[]) => [180 + p[0] * scale, 130 + p[2] * scale];
   c.strokeStyle = "#b0a16e";
-  c.lineWidth = 8;
-  for (const trail of TRAILS) {
+  c.lineWidth = 3;
+  for (const trail of world.trails) {
     c.beginPath();
     for (const [i, p] of trail.points.entries()) {
       const [x, y] = point(p);
@@ -781,30 +891,48 @@ function drawMap() {
     c.stroke();
   }
   c.fillStyle = "#7f9f8f";
-  c.beginPath();
-  const water = point(WATER_BOUNDS.min),
-    waterEnd = point(WATER_BOUNDS.max);
-  c.ellipse(
-    (water[0] + waterEnd[0]) / 2,
-    (water[1] + waterEnd[1]) / 2,
-    (waterEnd[0] - water[0]) / 2,
-    (waterEnd[1] - water[1]) / 2,
-    0,
-    0,
-    Math.PI * 2,
-  );
-  c.fill();
-  c.font = "11px system-ui";
-  for (const [name, p] of [
-    ["CAMP", CAMP],
-    ["WOODLAND", HABITAT_SITES.woodland[latest.world.sites.woodland]],
-    ["CLEARING", HABITAT_SITES.clearing[latest.world.sites.clearing]],
-    ["FEEDING", HABITAT_SITES.wetland[latest.world.sites.wetland]],
-    ["BROOK", WOODLAND_WASH_SITES[latest.world.sites.woodland]],
-  ] as const) {
-    const [x, y] = point(p);
+  for (const water of world.waters) {
+    const a = point(water.min),
+      b = point(water.max);
+    c.fillRect(a[0], a[1], b[0] - a[0], b[1] - a[1]);
+  }
+  c.font = "9px system-ui";
+  const labels: [string, Vec3][] = [
+    ["CAMP", world.camp],
+    ...world.stations.map((s) => ["SUPPLIES", s.position] as [string, Vec3]),
+    ...world.pockets.map(
+      (p) =>
+        [p.id.toUpperCase() + " " + p.habitat, p.position] as [string, Vec3],
+    ),
+  ];
+  const used: { x: number; y: number; width: number }[] = [];
+  for (const [name, p] of labels) {
+    const [x, y] = point(p),
+      width = c.measureText(name).width;
+    const positions = [-8, 16, -22, 30].flatMap((dy) =>
+      [x - 18, x + 8, x - width - 8].map((dx) => ({
+        x: Math.max(2, Math.min(358 - width, dx)),
+        y: Math.max(12, Math.min(256, y + dy)),
+        width,
+      })),
+    );
+    const at =
+      positions.find((a) =>
+        used.every(
+          (b) =>
+            a.x + a.width + 4 < b.x ||
+            b.x + b.width + 4 < a.x ||
+            Math.abs(a.y - b.y) > 11,
+        ),
+      ) ?? positions[0];
+    used.push(at);
     c.fillStyle = "#4b6144";
-    c.fillText(name, x - 18, y - 13);
+    c.fillText(name, at.x, at.y);
+  }
+  for (const node of world.navNodes.filter((n) => n.id.includes("-camera-"))) {
+    const [x, y] = point(node.position);
+    c.fillStyle = "#ad955b";
+    c.fillRect(x - 1, y - 1, 2, 2);
   }
   latest.players
     .filter((p) => p.connected)
@@ -825,13 +953,17 @@ function drawMap() {
 function queuePhoto(frame: PhotoFrame, verdict: PhotoVerdict) {
   photoChain = photoChain
     .then(async () => {
-      if (!latest) return;
+      if (!latest || !worldReady || !world || frame.worldId !== world.id)
+        return;
+      const captureEpoch = installEpoch;
       const start = performance.now();
       const blob = await capturePhoto(
         renderer,
         scene,
         frame,
-        () =>
+        world,
+        () => {
+          view.centerShadows(frame.camera.position);
           view.update(
             {
               ...latest!,
@@ -839,7 +971,7 @@ function queuePhoto(frame: PhotoFrame, verdict: PhotoVerdict) {
               players: frame.players,
               animals: frame.animals,
               tin: frame.tin,
-              world: frame.world,
+              worldId: frame.worldId,
               props: frame.props,
               route: frame.route,
               spills: frame.spills,
@@ -847,16 +979,21 @@ function queuePhoto(frame: PhotoFrame, verdict: PhotoVerdict) {
             },
             frame.photographer,
             true,
-          ),
+          );
+        },
         () => {
-          if (latest) view.update(latest, localId);
+          if (latest && worldReady) {
+            view.update(latest, localId);
+            view.centerShadows(camera.position.toArray() as Vec3);
+          }
         },
       );
+      if (captureEpoch !== installEpoch || frame.worldId !== world?.id) return;
       if (lastImageUrl) URL.revokeObjectURL(lastImageUrl);
       lastImageUrl = URL.createObjectURL(blob);
       $<HTMLImageElement>("photo-preview").src = lastImageUrl;
       $("photo-result").textContent = verdict.credits.length
-        ? verdict.credits.map((c) => ASSIGNMENTS[c]).join(" · ")
+        ? verdict.credits.map((c) => commissionTitle(c)).join(" · ")
         : verdict.reason;
       $("photo-toast").hidden = false;
       clearTimeout(photoTimer);
@@ -943,8 +1080,7 @@ async function start() {
   renderer.shadowMap.enabled = true;
   scene = new THREE.Scene();
   camera = new THREE.PerspectiveCamera(60, 16 / 9, 0.05, CAMERA_FAR);
-  camera.position.set(CAMP[0], CAMP[1] + 1.6, CAMP[2] - 1);
-  camera.lookAt(...WOODLAND);
+  camera.position.set(0, 1.6, 0);
   $("viewport").append(renderer.domElement);
   renderer.domElement.setAttribute(
     "aria-label",
@@ -972,8 +1108,7 @@ async function start() {
     });
   };
   resize();
-  view = await createView(scene);
-  assetErrors.push(...view.errors);
+
   document.body.dataset.ready = "webgpu";
   device.lost.then((info) => {
     notify(
@@ -995,7 +1130,7 @@ async function start() {
       if (pressed.has("ArrowDown")) pitch = Math.max(-1.45, pitch - dt);
     }
     yaw = Math.atan2(Math.sin(yaw), Math.cos(yaw));
-    if (latest) {
+    if (latest && worldReady && view?.worldId === latest.worldId) {
       if (predicted && !latest.paused && latest.phase !== "exhibition") {
         const target =
           latest.tick +
@@ -1077,6 +1212,7 @@ async function start() {
         camera.rotation.set(pitch, yaw, 0, "YXZ");
       }
     }
+    if (worldReady) view.centerShadows(camera.position.toArray() as Vec3);
     renderer.render(scene, camera);
   });
   window.addEventListener("resize", resize);
