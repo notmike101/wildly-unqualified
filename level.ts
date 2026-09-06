@@ -3,6 +3,7 @@ import type {
   Box,
   Habitat,
   FieldProp,
+  FixtureState,
   Pose,
   PropDefinition,
   RouteState,
@@ -10,6 +11,59 @@ import type {
   Vec3,
   Walkable,
 } from "./shared.ts";
+import type { Fixture } from "./world.ts";
+
+function fixtureState(fixture: Fixture, states: FixtureState) {
+  const state = states[fixture.id];
+  if (
+    !state ||
+    typeof state.open !== "boolean" ||
+    (fixture.kind === "gate"
+      ? state.seat !== null
+      : state.open
+        ? typeof state.seat !== "string" ||
+          !Object.hasOwn(fixture.seats, state.seat)
+        : state.seat !== null)
+  )
+    throw Error(`Invalid fixture state: ${fixture.id}`);
+  return state;
+}
+
+export function fixtureBoxes(fixtures: Fixture[], states: FixtureState): Box[] {
+  return fixtures.flatMap((fixture) => {
+    if (!fixtureState(fixture, states).open) return fixture.closedBoxes;
+    if (fixture.kind !== "gate") return [];
+    // The exported gate rotates around its local left hinge at X -2.2.
+    const local: Vec3 = [-2.2, 0, -2.2],
+      center: Vec3 = [
+        fixture.position[0] +
+          local[0] * Math.cos(fixture.yaw) +
+          local[2] * Math.sin(fixture.yaw),
+        fixture.position[1],
+        fixture.position[2] -
+          local[0] * Math.sin(fixture.yaw) +
+          local[2] * Math.cos(fixture.yaw),
+      ];
+    return [
+      worldBox(
+        `${fixture.id}-leaf`,
+        center,
+        fixture.yaw + Math.PI / 2,
+        [-2.15, 0.25, -0.06],
+        [2.15, 1.45, 0.06],
+      ),
+    ];
+  });
+}
+
+export function fixtureSurfaces(
+  fixtures: Fixture[],
+  states: FixtureState,
+): Walkable[] {
+  return fixtures.flatMap((fixture) =>
+    fixtureState(fixture, states).open ? fixture.openSurfaces : [],
+  );
+}
 
 export type WorldPlacement = {
   id: string;

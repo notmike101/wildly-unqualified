@@ -61,6 +61,10 @@ export type RouteState = {
   crossing: "left" | "right" | null;
   gateOpen: boolean;
 };
+export type FixtureState = Record<
+  string,
+  { open: boolean; seat: string | null }
+>;
 export type Spill = {
   id: string;
   position: Vec3;
