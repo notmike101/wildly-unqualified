@@ -72,6 +72,13 @@ Plan: [2026-09-06-generated-reserves.md](2026-09-06-generated-reserves.md). Spec
 - The outage stopped the game listeners and interrupted the current visible preflight. Existing source, private saves and captured evidence were retained. Newly started user browsers and Blender were not closed. No game server was restarted as part of this checkpoint wrap-up.
 - Main remains the preserved baseline. Expansion and preparatory work are backed up on their named private feature branches; no completed expedition release or full Task 5 acceptance is claimed.
 
+## Wildlife validation — paused at user request
+
+- The user requested one section at a time and selected simulations/scripted checks over literal gameplay driving. This pass covered Task 5 only.
+- The full production-baseline suite at `b16f00e` reported **190/196 passing and six failures**. Timing and obsolete test assumptions explain some observations; two tin encounter cases remain unresolved, and unstable Deer investigation was confirmed. A saved-goal parsing concern remains untested. The full review is incomplete and not approved.
+- Scripted captures produced fifteen JPEG cases across eleven species actions, three transitions and one additional Rabbit case. Numerical capture checks passed; qualitative inspection and the complete six-goal loop did not finish.
+- The user then explicitly requested documentation only and a pause. [The findings report](../reviews/2026-09-06-wildlife-validation-findings.md) records results, uncertainty, incomplete checks and the five uncommitted source/test/harness files already changed before the stop. No source fixes from this pass were committed or pushed. Owned test processes are stopped.
+
 ## Rulings
 
 - Ruling: preserve the mistaken empty parent-repository setup as local metadata instead of deleting it. Automatic review rejected recursive `.git` deletion; moving the owned setup to the local artifact folder safely removed the parent repository without losing files.
