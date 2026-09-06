@@ -409,3 +409,154 @@ test("camp occupies open ground within the connected reserve", () => {
     ),
   );
 });
+
+test("review: generated arch perches contact the exported mesh", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const { GLTFLoader } = await import("three/addons/loaders/GLTFLoader.js");
+  const { Raycaster, Vector3 } = await import("three");
+  const bytes = await readFile(
+    new URL("./public/models/forest-kit-v3.glb", import.meta.url),
+  );
+  const gltf = await new GLTFLoader().parseAsync(
+    bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+    "",
+  );
+  const arch = gltf.scene.getObjectByName("RootArch")!;
+  arch.removeFromParent();
+  const turns = new Set<number>();
+  let maxResidents = 0;
+  for (
+    let seed = 0;
+    seed < 16 && (turns.size < 4 || maxResidents < 4);
+    seed++
+  ) {
+    const w = generateReserve(seed, "review-perches");
+    maxResidents = Math.max(
+      maxResidents,
+      w.residents.filter((r) => r.species === "owl").length,
+    );
+    for (const pocket of w.pockets) {
+      const p = w.placements.find((p) => p.id === pocket.id + "-perch-arch");
+      if (!p) continue;
+      turns.add(p.yaw);
+      arch.position.fromArray(p.position);
+      arch.rotation.set(0, p.yaw, 0);
+      arch.updateMatrixWorld(true);
+      for (const a of pocket.anchors.filter(
+        (a) => a.kind === "perch" && !a.id.includes("woodpecker"),
+      )) {
+        const hit = new Raycaster(
+          new Vector3(a.point[0], a.point[1] + 1, a.point[2]),
+          new Vector3(0, -1, 0),
+        ).intersectObject(arch, true)[0];
+        assert.ok(hit, `${a.id} has no exported surface`);
+        assert.ok(
+          Math.abs(hit.point.y - a.point[1]) < 0.0001,
+          `${a.id} gap ${a.point[1] - hit.point.y}`,
+        );
+      }
+    }
+  }
+  assert.equal(turns.size, 4);
+  assert.equal(maxResidents, 4);
+  const altered = structuredClone(generateReserve(1, "bad-perch"));
+  altered.pockets
+    .flatMap((p) => p.anchors)
+    .find(
+      (a) => a.kind === "perch" && !a.id.includes("woodpecker"),
+    )!.point[1] += 0.01;
+  assert.throws(() => validateReserve(altered), /perch tree/);
+});
+
+test("review: actual camp tin and prop origins require ground support", () => {
+  const original = generateReserve(1, "review-support");
+  for (const mutate of [
+    (w: typeof original) => {
+      w.stations[0].position = [
+        w.stations[0].position[0],
+        30,
+        w.stations[0].position[2],
+      ];
+    },
+    (w: typeof original) => {
+      w.stations[0].recover[1] = 0.1;
+    },
+    (w: typeof original) => {
+      w.pockets[0].position = [
+        w.pockets[0].position[0],
+        30,
+        w.pockets[0].position[2],
+      ];
+    },
+    (w: typeof original) => {
+      w.camp = [w.camp[0], 30, w.camp[2]];
+    },
+    (w: typeof original) => {
+      w.tinStart[1] = 30;
+    },
+    ...original.props.map((_, i) => (w: typeof original) => {
+      w.props[i].pose.position[1] = 30;
+    }),
+  ]) {
+    const w = JSON.parse(JSON.stringify(original));
+    mutate(w);
+    assert.throws(() => validateReserve(w));
+  }
+});
+
+test("review: nested geometry is exact typed and matches its fixture", () => {
+  const original = generateReserve(1, "review-fixtures");
+  const mutations: ((w: typeof original) => void)[] = [
+    (w) => {
+      (w.props[0].pose as unknown as Record<string, unknown>).unexpected = true;
+    },
+    (w) => {
+      w.fixtures[0].openSurfaces[0].axis = 99 as 0;
+    },
+    (w) => {
+      const s = w.fixtures[0].openSurfaces[0] as unknown as Record<
+        string,
+        unknown
+      >;
+      s.heightStart = "0.2";
+      s.heightEnd = "0.2";
+    },
+    (w) => {
+      w.fixtures[0].openSurfaces[0].min[0] += 0.5;
+    },
+    (w) => {
+      w.fixtures[0].seats.left.position[0] += 0.5;
+    },
+    (w) => {
+      (
+        w.fixtures[0].openSurfaces[0] as unknown as Record<string, unknown>
+      ).unexpected = true;
+    },
+    (w) => {
+      (
+        w.fixtures.find((f) => f.kind === "gate")!
+          .closedBoxes[0] as unknown as Record<string, unknown>
+      ).unexpected = true;
+    },
+    (w) => {
+      w.fixtures.find((f) => f.kind === "gate")!.closedBoxes = [];
+    },
+  ];
+  for (const [i, mutate] of mutations.entries()) {
+    const w = structuredClone(original);
+    mutate(w);
+    assert.throws(() => validateReserve(w), `nested geometry mutation ${i}`);
+  }
+});
+
+test("review: each commissioned target belongs to each subject's reachable subset", () => {
+  const original = generateReserve(1, "review-target");
+  const c = original.commissions.find(
+    (c) => c.required && c.kind === "behavior" && c.anchor!.endsWith("-cache"),
+  )!;
+  assert.ok(c);
+  const w = structuredClone(original);
+  const r = w.residents.find((r) => r.id === c.subjects[0])!;
+  r.anchors = r.anchors.filter((id) => id !== c.anchor);
+  assert.throws(() => validateReserve(w));
+});

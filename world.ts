@@ -5,6 +5,8 @@ import {
   placement,
   worldBox,
   PROP_CENTER_HEIGHT,
+  PROP_DEFINITIONS,
+  TIN_HALF,
   type NavNode,
   type WorldPlacement,
 } from "./level.ts";
@@ -367,7 +369,7 @@ function ground(world: ReserveBlueprint, p: Vec3, margin = 0) {
   return world.walkables.some(
     (s) =>
       contains(s, p, margin) &&
-      Math.abs(p[1] - s.heightStart) < 0.15 &&
+      Math.abs(p[1] - s.heightStart) < 1e-6 &&
       s.heightStart === s.heightEnd,
   );
 }
@@ -395,6 +397,79 @@ function terrain(waters: Box[]): Walkable[] {
     }
   }
   return result;
+}
+function transformPoint(position: Vec3, yaw: number, p: Vec3): Vec3 {
+  return point(
+    position[0] + p[0] * Math.cos(yaw) + p[2] * Math.sin(yaw),
+    position[1] + p[1],
+    position[2] - p[0] * Math.sin(yaw) + p[2] * Math.cos(yaw),
+  );
+}
+// Measured downward contacts on forest-kit-v3.glb RootArch, SHA-256 fa56fdf272282db3de69a9b1910b9a8d82d465022a8b308855bf60f5cafc63d4.
+// These are curved exported surfaces, not the catalog AABB top. The mesh regression checks all quarter turns.
+const ROOT_ARCH_CONTACTS: Vec3[] = [
+  [-0.9, 3.72163, 0.35],
+  [-0.3, 3.84199, 0.35],
+  [0.3, 3.86264, 0.35],
+  [0.9, 3.57587, 0.35],
+];
+function archContacts(p: WorldPlacement): Vec3[] {
+  return ROOT_ARCH_CONTACTS.map((c) => transformPoint(p.position, p.yaw, c));
+}
+function fixture(
+  id: string,
+  kind: Fixture["kind"],
+  position: Vec3,
+  yaw: number,
+  plankId: string | null,
+): Fixture {
+  if (kind === "gate")
+    return {
+      id,
+      kind,
+      position,
+      yaw,
+      closedBoxes: [
+        worldBox(
+          id + "-leaf",
+          position,
+          yaw,
+          [-2.15, 0.25, -0.06],
+          [2.15, 1.45, 0.06],
+        ),
+      ],
+      openSurfaces: [],
+      seats: {},
+      plankId: null,
+      latch: transformPoint(position, yaw, [2, 1.25, 0]),
+    };
+  const seat = pose(transformPoint(position, yaw, [0, 0.105, 0]), yaw),
+    [min, max] = PROP_DEFINITIONS.plank.bounds;
+  const deck = worldBox(
+    id + "-deck",
+    seat.position,
+    yaw,
+    [min[0], max[1], min[2]],
+    max,
+  );
+  return {
+    id,
+    kind,
+    position,
+    yaw,
+    closedBoxes: [],
+    openSurfaces: [
+      {
+        ...deck,
+        axis: Math.abs(Math.cos(yaw)) > 0.5 ? 0 : 2,
+        heightStart: deck.min[1],
+        heightEnd: deck.max[1],
+      },
+    ],
+    seats: { left: seat },
+    plankId,
+    latch: null,
+  };
 }
 function build(seed: number, id: string, attempt: number): ReserveBlueprint {
   const random = rng(seed ^ Math.imul(attempt, 0x9e3779b9)),
@@ -524,7 +599,11 @@ function build(seed: number, id: string, attempt: number): ReserveBlueprint {
       den: [-4, 0, -10],
       wash: [7, 0, -9],
       water: [12, 0.12, -10],
-      perch: [3, 3.95, -10.4],
+      perch: [
+        3 + ROOT_ARCH_CONTACTS[2][0],
+        ROOT_ARCH_CONTACTS[2][1],
+        -11 + ROOT_ARCH_CONTACTS[2][2],
+      ],
     };
     if (wet) {
       const a = local(9, -1.5, -13),
@@ -589,15 +668,21 @@ function build(seed: number, id: string, attempt: number): ReserveBlueprint {
         )!;
         const localBase: Vec3 =
           s === "woodpecker" ? [7, 2.5, -10.15] : offsets[base.kind];
-        const spawn = local(
-          localBase[0] + (s === "woodpecker" ? 0 : (n - 1.5) * 0.65),
-          base.kind === "perch"
-            ? s === "woodpecker"
-              ? 2.5 + n * 0.45
-              : 3.95
-            : localBase[1],
-          localBase[2] + (base.kind === "perch" ? 0 : species.indexOf(s) * 0.7),
-        );
+        const spawn =
+          base.kind === "perch" && s !== "woodpecker"
+            ? archContacts(
+                w.placements.find((p) => p.id === home + "-perch-arch")!,
+              )[n]
+            : local(
+                localBase[0] + (s === "woodpecker" ? 0 : (n - 1.5) * 0.65),
+                base.kind === "perch"
+                  ? s === "woodpecker"
+                    ? 2.5 + n * 0.45
+                    : 3.95
+                  : localBase[1],
+                localBase[2] +
+                  (base.kind === "perch" ? 0 : species.indexOf(s) * 0.7),
+              );
         const spawnAnchor: Anchor = {
           id: `${home}-${s}-${n}-start`,
           kind: base.kind,
@@ -666,49 +751,16 @@ function build(seed: number, id: string, attempt: number): ReserveBlueprint {
     });
     const plankId = `plank-${i}`;
     w.props.push({ id: plankId, kind: "plank", pose: pose([x - 5, 0.095, z]) });
-    w.fixtures.push({
-      id: `crossing-${i}`,
-      kind: "crossing",
-      position: [x, 0, z],
-      yaw: 0,
-      closedBoxes: [],
-      openSurfaces: [
-        {
-          id: `bridge-${i}`,
-          min: [x - 1.6, 0.2, z - 0.325],
-          max: [x + 1.6, 0.2, z + 0.325],
-          axis: 0,
-          heightStart: 0.2,
-          heightEnd: 0.2,
-        },
-      ],
-      seats: { left: pose([x, 0.105, z]) },
-      plankId,
-      latch: null,
-    });
+    w.fixtures.push(
+      fixture(`crossing-${i}`, "crossing", [x, 0, z], 0, plankId),
+    );
     addNode(`crossing-${i}-west`, [x - 5, 0, z]);
     addNode(`crossing-${i}-east`, [x + 5, 0, z]);
     link(`p${i}-camera-a`, `crossing-${i}-west`);
     link(`p${i}-camera-a`, `crossing-${i}-east`);
   }
   const gp = point(w.camp[0] + 12, 0, w.camp[2]);
-  w.fixtures.push({
-    id: "gate",
-    kind: "gate",
-    position: gp,
-    yaw: 0,
-    closedBoxes: [
-      {
-        id: "gate-leaf",
-        min: [gp[0] - 2.15, 0.25, gp[2] - 0.06],
-        max: [gp[0] + 2.15, 1.45, gp[2] + 0.06],
-      },
-    ],
-    openSurfaces: [],
-    seats: {},
-    plankId: null,
-    latch: point(gp[0] + 2, 1.25, gp[2]),
-  });
+  w.fixtures.push(fixture("gate", "gate", gp, 0, null));
   w.placements.push(placed("gate-posts", "ForestGate", gp));
   addNode("gate-near", point(gp[0], 0, gp[2] + 5));
   addNode("gate-far", point(gp[0], 0, gp[2] - 5));
@@ -1136,7 +1188,8 @@ export function validateReserve(value: unknown): ReserveBlueprint {
       ids.add(item.id);
     }
   };
-  const box = (b: Box) => {
+  const box = (b: Box, extra = "") => {
+    keys(b, "id min max" + (extra ? " " + extra : ""));
     id(b.id);
     vec(b.min);
     vec(b.max);
@@ -1159,13 +1212,33 @@ export function validateReserve(value: unknown): ReserveBlueprint {
     vec(p);
     check(contains(w.bounds, p) && p[1] >= -4 && p[1] <= 36, "out of bounds");
   };
-  const inBox = (b: Box) => {
-    box(b);
+  const inBox = (b: Box, extra = "") => {
+    box(b, extra);
     inside(b.min);
     inside(b.max);
   };
+  const surface = (s: Walkable) => {
+    inBox(s, "axis heightStart heightEnd");
+    check(
+      (s.axis === 0 || s.axis === 2) &&
+        typeof s.heightStart === "number" &&
+        Number.isFinite(s.heightStart) &&
+        typeof s.heightEnd === "number" &&
+        Number.isFinite(s.heightEnd),
+      "walkable fields",
+    );
+  };
   inside(w.camp);
   inside(w.tinStart);
+  check(w.camp[1] === 0 && ground(w, w.camp), "camp support");
+  check(
+    w.tinStart[1] === TIN_HALF[1] &&
+      ground(
+        w,
+        point(w.tinStart[0], w.tinStart[1] - TIN_HALF[1], w.tinStart[2]),
+      ),
+    "tin support",
+  );
   check(distance(w.camp, w.tinStart) < 8, "tin start");
   for (const a of [
     w.pockets,
@@ -1190,7 +1263,7 @@ export function validateReserve(value: unknown): ReserveBlueprint {
   );
   for (const b of [...w.waters, ...w.walls, ...w.physicsBoxes]) inBox(b);
   for (const s of w.walkables) {
-    inBox(s);
+    surface(s);
     check(
       (s.axis === 0 || s.axis === 2) &&
         s.heightStart === s.heightEnd &&
@@ -1272,7 +1345,10 @@ export function validateReserve(value: unknown): ReserveBlueprint {
   }
   const reached = new Set<string>(),
     queue = [w.navNodes.find((n) => n.id === "camp")!];
-  check(queue[0] && distance(queue[0].position, w.camp) === 0, "camp node");
+  check(
+    queue[0] && queue[0].position.every((v, i) => v === w.camp[i]),
+    "camp node",
+  );
   while (queue.length) {
     const n = queue.pop()!;
     if (reached.has(n.id)) continue;
@@ -1317,6 +1393,7 @@ export function validateReserve(value: unknown): ReserveBlueprint {
   unique(anchors);
   for (const p of w.pockets) {
     inside(p.position);
+    check(ground(w, p.position), "pocket support");
     check(["woodland", "clearing", "wetland"].includes(p.habitat), "habitat");
     check(
       Array.isArray(p.anchors) &&
@@ -1353,8 +1430,9 @@ export function validateReserve(value: unknown): ReserveBlueprint {
           w.placements.some(
             (t) =>
               ((t.model === "RootArch" &&
-                distance(t.position, a.point) < 2 &&
-                a.point[1] === 3.95) ||
+                archContacts(t).some((p) =>
+                  p.every((v, i) => Math.abs(v - a.point[i]) < 0.00001),
+                )) ||
                 (t.model === "SnagTall" &&
                   distance(t.position, a.point) <= 1)) &&
               a.point[1] >= 2 &&
@@ -1434,7 +1512,7 @@ export function validateReserve(value: unknown): ReserveBlueprint {
       swimBoxes = placementSolids.filter(nearby);
     const local = p.anchors.filter((a) => r.anchors.includes(a.id)),
       seen = new Set<string>(),
-      pending = [local[0]];
+      pending = [local.find((a) => a.point.every((v, i) => v === r.spawn[i]))!];
     while (pending.length) {
       const a = pending.pop()!;
       if (seen.has(a.id)) continue;
@@ -1457,7 +1535,10 @@ export function validateReserve(value: unknown): ReserveBlueprint {
     inside(s.position);
     inside(s.recover);
     check(
-      w.navNodes.some((n) => distance(n.position, s.position) < 0.01) &&
+      ground(w, s.position) &&
+        w.navNodes.some((n) =>
+          n.position.every((v, i) => v === s.position[i]),
+        ) &&
         ground(w, s.recover) &&
         !corridorBlocked(s.position, s.recover, obstacles, 2.5),
       "station recovery",
@@ -1468,7 +1549,12 @@ export function validateReserve(value: unknown): ReserveBlueprint {
       ["case", "plank", "screen", "decoy"].includes(prop.kind),
       "prop kind",
     );
+    keys(prop.pose, "position rotation");
     inside(prop.pose.position);
+    check(
+      prop.pose.position[1] === PROP_CENTER_HEIGHT[prop.kind],
+      "prop support height",
+    );
     check(
       Array.isArray(prop.pose.rotation) &&
         prop.pose.rotation.length === 4 &&
@@ -1519,6 +1605,23 @@ export function validateReserve(value: unknown): ReserveBlueprint {
       check(distance(seat.position, f.position) < 4, "seat position");
     }
     check(f.kind === "gate" || f.kind === "crossing", "fixture kind");
+    check(f.position[1] === 0, "fixture datum");
+    check(
+      JSON.stringify(f) ===
+        JSON.stringify(fixture(f.id, f.kind, f.position, f.yaw, f.plankId)),
+      "fixture geometry",
+    );
+    if (f.kind === "gate")
+      check(
+        w.placements.some(
+          (p) =>
+            p.id === f.id + "-posts" &&
+            p.model === "ForestGate" &&
+            p.yaw === f.yaw &&
+            p.position.every((v, i) => v === f.position[i]),
+        ),
+        "gate posts",
+      );
     for (const b of f.closedBoxes) inBox(b);
     if (f.kind === "crossing") {
       check(
@@ -1535,7 +1638,7 @@ export function validateReserve(value: unknown): ReserveBlueprint {
         "crossing seats",
       );
       for (const s of f.openSurfaces) {
-        inBox(s);
+        surface(s);
         check(
           s.heightStart === s.heightEnd &&
             s.heightStart >
@@ -1617,6 +1720,10 @@ export function validateReserve(value: unknown): ReserveBlueprint {
       "commission anchor",
     );
     const target = anchors.find((a) => a.id === c.anchor)!;
+    check(
+      subjects.every((r) => r!.anchors.includes(target.id)),
+      "commission target unreachable by subject",
+    );
     check(
       reserveApproaches(w, c.pocket).some(
         (n) =>
@@ -1703,7 +1810,7 @@ export function validateReserve(value: unknown): ReserveBlueprint {
   );
   let area = 0;
   for (const d of w.density) {
-    inBox(d);
+    inBox(d, "kind");
     check(["dense", "light", "open"].includes(d.kind), "density kind");
     area += (d.max[0] - d.min[0]) * (d.max[2] - d.min[2]);
   }
