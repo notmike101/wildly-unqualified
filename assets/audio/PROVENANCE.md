@@ -14,6 +14,8 @@ The delivery/credits inventory is [public/audio/manifest.json](../../public/audi
 - License: **CC0-1.0**, https://creativecommons.org/publicdomain/zero/1.0/. Creator's bundled license explicitly permits personal/commercial projects and makes attribution optional. Suggested voluntary credit: “RPG Audio by Kenney (kenney.nl), CC0.”
 - Delivered selected files are byte-identical archive members: source and delivery hashes agree. No trim, re-encode, normalization, loop or other edit. These are provisional trail steps and metal-pot/tin handling selections based on source naming; actual surface fit and tin recognizability require audition. We do not claim a recording of this game's specific equipment.
 
+The saved creator HTML and bundled license have trailing whitespace removed and LF line endings for repository hygiene; their words and URLs are unchanged. Before that whitespace normalization, SHA-256 was `90ef8a1e044cb46c1a9bb41bf879f63ec9ae31589757f55e12ee8c6034211d74` for the page and `5735dfd72cb64cbbceda4ebc00c380c41ca680edb82ff153aa7c9ab97614c539` for the license. The six audio members remain unmodified.
+
 ## Original synthesis
 
 [synthesize.mjs](synthesize.mjs) is the complete deterministic source for 30 mono PCM16 WAVs at 22,050 Hz. Run `node assets/audio/synthesize.mjs` from the repository to regenerate WAVs and manifest using the six unchanged Kenney members already in `public/audio`. Only Node's standard library is needed. The manifest records the script SHA-256 as source provenance. Original project material is labeled `original-project-material`, not falsely attributed to Kenney or a third-party CC0 dedication.
