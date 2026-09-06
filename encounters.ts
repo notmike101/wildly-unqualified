@@ -17,7 +17,11 @@ import {
   type Box,
   type Vec3,
   type Walkable,
+  type Behavior,
+  type Pose,
 } from "./shared.ts";
+import { SQUIRREL_CLIMB, ARCH_STANCES } from "./wildlife-data.ts";
+import { multiply, rotate, xyz } from "./wildlife.ts";
 
 export type AnimalMemory = {
   goal: string;
@@ -729,6 +733,282 @@ function raccoonStep(
   }
   if (walk(run, a, a.target, 1.1, dt, extra)) a.remaining = 2;
 }
+type RoutineStage = {
+  point: Vec3;
+  move: Behavior;
+  action: Behavior;
+  seconds: number;
+  speed: number;
+  path?: Pose[];
+  rotation?: Pose["rotation"];
+};
+const routines = new WeakMap<RunState["world"], Map<string, RoutineStage[]>>();
+function routineStages(run: RunState, a: Animal): RoutineStage[] {
+  let cache = routines.get(run.world);
+  if (!cache) {
+    cache = new Map();
+    routines.set(run.world, cache);
+  }
+  const cached = cache.get(a.id);
+  if (cached) return cached;
+  const resident = run.world.residents.find((r) => r.id === a.id)!;
+  const anchors = anchorsFor(run, a);
+  const index = Number(a.id.split("-").at(-1));
+  const anchor = (kind: string) =>
+    anchors.find((p) => p.kind === kind && !p.id.endsWith("-start"))!.point;
+  const stage = (
+    point: Vec3,
+    move: Behavior,
+    action: Behavior,
+    seconds = 4,
+    speed = 1.2,
+  ): RoutineStage => ({ point: [...point], move, action, seconds, speed });
+  let stages: RoutineStage[] = [];
+  if (a.species === "fox" || a.species === "badger") {
+    const passage = anchors.filter(
+      (p) => p.kind === "passage" && !p.id.endsWith("-start"),
+    );
+    stages = passage.map((p, i) =>
+      stage(
+        p.point,
+        a.species === "fox" ? "stalk" : "sniff",
+        i === 0 ? (a.species === "fox" ? "pounce" : "dig") : "passage",
+        i === 0 ? 3 : 2,
+      ),
+    );
+    if (a.species === "badger")
+      stages.push(stage(anchor("den"), "sniff", "dig", 6));
+  } else if (a.species === "rabbit") {
+    stages = [
+      stage(anchor("feed"), "wander", "nibble", 6),
+      stage(anchor("rest"), "bound", "freeze", 3, 1.7),
+      stage(anchor("ground"), "bound", "freeze", 2, 1.7),
+    ];
+  } else if (["otter", "beaver", "mallard"].includes(a.species)) {
+    const water = anchor("water"),
+      bank = anchor(a.species === "otter" ? "rest" : "feed");
+    const pool = run.world.waters.find((w) =>
+      water.every((v, i) => v >= w.min[i] && v <= w.max[i]),
+    )!;
+    // All float paths stay within the real pool; a full body-length shore band
+    // keeps bank-overlapping paws/tails above ground before immersion.
+    const waterline =
+      a.species === "beaver" ? 0.3 : a.species === "otter" ? 0.2 : 0.21;
+    const inset = 1.15;
+    const entry: Vec3 = [
+      Math.max(pool.min[0] + inset, Math.min(pool.max[0] - inset, bank[0])),
+      0,
+      Math.max(pool.min[2] + inset, Math.min(pool.max[2] - inset, bank[2])),
+    ];
+    const outside: Vec3 = [...entry];
+    const axis =
+      Math.abs(bank[0] - entry[0]) > Math.abs(bank[2] - entry[2]) ? 0 : 2;
+    outside[axis] =
+      bank[axis] < entry[axis] ? pool.min[axis] - 1.2 : pool.max[axis] + 1.2;
+    const floatY = pool.max[1] - 0.0125 - waterline;
+    const at: Vec3 = [water[0] + (index - 1.5) * 0.65, floatY, water[2]];
+    const path = [pose(outside), pose(entry), pose(at)];
+    stages = [
+      stage(
+        bank,
+        "wander",
+        a.species === "otter"
+          ? "groom"
+          : a.species === "beaver"
+            ? "gnaw"
+            : "preen",
+        5,
+      ),
+      stage(outside, "wander", "freeze", 0.2),
+      {
+        ...stage(at, "swim", a.species === "mallard" ? "dabble" : "surface", 5),
+        path,
+      },
+      { ...stage(outside, "swim", "freeze", 0.2), path: [...path].reverse() },
+    ];
+  } else if (a.species === "squirrel" || a.species === "owl") {
+    const arch = run.world.placements.find(
+      (p) => p.id === resident.home + "-perch-arch",
+    )!;
+    const transform = (p: Pose): Pose => ({
+      position: rotate(p.position, xyz([0, arch.yaw, 0])).map(
+        (v, i) => v + arch.position[i],
+      ) as Vec3,
+      rotation: multiply(xyz([0, arch.yaw, 0]), p.rotation),
+    });
+    const stance = transform(
+      ARCH_STANCES[a.species === "squirrel" ? (index + 2) % 4 : index],
+    );
+    if (a.species === "owl") {
+      const away = transform({
+        position: [ARCH_STANCES[index].position[0], 5.2, 1.6],
+        rotation: [0, 0, 0, 1],
+      });
+      stages = [
+        {
+          ...stage(stance.position, "fly", "roost", 7),
+          rotation: stance.rotation,
+        },
+        { ...stage(away.position, "fly", "fly", 0.2), path: [stance, away] },
+        {
+          ...stage(stance.position, "fly", "roost", 7),
+          path: [away, stance],
+          rotation: stance.rotation,
+        },
+      ];
+    } else {
+      const approach = transform(pose([-2.5, 0, 1.0]));
+      const climb = SQUIRREL_CLIMB.map(transform);
+      climb.push(stance);
+      stages = [
+        stage(anchor("cache"), "wander", "cache", 5),
+        stage(approach.position, "wander", "freeze", 0.2),
+        {
+          ...stage(stance.position, "climb", "perch", 5, 0.8),
+          path: [approach, ...climb],
+          rotation: stance.rotation,
+        },
+        {
+          ...stage(approach.position, "descend", "freeze", 0.2, 0.8),
+          path: [stance, ...climb.slice(0, -1).reverse(), approach],
+        },
+      ];
+    }
+  } else if (a.species === "woodpecker") {
+    const snag =
+      run.world.placements.find((p) => p.id === resident.home + "-snag") ??
+      run.world.placements.find(
+        (p) =>
+          p.model === "SnagTall" && distance(p.position, resident.spawn) < 8,
+      )!;
+    const local: Vec3 = [
+      0,
+      2.5 + index * 0.45,
+      [
+        0.7388908567413354, 0.7238267356013756, 0.7052572026042866,
+        0.6851170750556442,
+      ][index],
+    ];
+    const p = rotate(local, xyz([0, snag.yaw, 0])).map(
+      (v, i) => v + snag.position[i],
+    ) as Vec3;
+    const rotation = xyz([0, snag.yaw + [-0.18, -0.3, -0.42, -0.42][index], 0]);
+    stages = [
+      { ...stage(p, "fly", "tap", 8), rotation },
+      { ...stage(p, "fly", "perch", 3), rotation },
+    ];
+  }
+  cache.set(a.id, stages);
+  return stages;
+}
+
+function wildlifeStep(
+  run: RunState,
+  a: Animal,
+  m: AnimalMemory,
+  dt: number,
+  extra: Box[],
+) {
+  const stages = routineStages(run, a);
+  if (!stages.length) return;
+  if (!m.goal.startsWith("routine:")) {
+    m.goal = "routine:0:0";
+    a.remaining = -1;
+  }
+  const [, stageText, pointText] = m.goal.split(":");
+  const index = Number(stageText) % stages.length,
+    s = stages[index];
+  let cursor = Number(pointText);
+  if (
+    disturbed(run, a, extra) &&
+    a.pose.position[1] < 0.5 &&
+    s.move !== "swim"
+  ) {
+    m.habituatedUntilTick = run.tick + 120;
+    a.behavior = a.species === "rabbit" ? "freeze" : "alert";
+    return;
+  }
+  if (run.tick < m.habituatedUntilTick) return;
+  if (a.remaining >= 0) {
+    a.behavior = s.action;
+    a.remaining = Math.max(0, a.remaining - dt);
+    if (s.action === "pounce")
+      a.pose.position[1] =
+        Math.sin(Math.PI * (1 - a.remaining / s.seconds)) * 0.35;
+    if (a.remaining <= 1e-6) {
+      a.remaining = -1;
+      m.goal = `routine:${(index + 1) % stages.length}:0`;
+    }
+    return;
+  }
+  a.behavior = s.move;
+  let arrived = false;
+  if (s.path || ["fly", "swim"].includes(s.move)) {
+    const path = s.path ?? [
+      { position: s.point, rotation: s.rotation ?? a.pose.rotation },
+    ];
+    const next = path[Math.min(cursor, path.length - 1)];
+    const length = distance(a.pose.position, next.position),
+      fraction = Math.min(1, (s.speed * dt) / Math.max(length, 1e-9));
+    const proposed = a.pose.position.map(
+      (v, i) => v + (next.position[i] - v) * fraction,
+    ) as Vec3;
+    // Elevated paths use measured support contacts, pool routes their resolved
+    // water bounds. Loose player equipment can still obstruct either path.
+    if (rayBlocked(a.pose.position, proposed, extra)) return;
+    a.pose.position = proposed;
+    if (s.move !== "swim") {
+      const same =
+        a.pose.rotation.reduce((sum, v, i) => sum + v * next.rotation[i], 0) >=
+        0
+          ? 1
+          : -1;
+      const q = a.pose.rotation.map(
+        (v, i) => v + (same * next.rotation[i] - v) * fraction,
+      );
+      const norm = Math.hypot(...q);
+      a.pose.rotation = q.map((v) => v / norm) as Pose["rotation"];
+    }
+    if (s.move === "climb" || s.move === "descend") {
+      const previous = path[Math.max(0, cursor - 1)];
+      const phase =
+        1 -
+        distance(proposed, next.position) /
+          Math.max(1e-9, distance(previous.position, next.position));
+      const progress =
+        s.move === "climb"
+          ? (cursor - 2 + phase) / 84
+          : (86 - cursor - phase) / 84;
+      // Negative remaining encodes frozen travel progress; nonnegative values
+      // are the action's remaining seconds. No wall-clock pose state is used.
+      a.remaining = -1 + 0.99 * Math.max(0, Math.min(1, progress));
+    }
+    if (length > 0.001 && s.move === "swim") {
+      const yaw = Math.atan2(
+        proposed[0] - next.position[0],
+        proposed[2] - next.position[2],
+      );
+      a.pose.rotation = xyz([0, yaw, 0]);
+    }
+    if (fraction === 1) {
+      cursor++;
+      m.goal = `routine:${index}:${cursor}`;
+    }
+    arrived = cursor >= path.length;
+  } else {
+    arrived = walk(run, a, s.point, s.speed, dt, extra);
+    if (s.move === "bound" && !arrived)
+      a.pose.position[1] = Math.abs(Math.sin((run.tick / 60) * 7)) * 0.16;
+  }
+  a.target = [...s.point];
+  if (arrived) {
+    if (s.rotation) a.pose.rotation = [...s.rotation];
+    a.behavior = s.action;
+    a.remaining = s.seconds;
+    m.interestPoint = [...a.pose.position];
+  }
+}
+
 export function stepAnimals(run: RunState, dt: number): void {
   const extra = run.props
     .filter((p) => !(p.kind === "plank" && p.placed))
@@ -739,8 +1019,10 @@ export function stepAnimals(run: RunState, dt: number): void {
       raccoonStep(run, a, m, dt, extra);
       continue;
     }
-    // Task 5 installs species-specific routines for the nine new residents.
-    if (a.species !== "deer" && a.species !== "heron") continue;
+    if (a.species !== "deer" && a.species !== "heron") {
+      wildlifeStep(run, a, m, dt, extra);
+      continue;
+    }
     const habitat = a.species === "deer" ? "clearing" : "wetland",
       home = homeFor(run, a),
       feed = anchorsFor(run, a).find((anchor) => anchor.kind === "feed"),

@@ -754,6 +754,17 @@ function updateHud() {
     roost: "roosting",
     tap: "tapping",
     dabble: "dabbling",
+    stalk: "stalking quietly",
+    passage: "following a wildlife trail",
+    freeze: "holding still",
+    bound: "bounding",
+    climb: "climbing",
+    descend: "climbing down",
+    perch: "resting on a perch",
+    fly: "flying to a nearby perch",
+    swim: "swimming",
+    surface: "surfacing",
+    sniff: "sniffing the ground",
   };
   $("camera-hint").textContent = me
     ? s.animals

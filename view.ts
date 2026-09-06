@@ -19,6 +19,7 @@ import {
   type Vec3,
 } from "./shared.ts";
 import { addForest, findPart } from "./forest-view.ts";
+import { wildlifeParts } from "./wildlife.ts";
 
 export const CREW_COLORS = [0xf4bd4f, 0xef7166, 0x51bddb, 0xb397ee];
 export const CAMERA_FAR = 360;
@@ -412,6 +413,15 @@ export async function createView(scene: THREE.Scene, world: ReserveBlueprint) {
       o.position.set(...a.pose.position);
       o.quaternion.set(...a.pose.rotation);
       const phase = state.tick / 60;
+      if (!["raccoon", "deer", "heron"].includes(a.species)) {
+        for (const [name, angles] of Object.entries(
+          wildlifeParts(a, state.tick),
+        )) {
+          const part = findPart(o, name);
+          if (part) part.rotation.set(...angles, "XYZ");
+        }
+        return;
+      }
       const walking =
         ["wander", "approach", "carry", "investigate", "retreat"].includes(
           a.behavior,
