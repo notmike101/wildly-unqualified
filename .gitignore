@@ -5,6 +5,7 @@ data/
 .artifacts/
 .worktrees/
 .superpowers/
+.omp/
 .playwright/
 **/__pycache__/
 *.blend1
