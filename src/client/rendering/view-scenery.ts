@@ -27,7 +27,7 @@ export function addFieldScenery(
     position: Vec3,
     scale?: Vec3,
   ) => THREE.Mesh,
-  field: (name: string, pos: Vec3, scale?: number) => THREE.Object3D | null,
+  field: (name: string, pos: Vec3, scale?: number) => THREE.Object3D | undefined,
 ) {
   /**
    * Draw a field-society sign to a canvas texture and mount its plane above the authored
