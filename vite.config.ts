@@ -12,5 +12,5 @@ export default defineConfig({
       "/ws": { target: "ws://127.0.0.1:4316", ws: true },
     },
   },
-  build: { outDir: "web-mvp", target: "es2022", assetsInlineLimit: 0 },
+  build: { outDir: "dist", target: "es2022", assetsInlineLimit: 0 },
 });

@@ -6,8 +6,8 @@ import jsdoc from "eslint-plugin-jsdoc";
 // API declarations are outside this implementation-documentation pass.
 export const documentation = {
   ...jsdoc.configs["flat/recommended-typescript-error"],
-  files: ["*.ts"],
-  ignores: ["*.test.ts", "*.d.ts"],
+  files: ["src/**/*.ts", "tests/**/*.ts", "scripts/**/*.ts", "vite.config.ts"],
+  ignores: ["**/*.test.ts", "**/*.d.ts"],
   settings: { jsdoc: { mode: "typescript" } },
   rules: {
     ...jsdoc.configs["flat/recommended-typescript-error"].rules,
@@ -45,6 +45,7 @@ export default [
       "public/**",
       "web/**",
       "web-mvp/**",
+      "dist/**",
       "*.mjs",
     ],
   },

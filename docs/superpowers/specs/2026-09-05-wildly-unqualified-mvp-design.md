@@ -2,7 +2,7 @@
 
 Date: 2026-09-05. **Status: direction approved with the user's mature-forest, skybox and expanded-model correction; implementation planning.** This extends the accepted rough prototype. It preserves the [prototype design](2026-09-05-wildly-unqualified-prototype.md), existing builds, saves and every other game concept. Approval of direction is not evidence that the MVP is implemented.
 
-The user has chosen a 20–30-minute outing for 2–4 friends on separate internet connections, regular physical co-op challenges alongside wildlife photography, light mischief and mayhem, and a cleaner low-poly aesthetic. The user observed the [four-player prototype run](../../../PLAYTEST-2026-09-05.md) and requested improved collisions, wildlife, player identification, duration, clear paths and environmental detail. The subsequent correction makes a mature forest, an associated skybox and a substantially expanded model library explicit requirements. Remaining numeric values are reversible implementation defaults.
+The user has chosen a 20–30-minute outing for 2–4 friends on separate internet connections, regular physical co-op challenges alongside wildlife photography, light mischief and mayhem, and a cleaner low-poly aesthetic. The user observed the [four-player prototype run](../../history/PLAYTEST-2026-09-05.md) and requested improved collisions, wildlife, player identification, duration, clear paths and environmental detail. The subsequent correction makes a mature forest, an associated skybox and a substantially expanded model library explicit requirements. Remaining numeric values are reversible implementation defaults.
 
 ## Direction and alternatives
 

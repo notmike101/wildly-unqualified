@@ -1,6 +1,6 @@
 # Wildly Unqualified: first outing design
 
-Date: 2026-09-05. Status: approved design implemented as a local technical prototype; see [observed verification](../../../VERIFICATION.md). Human duration, unfamiliar cooperation and separate-internet play remain unverified. User-confirmed: a 20–30-minute outing first, with friends on separate internet connections. Other choices below are explicit, reversible design defaults.
+Date: 2026-09-05. Status: approved design implemented as a local technical prototype; see [observed verification](../../history/VERIFICATION.md). Human duration, unfamiliar cooperation and separate-internet play remain unverified. User-confirmed: a 20–30-minute outing first, with friends on separate internet connections. Other choices below are explicit, reversible design defaults.
 
 ## Purpose and scope
 

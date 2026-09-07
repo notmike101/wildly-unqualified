@@ -20,13 +20,13 @@ Use the existing TypeScript, Three.js, Box3D and Node stack. No new engine, proc
 
 ## Evidence from the current game
 
-Inspection found a fixed **156 × 136 m** world, 718 placements, 202 movement walls, 416 physics boxes, nine walkable surfaces and 28 navigation nodes. Its three trail polylines total approximately 365 m. The seed selects three binary habitat locations and three binary commission choices; it does not change the map layout. Sources: [level.ts](../../../level.ts), [chooseOuting in encounters.ts](../../../encounters.ts).
+Inspection found a fixed **156 × 136 m** world, 718 placements, 202 movement walls, 416 physics boxes, nine walkable surfaces and 28 navigation nodes. Its three trail polylines total approximately 365 m. The seed selects three binary habitat locations and three binary commission choices; it does not change the map layout. Sources: [level.ts](../../../src/shared/world/level.ts), [chooseOuting in encounters.ts](../../../src/server/simulation/wildlife/encounters.ts).
 
-There are three animals, with identity equal to species, one global feeding patch, one gate and one crossing. Rendering, prediction, physics, navigation and photo validation import static world data. These assumptions must change together. [shared.ts](../../../shared.ts), [game.ts](../../../game.ts), [save.ts](../../../save.ts).
+There are three animals, with identity equal to species, one global feeding patch, one gate and one crossing. Rendering, prediction, physics, navigation and photo validation import static world data. These assumptions must change together. [shared.ts](../../../src/shared/shared.ts), [game.ts](../../../src/server/simulation/game.ts), [save.ts](../../../src/server/persistence/save.ts).
 
-The completed [MVP verification](../../../VERIFICATION.md) records functional outing chains, but also two frequent observers during four-player photography and a dominant tin-escort solution. It does not establish human completion time or enjoyment. Expanding distances alone would preserve those weaknesses. The earlier [teamwork research](../../../../../research/wildly-unqualified-teamwork-and-mischief.md) supports persistent route preparation, rotating roles and recoverable interference as design hypotheses, not proven outcomes for this game.
+The completed [MVP verification](../../history/VERIFICATION.md) records functional outing chains, but also two frequent observers during four-player photography and a dominant tin-escort solution. It does not establish human completion time or enjoyment. Expanding distances alone would preserve those weaknesses. The earlier [teamwork research](../../../../../research/wildly-unqualified-teamwork-and-mischief.md) supports persistent route preparation, rotating roles and recoverable interference as design hypotheses, not proven outcomes for this game.
 
-Current audio is seven short oscillator effects in [view.ts](../../../view.ts), with a single volume control and distance attenuation in [main.ts](../../../main.ts). There are no natural sound beds or music. The distance calculation retains a small audible floor beyond its nominal range.
+Current audio is seven short oscillator effects in [view.ts](../../../src/client/rendering/view.ts), with a single volume control and distance attenuation in [main.ts](../../../src/client/main.ts). There are no natural sound beds or music. The distance calculation retains a small audible floor beyond its nominal range.
 
 ## The generated reserve
 

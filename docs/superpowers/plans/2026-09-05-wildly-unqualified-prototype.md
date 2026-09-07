@@ -8,7 +8,7 @@
 
 **Tech Stack:** Node 26.5+ within major 26; TypeScript 7.0.2; Three.js 0.185.1; box3d-wasm 0.2.0 standard; Vite 8.2.2; Blender 5.2.1 LTS; native browser WebSocket plus proposed `ws` 8.21.3 and `@types/ws` 8.18.1; existing Node test runner, Playwright 1.63.0 and glTF validator.
 
-**Spec:** [First outing design](../specs/2026-09-05-wildly-unqualified-prototype.md). Approved 2026-09-05; implementation now exists. [Implementation ledger](../../../IMPLEMENTATION.md) and [observed verification](../../../VERIFICATION.md) track the executed result and remaining gates. The checkboxes below preserve the approved build checklist rather than claiming every human/internet acceptance item has passed.
+**Spec:** [First outing design](../specs/2026-09-05-wildly-unqualified-prototype.md). Approved 2026-09-05; implementation now exists. [Implementation ledger](../../history/IMPLEMENTATION.md) and [observed verification](../../history/VERIFICATION.md) track the executed result and remaining gates. The checkboxes below preserve the approved build checklist rather than claiming every human/internet acceptance item has passed.
 
 ## Global Constraints
 

@@ -1,7 +1,9 @@
 node_modules/
 web/
 web-mvp/
+dist/
 data/
+data-expedition/
 .artifacts/
 .worktrees/
 .superpowers/

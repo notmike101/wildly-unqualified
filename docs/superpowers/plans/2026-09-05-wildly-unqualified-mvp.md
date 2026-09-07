@@ -10,7 +10,7 @@
 
 **Spec:** [Approved direction and forest correction](../specs/2026-09-05-wildly-unqualified-mvp-design.md). Read the [39-model asset brief](../../../assets/BRIEF-v3.md) alongside this plan.
 
-**Checkpoint:** shared world/state and forest/identity rendering are implemented; 39 assets are exported. The longer gameplay, full habitat review and MVP release are unfinished. Delegated workers hit the account usage limit. See [current evidence and exact next work](../../../MVP-CHECKPOINT-2026-09-05.md).
+**Checkpoint:** shared world/state and forest/identity rendering are implemented; 39 assets are exported. The longer gameplay, full habitat review and MVP release are unfinished. Delegated workers hit the account usage limit. See [current evidence and exact next work](../../history/MVP-CHECKPOINT-2026-09-05.md).
 
 ## Global constraints
 
@@ -323,4 +323,4 @@ node wildly-unqualified/assets/check.mjs wildly-unqualified/public/models wildly
 
 The direction is approved. Execute these tasks with review checkpoints; no additional approval of the same forest correction or routine tool/workflow choices is needed.
 
-Technical acceptance closed on 2026-09-05 local / 2026-09-06 UTC. The [current checkpoint](../../../MVP-CHECKPOINT-2026-09-05.md) and [verification record](../../../VERIFICATION.md) identify final build `index-C-4DfThH.js`, 111 passing game tests, the three completed visible outing chains and their preserved interruptions, final visual evidence, actual production-release migration and the fresh own-PC room. Human duration, enjoyment, contribution balance, separate-network human play and the inaccessible home server remain separate unmeasured gates.
+Technical acceptance closed on 2026-09-05 local / 2026-09-06 UTC. The [current checkpoint](../../history/MVP-CHECKPOINT-2026-09-05.md) and [verification record](../../history/VERIFICATION.md) identify final build `index-C-4DfThH.js`, 111 passing game tests, the three completed visible outing chains and their preserved interruptions, final visual evidence, actual production-release migration and the fresh own-PC room. Human duration, enjoyment, contribution balance, separate-network human play and the inaccessible home server remain separate unmeasured gates.

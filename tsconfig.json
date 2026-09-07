@@ -11,6 +11,20 @@
     "types": ["node", "vite/client"],
     "erasableSyntaxOnly": true
   },
-  "include": ["*.ts"],
-  "exclude": ["web", "web-mvp", "data", "node_modules", ".worktrees"]
+  "include": [
+    "src/**/*.ts",
+    "tests/**/*.ts",
+    "scripts/**/*.ts",
+    "vite.config.ts"
+  ],
+  "exclude": [
+    "dist",
+    "web",
+    "web-mvp",
+    "data",
+    "data-expedition",
+    "node_modules",
+    ".worktrees",
+    ".artifacts"
+  ]
 }

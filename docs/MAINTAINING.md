@@ -1,63 +1,104 @@
 # Maintaining Wildly Unqualified
 
-This is the current source map. The dated MVP checkpoints and OMP handoffs are historical evidence and unfinished-work references. They do not describe a fully accepted expansion. This cleanup changes module boundaries, not game rules, save formats, or wildlife routines.
+This is the current source map. The dated MVP checkpoints and OMP handoffs are historical evidence and unfinished-work references. They do not describe a fully accepted expansion. The responsibility-based layout changes file locations and tooling paths, not game rules, save formats, or wildlife routines.
+
+## Directory boundaries
+
+Vite uses the root `index.html` and bundles `src/client/main.ts` into ignored
+`dist/`. Static model/audio URLs remain in `public/`; `assets/` contains
+editable authoring sources and provenance, not browser modules. Original versioned
+assets and the preserved `web/` / `web-mvp/` builds have not moved.
+
+| Directory | Responsibility |
+| --- | --- |
+| `src/client/session/` | Admission, HTTP requests and local preferences |
+| `src/client/ui/` | HUD, notebook and styles |
+| `src/client/rendering/` | Graphics, scene/model lifetime, interpolation and photo capture |
+| `src/client/audio/` | Audio engine and retained sound feedback |
+| `src/server/` | Server entry point, configuration and HTTP helpers |
+| `src/server/persistence/` | Atomic saves, credentials and save validation |
+| `src/server/simulation/` | Authoritative game state, rules, physics and scoring |
+| `src/server/simulation/wildlife/` | Animal decisions, navigation and encounters |
+| `src/shared/world/` | Reserve generation/validation, level and collision catalogs |
+| `src/shared/wildlife/` | Shared animal poses and measured geometry |
+| `src/shared/shared.ts` | Wire contracts, command validation and shared calculations |
+| `src/types/` | External declarations |
+| `tests/` | Tests grouped by owner, integration scenarios, E2E and helpers |
+| `scripts/` | Release tooling |
+| `docs/history/` | Earlier checkpoints, runbooks and verification records |
+
+Client/shared runtime modules must not depend on server modules. Server simulation
+uses shared geometry; rendering uses the same geometry without importing server
+state or filesystem/network services. Keep relative imports and existing public
+exports; do not add aliases or duplicate barrel modules just to shorten paths.
+
+The portable release and browser snapshots use `copyRuntime` in
+`scripts/release.ts`, which checks local imports with the already-installed
+TypeScript compiler API and copies only the explicit runtime allowlist with its
+nested paths. Frozen browser evidence may still have the older flat runtime;
+the driver detects that entry point when resuming it. Adding a server/shared
+runtime dependency requires updating the allowlist and release-content test.
+
+Server-relative paths resolve against the game root, not `src/server/` or the
+shell working directory. In a portable release that root is `wildly-unqualified/`.
+See [the server guide](SERVER.md) for source/portable startup commands.
 
 ## Follow a game action
 
-1. `main.ts` connects input, session state, prediction, and rendering. Browser components receive the state or callbacks they need; they do not import the entry point. Admission callbacks read current state after asynchronous requests, rather than retaining a stale snapshot.
-2. `server.ts` owns the room, HTTP/WebSocket lifecycle, authoritative tick loop, and persistence scheduling. `server-http.ts` provides bounded request parsing, safe paths, tokens, and responses. `shared.ts` defines wire messages, validates commands, and supplies shared geometry.
-3. `game.ts` is the compatible public API. `game-commands.ts` applies player commands; `game-simulation.ts` advances the run. Both use `game-support.ts` for shared run operations and `equipment.ts` for grips, swept movement, seating, release, and recovery. Their caches remain keyed by run identity.
-4. `encounters.ts` schedules and dispatches wildlife decisions. Navigation, shared behavior, raccoon behavior, and species routines have separate modules listed below. `wildlife.ts` supplies calibrated poses and sight checks; `wildlife-data.ts` and `support-meshes.ts` retain measured asset data. Existing incomplete behavior remains documented below.
-5. `game-snapshot.ts` copies snapshots and freezes photo frames. `photo.ts` scores those frames independently of later live movement. `photo-capture.ts` produces the image and restores renderer state. The live view owns its scene resources; extracted scenery creation still registers materials with that owner so disposal remains complete.
-6. `save.ts` owns file IO, serialized atomic replacement, backups, and room credentials. `save-validation.ts` validates complete runs and photographs using the entity validators in `save-values.ts`. `release.ts` retains an explicit portable runtime allowlist.
+1. `src/client/main.ts` connects input, session state, prediction, and rendering. Browser components receive the state or callbacks they need; they do not import the entry point. Admission callbacks read current state after asynchronous requests, rather than retaining a stale snapshot.
+2. `src/server/server.ts` owns the room, HTTP/WebSocket lifecycle, authoritative tick loop, and persistence scheduling. `src/server/server-http.ts` provides bounded request parsing, safe paths, tokens, and responses. `src/shared/shared.ts` defines wire messages, validates commands, and supplies shared geometry.
+3. `src/server/simulation/game.ts` is the compatible public API. `src/server/simulation/game-commands.ts` applies player commands; `src/server/simulation/game-simulation.ts` advances the run. Both use `src/server/simulation/game-support.ts` for shared run operations and `src/server/simulation/equipment.ts` for grips, swept movement, seating, release, and recovery. Their caches remain keyed by run identity.
+4. `src/server/simulation/wildlife/encounters.ts` schedules and dispatches wildlife decisions. Navigation, shared behavior, raccoon behavior, and species routines have separate modules listed below. `src/shared/wildlife/wildlife.ts` supplies calibrated poses and sight checks; `src/shared/wildlife/wildlife-data.ts` and `src/shared/wildlife/support-meshes.ts` retain measured asset data. Existing incomplete behavior remains documented below.
+5. `src/server/simulation/game-snapshot.ts` copies snapshots and freezes photo frames. `src/server/simulation/photo.ts` scores those frames independently of later live movement. `src/client/rendering/photo-capture.ts` produces the image and restores renderer state. The live view owns its scene resources; extracted scenery creation still registers materials with that owner so disposal remains complete.
+6. `src/server/persistence/save.ts` owns file IO, serialized atomic replacement, backups, and room credentials. `src/server/persistence/save-validation.ts` validates complete runs and photographs using the entity validators in `src/server/persistence/save-values.ts`. `scripts/release.ts` retains an explicit portable runtime allowlist.
 
 ## Where to make a change
 
 | Change | Modules |
 | --- | --- |
-| Run creation, crew admission/disconnection, physics lifetime | `game-lifecycle.ts` |
-| Player command rules | `game-commands.ts` |
-| Per-tick movement, equipment, and wildlife scheduling | `game-simulation.ts` |
-| Spawn safety, carried tin, release, recoverable incidents | `game-support.ts` |
-| Server-only state and bounded event/observation bookkeeping | `game-state.ts` |
-| Animal paths, collision checks, walking, and recovery positions | `animal-navigation.ts` |
-| Animal memory and habitat lookup | `animal-context.ts` |
-| Shared animal goals, disturbance, and lure approaches | `animal-behavior.ts` |
-| Raccoon investigation, theft, and washing | `raccoon.ts` |
-| Species-specific routine stages and transitions | `animal-routines.ts` |
-| HUD status, equipment prompts, camera guidance | `hud.ts` |
-| Observations, album controls, reserve map | `notebook.ts` |
-| Join form and host slot reassignment | `client-admission.ts` |
-| Same-origin JSON requests and HTTP error status | `client-api.ts` |
-| Preferences and key binding controls | `client-settings.ts` |
-| WebGPU device, viewport, and device-loss handling | `client-graphics.ts` |
-| Render-only snapshot interpolation | `client-interpolation.ts` |
-| Model loading and transient-load retries | `view-assets.ts` |
-| Static signs, markers, tracks, branch piles | `view-scenery.ts` |
-| Actor/equipment updates and scene lifetime | `view.ts`; forest terrain/shadows in `forest-view.ts` |
-| Camera range and crew colors | `view-constants.ts` |
-| Forest audio / retained MVP feedback sounds | `audio.ts` / `legacy-sound.ts` |
-| Environment settings and private/public directory separation | `server-config.ts` |
+| Run creation, crew admission/disconnection, physics lifetime | `src/server/simulation/game-lifecycle.ts` |
+| Player command rules | `src/server/simulation/game-commands.ts` |
+| Per-tick movement, equipment, and wildlife scheduling | `src/server/simulation/game-simulation.ts` |
+| Spawn safety, carried tin, release, recoverable incidents | `src/server/simulation/game-support.ts` |
+| Server-only state and bounded event/observation bookkeeping | `src/server/simulation/game-state.ts` |
+| Animal paths, collision checks, walking, and recovery positions | `src/server/simulation/wildlife/animal-navigation.ts` |
+| Animal memory and habitat lookup | `src/server/simulation/wildlife/animal-context.ts` |
+| Shared animal goals, disturbance, and lure approaches | `src/server/simulation/wildlife/animal-behavior.ts` |
+| Raccoon investigation, theft, and washing | `src/server/simulation/wildlife/raccoon.ts` |
+| Species-specific routine stages and transitions | `src/server/simulation/wildlife/animal-routines.ts` |
+| HUD status, equipment prompts, camera guidance | `src/client/ui/hud.ts` |
+| Observations, album controls, reserve map | `src/client/ui/notebook.ts` |
+| Join form and host slot reassignment | `src/client/session/client-admission.ts` |
+| Same-origin JSON requests and HTTP error status | `src/client/session/client-api.ts` |
+| Preferences and key binding controls | `src/client/session/client-settings.ts` |
+| WebGPU device, viewport, and device-loss handling | `src/client/rendering/client-graphics.ts` |
+| Render-only snapshot interpolation | `src/client/rendering/client-interpolation.ts` |
+| Model loading and transient-load retries | `src/client/rendering/view-assets.ts` |
+| Static signs, markers, tracks, branch piles | `src/client/rendering/view-scenery.ts` |
+| Actor/equipment updates and scene lifetime | `src/client/rendering/view.ts`; forest terrain/shadows in `src/client/rendering/forest-view.ts` |
+| Camera range and crew colors | `src/client/rendering/view-constants.ts` |
+| Forest audio / retained MVP feedback sounds | `src/client/audio/audio.ts` / `src/client/audio/legacy-sound.ts` |
+| Environment settings and private/public directory separation | `src/server/server-config.ts` |
 
-The acceptance driver is also separated: `browser.ts` owns setup, failure evidence, and cleanup; `browser-navigation.ts` owns read-only guidance and ordinary keyboard/button navigation; `browser-outing.ts` retains the historical outing scenario. Its context contains the existing shared evidence arrays and callbacks. Restart status is a getter so browser event callbacks see the current value. Importing the navigation or scenario modules does not launch a server or browser.
+The acceptance driver is also separated: `tests/e2e/browser.ts` owns setup, failure evidence, and cleanup; `tests/e2e/browser-navigation.ts` owns read-only guidance and ordinary keyboard/button navigation; `tests/e2e/browser-outing.ts` retains the historical outing scenario. Its context contains the existing shared evidence arrays and callbacks. Restart status is a getter so browser event callbacks see the current value. Importing the navigation or scenario modules does not launch a server or browser.
 
 ## Follow a reserve
 
 | Module | Responsibility |
 | --- | --- |
-| `world-data.ts` | Blueprint types, species/routine data, resident names, commission descriptions. |
-| `world-geometry.ts` | Shared placement, terrain, fixture, corridor, camera, and canopy calculations. |
-| `world-validation.ts` | Complete blueprint validation, freezing, and hashing at trust boundaries. |
-| `world.ts` | Seeded generation, trails, commission binding, and bounded generation retries. |
-| `level.ts` | Generated fixture geometry and compatible public exports for the catalog. |
-| `level-data.ts` | Equipment dimensions, rules, and retained MVP landmark constants. |
-| `forest-models.ts` | Authored model collision catalog and placement transforms. |
-| `legacy-level.ts` | Preserved MVP forest layout, trails, and route geometry. |
-| `subject-geometry.ts` | Articulation and photo subject geometry shared by rendering and scoring. |
+| `src/shared/world/world-data.ts` | Blueprint types, species/routine data, resident names, commission descriptions. |
+| `src/shared/world/world-geometry.ts` | Shared placement, terrain, fixture, corridor, camera, and canopy calculations. |
+| `src/shared/world/world-validation.ts` | Complete blueprint validation, freezing, and hashing at trust boundaries. |
+| `src/shared/world/world.ts` | Seeded generation, trails, commission binding, and bounded generation retries. |
+| `src/shared/world/level.ts` | Generated fixture geometry and compatible public exports for the catalog. |
+| `src/shared/world/level-data.ts` | Equipment dimensions, rules, and retained MVP landmark constants. |
+| `src/shared/world/forest-models.ts` | Authored model collision catalog and placement transforms. |
+| `src/shared/world/legacy-level.ts` | Preserved MVP forest layout, trails, and route geometry. |
+| `src/shared/world/subject-geometry.ts` | Articulation and photo subject geometry shared by rendering and scoring. |
 
-Existing callers can continue importing the public reserve API from `world.ts` and run/photo API from `game.ts`. Their exports forward to the extracted modules. Internal reserve modules depend on data and geometry directly, avoiding a runtime dependency back into the generator. Server state imports in equipment and encounter code are types, not runtime initialization dependencies.
+Existing callers can continue importing the public reserve API from `src/shared/world/world.ts` and run/photo API from `src/server/simulation/game.ts`. Their exports forward to the extracted modules. Internal reserve modules depend on data and geometry directly, avoiding a runtime dependency back into the generator. Server state imports in equipment and encounter code are types, not runtime initialization dependencies.
 
-The extracted modules form no local runtime import cycles. Prefer importing a specific implementation module inside a subsystem; keep the compatible API modules for existing callers. Keep application startup in `main.ts`, `server.ts`, or `browser.ts`, rather than adding startup side effects to reusable modules.
+The extracted modules form no local runtime import cycles. Prefer importing a specific implementation module inside a subsystem; keep the compatible API modules for existing callers. Keep application startup in `src/client/main.ts`, `src/server/server.ts`, or `tests/e2e/browser.ts`, rather than adding startup side effects to reusable modules.
 
 Keep world generation deterministic. Generation and validation deliberately share the same geometry calculations. Keep validation at the network/save boundary, authoritative commands on the server, and photographs frozen before asynchronous image capture. Do not regenerate a saved outing from its seed in place of its validated blueprint.
 
@@ -73,9 +114,72 @@ npm run lint:docs
 npm test
 ```
 
-Tests stay beside the runtime modules. `game.test.ts`, the `expedition-*.test.ts` files, and `world.test.ts` exercise the extracted code through its existing public API. `release.test.ts` checks the portable package's exact runtime contents, including the new server modules. When adding a runtime module, update the allowlist in `release.ts` and its expectation in `release.test.ts`. Browser-only modules are included by the existing build.
+Tests live under `tests/client`, `tests/server`, `tests/shared`, and `tests/integration`, with the visible browser driver under `tests/e2e` and reusable test helpers under `tests/helpers`. The npm test glob discovers all `tests/**/*.test.ts`; historical handoff drafts are excluded. `tests/server/game.test.ts`, the `tests/integration/expedition-*.test.ts` files, and `tests/shared/world.test.ts` exercise the extracted code through its existing public API. `tests/integration/release.test.ts` checks the portable package's exact runtime contents, including the new server modules. When adding a runtime module, update the allowlist in `scripts/release.ts` and its expectation in `tests/integration/release.test.ts`. Browser-only modules are included by the existing build.
 
-The complete suite includes a large deterministic seed sweep and takes roughly three minutes on the development machine. `npm run test:browser` is the existing visible gameplay driver and uses port 4316; its historical acceptance results are separate from this cleanup. No fresh multiplayer or visual acceptance is claimed here.
+The complete suite includes a large deterministic seed sweep and takes roughly three minutes on the development machine. `npm run test:browser` is the existing visible gameplay driver and uses port 4320 by default (override `WU_TEST_PORT` and set a matching `WU_TEST_URL`); its historical acceptance results are separate from this cleanup. The dated records below describe prior checks; the reorganization verification is recorded separately.
+
+## Responsibility-based layout verification — 2026-09-07
+
+The approved [layout design and exact move manifest](superpowers/specs/2026-09-07-project-layout-design.md)
+cover 82 existing files and the new isolated-runtime regression test. The original
+README and MVP server guide are also retained in `docs/history/`. Public assets,
+editable authoring files, package lock and pinned dependencies are unchanged.
+
+After normalizing import paths, formatting and trailing import commas, the
+executable syntax of **50 runtime TypeScript files is unchanged**. The two
+intentional runtime adaptations are the game-root path anchor in
+`src/server/server-config.ts` and the reusable command-line startup function in
+`src/server/server.ts`. Independent review found no unresolved imports or
+client/shared dependencies on server code.
+
+| Check | Observed result |
+| --- | --- |
+| Production build and TypeScript check | Pass; existing large-bundle warning remains |
+| Recursive formatting check | Pass |
+| Recursive documentation lint | Pass |
+| General Airbnb lint | 1,510 errors and 17 warnings; pre-existing style debt remains |
+| Full Node test suite | 206 tests: 192 pass, the same 14 existing failures; none skipped |
+| Final runtime-copy, release and save tests | 19/19 pass |
+| Independent release, runtime-copy and audio tests | 22/22 pass |
+| Production-only portable installation | Three runtime packages installed, no TypeScript or Vite |
+| Portable launcher from a different working directory | Health, HTML, JS, CSS, model assets, authenticated WebSocket, relative data path, save-and-stop pass |
+
+The isolated baseline was commit `9b62155`. Build, formatting and documentation
+lint passed; general lint had 1,511 errors and 17 warnings. Its initial full test
+run measured 205 tests, 190 passing and 15 failing because build and tests were
+started concurrently and the release test raced the first build. That release
+test passed when rerun after the build. Excluding that harness race leaves the
+same 14 named expansion failures as the post-move run; the full corrected
+191/14 baseline total is derived, not a separately repeated measurement.
+
+The new isolated-runtime check failed before `copyRuntime` existed and passes
+afterward. It imports the copied server without source files alongside it,
+checks default and relative configuration roots and overlap rejection, serves
+an isolated page, and verifies that source and private room files are inaccessible.
+
+Two visible Edge clients joined and rendered through real WebGPU with no page
+errors or final asset errors. The existing outing scenario then failed with
+`Camera could not face the next waypoint with arrow keys`. The baseline reproduced
+the same first-approach failure after repairing only its ignored test harness's
+incomplete runtime-copy list. This is not full gameplay acceptance. The owned
+browsers and servers closed successfully.
+
+Resuming with the updated driver was also exercised against both original flat
+runtime evidence and new nested runtime evidence. Both restored the saved world
+and two players, then encountered the same camera-navigation limitation at a
+later travel step. Frozen-runtime compatibility passes startup/rejoin checks;
+neither continuation is claimed as a completed outing.
+
+The existing server MIME allowlist still rejects JSON/WAV/OGG. The portable
+smoke check confirms audio exports are copied byte-for-byte, but does not claim
+that packaging completes the unfinished audio-serving integration.
+
+Detailed command logs, baseline archive, source comparison, portable smoke report
+and browser logs are local under `.artifacts/reorganization/`. Browser snapshots,
+screenshots and cleanup records are under
+`.artifacts/wildly-unqualified/mvp-2026-09-05/`. Private test data stays ignored.
+
+> The following dated sections retain their original module paths and results.
 
 ## Merge and verification record — 2026-09-06
 
