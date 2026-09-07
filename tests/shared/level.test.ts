@@ -52,7 +52,6 @@ function walk(points: Vec3[], surfaces = WALKABLES) {
     pitch: 0,
     lastSeq: 0,
     connected: true,
-    lastInput: null,
     inputTick: 0,
   };
   const walls = [...WALLS, ...routeBoxes({ crossing: "left", gateOpen: true })];

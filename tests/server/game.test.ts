@@ -1430,7 +1430,7 @@ test("disconnect releases the held tin and freezes timers; a guest can continue 
   run.players[1].position = [-10.4, 0, 1];
   addPlayer(run, "a", "A");
   assert.equal(run.players.length, 2);
-  assert.equal(run.players[0].lastInput, null);
+  assert.equal(run.players[0].lastInput, undefined);
   assert.ok(distance(run.players[0].position, run.players[1].position) < 8);
   assert.throws(() => command(run, "b", "pause"), /host/i);
 });

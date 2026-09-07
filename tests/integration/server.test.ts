@@ -41,7 +41,7 @@ test("only explicit equipment contacts and native tin contacts route to impact c
   const eventCueKind = (Server as any).eventCueKind;
   assert.equal(typeof eventCueKind, "function");
   assert.equal(eventCueKind({ kind: "impact", player: "a" }), "impact");
-  assert.equal(eventCueKind({ kind: "noise", player: "a" }), null);
+  assert.equal(eventCueKind({ kind: "noise", player: "a" }), undefined);
   assert.equal(eventCueKind({ kind: "noise", player: "tin" }), "impact");
 });
 async function fixture(t: TestContext) {

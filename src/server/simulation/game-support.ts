@@ -95,7 +95,7 @@ export function updateHats(run: RunState) {
  */
 export function neutralize(run: RunState) {
   for (const p of run.players) {
-    p.lastInput = null;
+    delete p.lastInput;
     p.inputTick = run.tick;
   }
 }

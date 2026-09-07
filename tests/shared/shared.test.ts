@@ -31,7 +31,6 @@ const player: Player = {
   pitch: 0,
   lastSeq: 0,
   connected: true,
-  lastInput: null,
   inputTick: 0,
 };
 const input: Input = {

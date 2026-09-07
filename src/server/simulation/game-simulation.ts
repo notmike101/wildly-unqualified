@@ -120,7 +120,7 @@ export function advanceRun(run: RunState, dt: number): void {
           playerSpeed(p.id, p.lastInput, run.props),
         ),
       );
-    } else p.lastInput = null;
+    } else delete p.lastInput;
     if (!nearby(p.position, run.world.camp, 6))
       run.ready = run.ready.filter((id) => id !== p.id);
   }

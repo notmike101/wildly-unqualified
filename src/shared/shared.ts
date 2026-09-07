@@ -137,7 +137,7 @@ export type Player = {
     pitch: number;
     lastSeq: number;
     connected: boolean;
-    lastInput: Input | null;
+    lastInput?: Input;
     inputTick: number;
 };
 export type Animal = {

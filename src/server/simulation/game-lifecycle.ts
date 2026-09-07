@@ -155,7 +155,7 @@ export function addPlayer(run: RunState, id: string, name: string): Player {
   if (p) {
     p.connected = true;
     p.position = position;
-    p.lastInput = null;
+    delete p.lastInput;
     p.inputTick = run.tick;
   } else {
     const slot = ([0, 1, 2, 3] as CrewSlot[]).find(
@@ -171,7 +171,6 @@ export function addPlayer(run: RunState, id: string, name: string): Player {
       pitch: 0,
       lastSeq: 0,
       connected: true,
-      lastInput: null,
       inputTick: run.tick,
     };
     run.players.push(p);

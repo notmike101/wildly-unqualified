@@ -553,7 +553,7 @@ function receive(state: Snapshot) {
       while (predTick < end) {
         const held =
           history.get(predTick + 1) ??
-          (predTick - p.inputTick < 15 ? p.lastInput : null);
+          (predTick - p.inputTick < 15 ? p.lastInput : undefined);
         if (held) predicted = predictStep(predicted, held, state);
         predTick++;
       }

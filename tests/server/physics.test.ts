@@ -88,7 +88,6 @@ test("both visual dry-bank edges support walking and the native tin", async () =
       pitch: 0,
       lastSeq: 0,
       connected: true,
-      lastInput: null,
       inputTick: 0,
     };
     for (let step = 0; step < 50; step++)

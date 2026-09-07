@@ -82,7 +82,8 @@ export function applyCommand(
     p.yaw = cmd.value.yaw;
     p.pitch = cmd.value.pitch;
     p.inputTick = run.tick;
-    p.lastInput = run.paused || run.phase === "exhibition" ? null : cmd.value;
+    if (run.paused || run.phase === "exhibition") delete p.lastInput;
+    else p.lastInput = cmd.value;
     return;
   }
   if (cmd.type === "start") {

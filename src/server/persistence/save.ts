@@ -175,7 +175,7 @@ export function saveRun(
       prop.velocity = [0, 0, 0];
       prop.angularVelocity = [0, 0, 0];
     }
-    for (const player of saved.players) player.lastInput = null;
+    for (const player of saved.players) delete player.lastInput;
     raw = JSON.stringify({
       version: 3,
       run: saved,

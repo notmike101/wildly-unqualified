@@ -10,17 +10,21 @@ import {
  *
  * @param value - Untrusted saved value
  * @param fields - Exact required field names, or omission to check only object shape
+ * @param optional - Field names allowed but not required, for format evolution
  * @returns The same object as a record; no clone is made.
  * @throws {Error} The value is not an object or its fields do not match.
  */
-export function obj(value: unknown, fields?: string[]): Record<string, any> {
+export function obj(value: unknown, fields?: string[], optional?: string[]) {
   if (!value || typeof value !== "object" || Array.isArray(value))
     throw Error("Invalid save object");
   const v = value as Record<string, any>;
   if (
     fields &&
-    (Object.keys(v).length !== fields.length ||
-      Object.keys(v).some((k) => !fields.includes(k)))
+    (Object.keys(v).length < fields.length ||
+      Object.keys(v).length > fields.length + (optional?.length ?? 0) ||
+      Object.keys(v).some(
+        (k) => !fields.includes(k) && !(optional ?? []).includes(k),
+      ))
   )
     throw Error("Unknown or missing save fields");
   return v;
@@ -162,18 +166,21 @@ function pose(value: unknown) {
  * @throws {Error} A player field or embedded input message is invalid.
  */
 export function player(value: unknown) {
-  const v = obj(value, [
-    "id",
-    "name",
-    "slot",
-    "position",
-    "yaw",
-    "pitch",
-    "lastSeq",
-    "connected",
-    "lastInput",
-    "inputTick",
-  ]);
+  const v = obj(
+    value,
+    [
+      "id",
+      "name",
+      "slot",
+      "position",
+      "yaw",
+      "pitch",
+      "lastSeq",
+      "connected",
+      "inputTick",
+    ],
+    ["lastInput"],
+  );
   id(v.id);
   text(v.name, 24);
   integer(v.slot, 0, 3);
@@ -183,7 +190,7 @@ export function player(value: unknown) {
   integer(v.lastSeq);
   bool(v.connected);
   integer(v.inputTick);
-  if (v.lastInput !== null)
+  if (v.lastInput !== null && v.lastInput !== undefined)
     parseMessage({ type: "input", worldId: "saved-input", value: v.lastInput });
 }
 /**
