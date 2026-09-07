@@ -65,12 +65,14 @@ Box3D, ws, Node test runner, Playwright and ESLint. No new dependencies.
   compatibility, discovery coverage, documentation and release safety.
 - [x] Fix migration regressions, rerun affected checks, and record evidence in
   `docs/MAINTAINING.md` and this checklist.
-- [ ] Inspect staged scope and `git diff --cached --check`, commit, verify remote
+- [x] Inspect staged scope and `git diff --cached --check`, commit, verify remote
   privacy, push the authorized milestone and verify remote/local SHA equality.
 
 ## Execution record
 
-Source restructuring and focused validation are complete; see `docs/MAINTAINING.md`
-for measured results, the baseline build/test race, unchanged failure names,
-independent review and browser/portable limitations. Work is on
-`refactor/project-layout`; final staging and private checkpoint push follow.
+Source restructuring and validation are complete; see `docs/MAINTAINING.md` for
+measured results, the baseline build/test race, unchanged failure names,
+independent review and browser/portable limitations. The implementation milestone
+is commit `6eb0a34` on `refactor/project-layout`. Its private GitHub checkpoint was
+verified against the local commit. The branch is retained for review; `main` has
+not been merged. No further implementation work remains in this plan.
