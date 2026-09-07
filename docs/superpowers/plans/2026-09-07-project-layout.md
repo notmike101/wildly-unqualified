@@ -73,6 +73,8 @@ Box3D, ws, Node test runner, Playwright and ESLint. No new dependencies.
 Source restructuring and validation are complete; see `docs/MAINTAINING.md` for
 measured results, the baseline build/test race, unchanged failure names,
 independent review and browser/portable limitations. The implementation milestone
-is commit `6eb0a34` on `refactor/project-layout`. Its private GitHub checkpoint was
-verified against the local commit. The branch is retained for review; `main` has
-not been merged. No further implementation work remains in this plan.
+is commit `6eb0a34`, followed by verification and README updates through `c5d60d2`.
+The private GitHub checkpoints were verified against local commits. At the user's
+request, `main` was fast-forwarded to the reviewed branch on 2026-09-07; the merged
+tree exactly matched `refactor/project-layout`. The documented baseline test/lint
+failures remain unchanged. No further implementation work remains in this plan.
