@@ -2,9 +2,9 @@
 import type {
   Box,
   Habitat,
-  FieldProp,
+  FieldProperty,
   Pose,
-  PropDefinition,
+  PropertyDefinition,
   Vec3,
 } from "../shared.ts";
 export const CONTENT_VERSION = "forest-mvp-1" as const;
@@ -44,7 +44,7 @@ export const PROP_CENTER_HEIGHT = {
   decoy: 0.5,
 } as const;
 // Manifest model-root measurements converted once to body-local coordinates.
-export const PROP_DEFINITIONS: Record<FieldProp["kind"], PropDefinition> = {
+export const PROP_DEFINITIONS: Record<FieldProperty["kind"], PropertyDefinition> = {
   case: {
     bounds: [
       [-0.778, -0.325, -0.3505],
@@ -116,7 +116,7 @@ const propPose = (position: Vec3): Pose => ({
   position,
   rotation: [0, 0, 0, 1],
 });
-export const PROP_RECOVERY_POINTS: Record<FieldProp["kind"], Pose[]> = {
+export const PROP_RECOVERY_POINTS: Record<FieldProperty["kind"], Pose[]> = {
   case: (
     [
       [-46, 0.325, 43],

@@ -4,7 +4,7 @@ import { generateReserve } from "../../shared/world/world.ts";
 import {
   pose,
   type CrewSlot,
-  type FieldProp,
+  type FieldProperty,
   type Player,
   type Quat,
   type Vec3,
@@ -46,10 +46,10 @@ export function createRun(
    */
   const fieldProp = (
     id: string,
-    kind: FieldProp["kind"],
+    kind: FieldProperty["kind"],
     position: Vec3,
     rotation: Quat = [0, 0, 0, 1],
-  ): FieldProp => ({
+  ): FieldProperty => ({
     id,
     kind,
     pose: { position: [...position], rotation: [...rotation] },

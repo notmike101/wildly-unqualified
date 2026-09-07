@@ -7,7 +7,7 @@ import {
 } from "../../../shared/world/level.ts";
 import {
   distance,
-  propBoxes,
+  propertyBoxes,
   surfaceHeight,
   type Animal,
   type Box,
@@ -79,7 +79,7 @@ export const ground = (
   let height = -Infinity;
   for (const surface of surfaces) {
     const y = surfaceHeight(surface, point[0], point[2]);
-    if (y !== null) height = Math.max(height, y);
+    if (y !== undefined) height = Math.max(height, y);
   }
   return height === -Infinity ? null : [point[0], height, point[2]];
 };
@@ -391,7 +391,7 @@ export function walk(
 export function localRecoveryPoint(run: RunState, origin: Vec3): Vec3 | null {
   const extra = run.props
     .filter((p) => !p.placed)
-    .flatMap((p) => propBoxes(p, PROP_DEFINITIONS[p.kind]));
+    .flatMap((p) => propertyBoxes(p, PROP_DEFINITIONS[p.kind]));
   for (const radius of [0, 0.75, 1.5, 2.25, 3])
     for (let i = 0; i < (radius ? 8 : 1); i++) {
       const point = ground(

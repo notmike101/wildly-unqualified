@@ -9,10 +9,10 @@ import type { ReserveBlueprint } from "../../src/shared/world/world.ts";
 import { animalRoute } from "../../src/server/simulation/wildlife/encounters.ts";
 import {
   distance,
-  propPoint,
-  propBoxes,
+  propertyPoint,
+  propertyBoxes,
   movePlayer,
-  heldProp,
+  heldProperty,
   eye,
   surfaceHeight,
   type FixtureState,
@@ -173,7 +173,7 @@ export function createDriverNavigation({
       ...routeBoxes(state.route),
       ...state.props
         .filter((p) => !p.placed && !p.holders.includes(player.id))
-        .flatMap((p) => propBoxes(p, PROP_DEFINITIONS[p.kind])),
+        .flatMap((p) => propertyBoxes(p, PROP_DEFINITIONS[p.kind])),
       ...state.players
         .filter((p) => p.connected && p.id !== player.id)
         .map((p) => ({
@@ -359,8 +359,8 @@ export function createDriverNavigation({
         const state = await snapshot(p);
         if (
           allowDetour &&
-          (!heldProp(after.id, state.props) ||
-            heldProp(after.id, state.props)?.kind === "decoy")
+          (!heldProperty(after.id, state.props) ||
+            heldProperty(after.id, state.props)?.kind === "decoy")
         ) {
           const path = detour(after, point, state);
           if (path.length) {
@@ -526,7 +526,7 @@ export function createDriverNavigation({
       ...routeBoxes(state.route),
       ...state.props
         .filter((p) => !p.placed && !p.holders.includes(player.id))
-        .flatMap((p) => propBoxes(p, PROP_DEFINITIONS[p.kind])),
+        .flatMap((p) => propertyBoxes(p, PROP_DEFINITIONS[p.kind])),
     ];
     /**
      * Test standing clearance on the highest supporting surface at a horizontal location.
@@ -538,7 +538,7 @@ export function createDriverNavigation({
     const clear = (x: number, z: number): Vec3 | null => {
       const heights = surfaces
         .map((s) => surfaceHeight(s, x, z))
-        .filter((h): h is number => h !== null);
+        .filter((h): h is number => h !== undefined);
       if (!heights.length) return null;
       const y = Math.max(...heights);
       if (
@@ -597,7 +597,7 @@ export function createDriverNavigation({
       player = await me(p);
     target = clearDestination(player, target, state);
     if (
-      heldProp(player.id, state.props)?.kind === "decoy" &&
+      heldProperty(player.id, state.props)?.kind === "decoy" &&
       player.position[0] < -14 &&
       target[0] > -6
     ) {
@@ -752,7 +752,7 @@ export function createDriverNavigation({
    */
   async function pickupDecoy(p: Page) {
     const prop = (await snapshot(p)).props.find((p) => p.kind === "decoy")!;
-    const handle = propPoint(PROP_DEFINITIONS.decoy.handles[0], prop.pose);
+    const handle = propertyPoint(PROP_DEFINITIONS.decoy.handles[0], prop.pose);
     /**
      * Read the contextual action prompt to determine whether the decoy handle can be taken.
      *
@@ -764,7 +764,7 @@ export function createDriverNavigation({
       );
     if (!(await reachable())) {
       try {
-        await walk(p, propPoint([0, 0, 0.85], prop.pose), 0.4);
+        await walk(p, propertyPoint([0, 0, 0.85], prop.pose), 0.4);
       } catch (error) {
         if (!(await reachable())) throw error;
         log.push({

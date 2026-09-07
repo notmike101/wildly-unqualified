@@ -29,7 +29,7 @@ import {
   forward,
   movePlayer,
   playerSpeed,
-  propBoxes,
+  propertyBoxes,
   type ClientMessage,
   type Input,
   type PhotoFrame,
@@ -241,7 +241,7 @@ function predictStep(p: Player, held: Input, state: Snapshot): Player {
       ...fixtureBoxes(world!.fixtures, state.route),
       ...state.props
         .filter((prop) => !prop.holders.includes(p.id) && !prop.placed)
-        .flatMap((prop) => propBoxes(prop, PROP_DEFINITIONS[prop.kind])),
+        .flatMap((prop) => propertyBoxes(prop, PROP_DEFINITIONS[prop.kind])),
     ],
     [...world!.walkables, ...fixtureSurfaces(world!.fixtures, state.route)],
     playerSpeed(p.id, held, state.props),

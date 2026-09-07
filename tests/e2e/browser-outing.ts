@@ -10,7 +10,7 @@ import {
   CAMP,
 } from "../../src/shared/world/level.ts";
 import { animalRoute } from "../../src/server/simulation/wildlife/encounters.ts";
-import { distance, propPoint, type Vec3 } from "../../src/shared/shared.ts";
+import { distance, propertyPoint, type Vec3 } from "../../src/shared/shared.ts";
 import type { BrowserOutingContext } from "./browser.ts";
 /**
  * Execute the retained visible-browser outing scenario with supplied pages and navigation
@@ -242,7 +242,7 @@ export async function runOuting({
   if (!resumedFrom) {
     const fieldCase = initial.props.find((p) => p.kind === "case")!;
     const handles = PROP_DEFINITIONS.case.handles.map((p) =>
-      propPoint(p, fieldCase.pose),
+      propertyPoint(p, fieldCase.pose),
     );
     await walk(host, [handles[0][0] - 0.65, 0, handles[0][2]]);
     await face(host, handles[0]);
@@ -255,11 +255,11 @@ export async function runOuting({
       (p) => p.kind === "case",
     )!;
     const freeHandle = turnedCase.holders.findIndex((id) => id === null);
-    const freePoint = propPoint(
+    const freePoint = propertyPoint(
       PROP_DEFINITIONS.case.handles[freeHandle],
       turnedCase.pose,
     );
-    const reach = propPoint([freeHandle ? 1.4 : -1.4, 0, 0], turnedCase.pose);
+    const reach = propertyPoint([freeHandle ? 1.4 : -1.4, 0, 0], turnedCase.pose);
     await walk(friend, reach);
     await face(friend, freePoint);
     await action(friend, "KeyE");
@@ -407,7 +407,7 @@ export async function runOuting({
         await walk(p, point);
     }
     const plank = (await snapshot(host)).props.find((p) => p.kind === "plank")!;
-    const plankHandle = propPoint(
+    const plankHandle = propertyPoint(
       PROP_DEFINITIONS.plank.handles[0],
       plank.pose,
     );
@@ -749,8 +749,8 @@ export async function runOuting({
   )!;
   await action(friend, "KeyE");
   let decoy = (await snapshot(host)).props.find((p) => p.kind === "decoy")!;
-  const cup = propPoint(PROP_DEFINITIONS.decoy.usePoints![0].point, decoy.pose);
-  await walk(friend, propPoint([1, 0, -0.6], decoy.pose), 0.2);
+  const cup = propertyPoint(PROP_DEFINITIONS.decoy.usePoints![0].point, decoy.pose);
+  await walk(friend, propertyPoint([1, 0, -0.6], decoy.pose), 0.2);
   await face(friend, cup);
   await action(friend, "KeyQ");
   assert.equal(

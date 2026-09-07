@@ -8,7 +8,7 @@ import {
   addPlayer,
   snapshot,
 } from "../../src/server/simulation/game.ts";
-import { distance, movePlayer, propPoint } from "../../src/shared/shared.ts";
+import { distance, movePlayer, propertyPoint } from "../../src/shared/shared.ts";
 import {
   PROP_DEFINITIONS,
   animalArticulation,
@@ -27,7 +27,7 @@ test("predicted camera keeps carried geometry and its other holder together with
   const authority = snapshot(run);
   const render = structuredClone(authority);
   const handle = () =>
-    propPoint(PROP_DEFINITIONS.case.handles[0], render.props[0].pose);
+    propertyPoint(PROP_DEFINITIONS.case.handles[0], render.props[0].pose);
   const originalOffset = distance(handle(), local.position);
   const originalPartner = distance(
     render.players[1].position,
@@ -82,7 +82,7 @@ test("grazing and scanning photo points follow the actual imported deer rig", as
       model.quaternion.set(...animal.pose.rotation);
       gltf.scene.updateMatrixWorld(true);
       const expected = subjectPoints(animal, tick).map((p) =>
-        propPoint(p, animal.pose),
+        propertyPoint(p, animal.pose),
       );
       for (const [index, part] of ["PhotoBody", "PhotoHead"].entries()) {
         const actual = findPart(model, part)!

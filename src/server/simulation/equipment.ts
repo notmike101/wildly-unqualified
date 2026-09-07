@@ -9,10 +9,10 @@ import {
   distance,
   pose,
   surfaceHeight,
-  propPoint,
-  propBoxes,
+  propertyPoint,
+  propertyBoxes,
   type Box,
-  type FieldProp,
+  type FieldProperty,
   type Player,
   type Pose,
   type Quat,
@@ -124,7 +124,7 @@ export const alignLocalX = (direction: Vec3): Quat => {
  * @param value - Proposed world pose
  * @returns Nonnegative lift in metres.
  */
-function terrainLift(run: RunState, prop: FieldProp, value: Pose) {
+function terrainLift(run: RunState, prop: FieldProperty, value: Pose) {
   const surfaces = [
     ...run.world.walkables,
     ...(prop.kind === "plank" && prop.placed
@@ -137,7 +137,7 @@ function terrainLift(run: RunState, prop: FieldProp, value: Pose) {
       const half = solid.size.map((size) => size / 2) as Vec3;
       return [-1, 0, 1].flatMap((x) =>
         [-1, 0, 1].map((z) => {
-          const point = propPoint(
+          const point = propertyPoint(
               [
                 solid.center[0] + x * half[0],
                 solid.center[1] - half[1],
@@ -147,7 +147,7 @@ function terrainLift(run: RunState, prop: FieldProp, value: Pose) {
             ),
             heights = surfaces
               .map((surface) => surfaceHeight(surface, point[0], point[2]))
-              .filter((height): height is number => height !== null);
+              .filter((height): height is number => height !== undefined);
           return heights.length ? Math.max(...heights) - point[1] : 0;
         }),
       );
@@ -164,7 +164,7 @@ function terrainLift(run: RunState, prop: FieldProp, value: Pose) {
  * @param outer - Use the full outer bounds instead of individual solids
  * @returns Whether the proposed pose clears all applicable blockers.
  */
-function propClear(run: RunState, prop: FieldProp, value: Pose, outer = false) {
+function propClear(run: RunState, prop: FieldProperty, value: Pose, outer = false) {
   const definition = PROP_DEFINITIONS[prop.kind],
     shape = outer
       ? {
@@ -199,7 +199,7 @@ function propClear(run: RunState, prop: FieldProp, value: Pose, outer = false) {
       wall.min[2] < deck.max[2] &&
       wall.max[2] > deck.min[2] &&
       Math.abs(angleDelta(yawOf(value), crossing!.yaw)) < 1e-6 &&
-      propBoxes(test, shape).every(
+      propertyBoxes(test, shape).every(
         (b) => b.min[2] >= deck.min[2] - 1e-6 && b.max[2] <= deck.max[2] + 1e-6,
       ),
     blockers = [
@@ -207,11 +207,11 @@ function propClear(run: RunState, prop: FieldProp, value: Pose, outer = false) {
       ...fixtureBoxes(run.world.fixtures, run.route),
       ...run.props
         .filter((p) => p !== prop)
-        .flatMap((p) => propBoxes(p, PROP_DEFINITIONS[p.kind])),
+        .flatMap((p) => propertyBoxes(p, PROP_DEFINITIONS[p.kind])),
     ];
   return (
     terrainLift(run, prop, value) <= 0.05 &&
-    !propBoxes(test, shape).some((box) =>
+    !propertyBoxes(test, shape).some((box) =>
       blockers.some((wall) => overlap(box, wall)),
     )
   );
@@ -224,7 +224,7 @@ function propClear(run: RunState, prop: FieldProp, value: Pose, outer = false) {
  * @param id - Holding player ID
  * @returns A NUL-delimited grip key.
  */
-const gripKey = (prop: FieldProp, handle: number, id: string) =>
+const gripKey = (prop: FieldProperty, handle: number, id: string) =>
   `${prop.id}\0${handle}\0${id}`;
 /**
  * Remember the initial world-space displacement from a player to a prop handle for this
@@ -238,7 +238,7 @@ const gripKey = (prop: FieldProp, handle: number, id: string) =>
  */
 export const gripOffset = (
   run: RunState,
-  prop: FieldProp,
+  prop: FieldProperty,
   handle: number,
   p: Player,
 ) => {
@@ -247,7 +247,7 @@ export const gripOffset = (
   const key = gripKey(prop, handle, p.id),
     existing = grips.get(key);
   if (existing) return existing;
-  const point = propPoint(
+  const point = propertyPoint(
       PROP_DEFINITIONS[prop.kind].handles[handle],
       prop.pose,
     ),
@@ -262,7 +262,7 @@ export const gripOffset = (
  * @param prop - Prop whose grips are invalidated
  * @param id - Player ID to clear, omission clears every grip on the prop
  */
-export const clearGrips = (run: RunState, prop: FieldProp, id?: string) => {
+export const clearGrips = (run: RunState, prop: FieldProperty, id?: string) => {
   const grips = gripState.get(run);
   if (!grips) return;
   for (const key of grips.keys())
@@ -278,7 +278,7 @@ export const clearGrips = (run: RunState, prop: FieldProp, id?: string) => {
  * @param desired - Requested destination pose
  * @returns Last valid pose and a hit flag indicating early collision termination.
  */
-export function sweepProp(run: RunState, prop: FieldProp, desired: Pose) {
+export function sweepProp(run: RunState, prop: FieldProperty, desired: Pose) {
   const from = prop.pose,
     rotation = quatAngle(from.rotation, desired.rotation),
     travel = distance(from.position, desired.position),
@@ -318,7 +318,7 @@ export function sweepProp(run: RunState, prop: FieldProp, desired: Pose) {
  * @param prop - Plank to seat in place
  * @returns Whether a suitable seat was found and applied.
  */
-function seatPlank(run: RunState, prop: FieldProp) {
+function seatPlank(run: RunState, prop: FieldProperty) {
   const yaw = yawOf(prop.pose),
     fixture = run.world.fixtures.find((f) => f.plankId === prop.id),
     seat = Object.entries(fixture?.seats ?? {})
@@ -354,7 +354,7 @@ function seatPlank(run: RunState, prop: FieldProp) {
  */
 export function releaseProp(
   run: RunState,
-  prop: FieldProp,
+  prop: FieldProperty,
   id: string,
   place: boolean,
 ) {
@@ -380,7 +380,7 @@ export function releaseProp(
  * @param origin - Position used to rank recovery candidates
  * @throws {Error} No authored recovery pose has sufficient clearance.
  */
-export function recoverProp(run: RunState, prop: FieldProp, origin: Vec3) {
+export function recoverProp(run: RunState, prop: FieldProperty, origin: Vec3) {
   const choices = [
     run.world.props.find((value) => value.id === prop.id)!.pose,
     ...run.world.stations.map((station) =>
@@ -412,7 +412,7 @@ export function recoverProp(run: RunState, prop: FieldProp, origin: Vec3) {
  * @param prop - Prop to inspect
  * @returns Whether the recovery action should be available.
  */
-export function propRecoverable(run: RunState, prop: FieldProp) {
+export function propRecoverable(run: RunState, prop: FieldProperty) {
   const fixture = run.world.fixtures.find((f) => f.plankId === prop.id),
     state = fixture && run.route[fixture.id],
     seated =

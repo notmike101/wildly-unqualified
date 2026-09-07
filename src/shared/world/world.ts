@@ -1,6 +1,6 @@
 /** Deterministic reserve generation. Public exports remain here for existing callers. */
 import type { Vec3 } from "../shared.ts";
-import { rayBlocked } from "../shared.ts";
+import { isRayBlocked } from "../shared.ts";
 import {
   FOREST_MODELS,
   worldBox,
@@ -499,7 +499,7 @@ function build(seed: number, id: string, attempt: number): ReserveBlueprint {
         w.pockets.some((pocket) =>
           reserveApproaches(w, pocket.id).some((camera) =>
             pocket.anchors.some((a) =>
-              rayBlocked(
+              isRayBlocked(
                 point(camera.position[0], 1.6, camera.position[2]),
                 point(a.point[0], a.point[1] + 0.4, a.point[2]),
                 [...t.solids, ...t.occluders],

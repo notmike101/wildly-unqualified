@@ -1,6 +1,6 @@
 /** Validate and freeze complete reserve data at generation, network, and save boundaries. */
 import type { Box, Vec3, Walkable } from "../shared.ts";
-import { rayBlocked } from "../shared.ts";
+import { isRayBlocked } from "../shared.ts";
 import {
   FOREST_MODELS,
   worldBox,
@@ -766,7 +766,7 @@ export function validateReserve(value: unknown): ReserveBlueprint {
           subjects.every((r) =>
             reserveCameraFits(n.position, target.point, r!.species),
           ) &&
-          !rayBlocked(
+          !isRayBlocked(
             point(n.position[0], 1.6, n.position[2]),
             point(target.point[0], target.point[1] + 0.4, target.point[2]),
             photoBoxes,

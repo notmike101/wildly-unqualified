@@ -9,8 +9,8 @@ import {
   movePlayer,
   surfaceHeight,
   playerSpeed,
-  propPoint,
-  propBoxes,
+  propertyPoint,
+  propertyBoxes,
   type Player,
   type Pose,
   type Vec3,
@@ -80,7 +80,7 @@ export function advanceRun(run: RunState, dt: number): void {
     ...fixtureBoxes(run.world.fixtures, run.route),
     ...run.props
       .filter((prop) => !prop.holders.includes(p.id) && !prop.placed)
-      .flatMap((prop) => propBoxes(prop, PROP_DEFINITIONS[prop.kind])),
+      .flatMap((prop) => propertyBoxes(prop, PROP_DEFINITIONS[prop.kind])),
   ];
   /**
    * Find the highest reachable support under a separation candidate and test standing
@@ -96,7 +96,7 @@ export function advanceRun(run: RunState, dt: number): void {
         ...fixtureSurfaces(run.world.fixtures, run.route),
       ]
         .map((surface) => surfaceHeight(surface, point[0], point[2]))
-        .filter((height): height is number => height !== null)
+        .filter((height): height is number => height !== undefined)
         .filter((height) => height <= p.position[1] + 0.45),
       height = heights.length ? Math.max(...heights) : null;
     if (height === null) return null;
@@ -245,7 +245,7 @@ export function advanceRun(run: RunState, dt: number): void {
       ),
       targets = holders.map(targetPoint),
       centers = holders.map(({ handle }, index) => {
-        const offset = propPoint(definition.handles[handle], {
+        const offset = propertyPoint(definition.handles[handle], {
           position: [0, 0, 0],
           rotation: nextRotation,
         });
@@ -264,7 +264,7 @@ export function advanceRun(run: RunState, dt: number): void {
       endpointError = Math.max(
         ...holders.map(({ handle }, index) =>
           distance(
-            propPoint(definition.handles[handle], desired),
+            propertyPoint(definition.handles[handle], desired),
             targets[index],
           ),
         ),
@@ -274,7 +274,7 @@ export function advanceRun(run: RunState, dt: number): void {
         p.position = [...before.get(p.id)!];
         if (
           distance(
-            propPoint(definition.handles[handle], prop.pose),
+            propertyPoint(definition.handles[handle], prop.pose),
             targetPoint({ p, handle }),
           ) > 0.15
         ) {

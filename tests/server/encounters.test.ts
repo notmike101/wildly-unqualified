@@ -26,7 +26,7 @@ import {
 import {
   distance,
   pose,
-  propBoxes,
+  propertyBoxes,
   surfaceHeight,
   type Vec3,
 } from "../../src/shared/shared.ts";
@@ -266,7 +266,7 @@ test("all authored encounter approaches and route edges have supported animal-ra
               ...fixtureSurfaces(run.world.fixtures, route),
             ]
               .map((s) => surfaceHeight(s, point[0], point[2]))
-              .filter((h): h is number => h !== null);
+              .filter((h): h is number => h !== undefined);
             assert.ok(heights.length, `unsupported ${point}`);
             point[1] = Math.max(...heights);
             assert.ok(
@@ -351,7 +351,7 @@ test("unreachable lures behind equipment never pull an animal through a panel", 
   for (let i = 0; i < 80; i++) {
     const before = [...r.pose.position] as Vec3;
     step(run, 0.1);
-    for (const box of propBoxes(screen, PROP_DEFINITIONS.screen))
+    for (const box of propertyBoxes(screen, PROP_DEFINITIONS.screen))
       assert.ok(
         !(
           r.pose.position[0] > box.min[0] - 0.3 &&

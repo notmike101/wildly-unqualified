@@ -8,10 +8,10 @@ import {
 } from "../../src/shared/world/level.ts";
 import {
   distance,
-  propPoint,
-  propBoxes,
-  rayBlocked,
-  type FieldProp,
+  propertyPoint,
+  propertyBoxes,
+  isRayBlocked,
+  type FieldProperty,
   type Vec3,
 } from "../../src/shared/shared.ts";
 import { rotate, xyz } from "../../src/shared/wildlife/wildlife.ts";
@@ -57,8 +57,8 @@ function trail(run: RunState, from: string, to: string) {
   }
   throw Error("no generated equipment trail");
 }
-function carryTo(run: RunState, prop: FieldProp, target: Vec3, detour = true) {
-  const bounds = propBoxes(prop, PROP_DEFINITIONS[prop.kind]);
+function carryTo(run: RunState, prop: FieldProperty, target: Vec3, detour = true) {
+  const bounds = propertyBoxes(prop, PROP_DEFINITIONS[prop.kind]);
   const min = [0, 1, 2].map(
     (i) => Math.min(...bounds.map((b) => b.min[i])) - prop.pose.position[i],
   );
@@ -70,14 +70,14 @@ function carryTo(run: RunState, prop: FieldProp, target: Vec3, detour = true) {
     ...fixtureBoxes(run.world.fixtures, run.route),
     ...run.props
       .filter((p) => p.id !== prop.id)
-      .flatMap((p) => propBoxes(p, PROP_DEFINITIONS[p.kind])),
+      .flatMap((p) => propertyBoxes(p, PROP_DEFINITIONS[p.kind])),
   ].map((b) => ({
     id: b.id,
     min: b.min.map((v, i) => v - max[i] - 0.025) as Vec3,
     max: b.max.map((v, i) => v - min[i] + 0.025) as Vec3,
   }));
   const at = (p: Vec3): Vec3 => [p[0], prop.pose.position[1], p[2]];
-  const clear = (a: Vec3, b: Vec3) => !rayBlocked(at(a), at(b), obstacles);
+  const clear = (a: Vec3, b: Vec3) => !isRayBlocked(at(a), at(b), obstacles);
   if (detour && !clear(prop.pose.position, target)) {
     const middle = target.map(
       (v, i) => (v + prop.pose.position[i]) / 2,
@@ -124,7 +124,7 @@ function carryTo(run: RunState, prop: FieldProp, target: Vec3, detour = true) {
 }
 function pickUp(run: RunState, kind: "screen" | "decoy") {
   const prop = run.props.find((p) => p.kind === kind)!;
-  const handle = propPoint(
+  const handle = propertyPoint(
     PROP_DEFINITIONS[kind].handles[kind === "screen" ? 1 : 0],
     prop.pose,
   );
@@ -168,7 +168,7 @@ test("ordinary equipment transport and a replenished tin earn a rabbit feeding s
     command(run, "interact");
     assert.ok(!prop.holders.some(Boolean));
     if (kind === "decoy") {
-      const cup = propPoint(
+      const cup = propertyPoint(
         PROP_DEFINITIONS.decoy.usePoints![0].point,
         prop.pose,
       );

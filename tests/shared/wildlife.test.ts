@@ -25,7 +25,7 @@ import {
   SQUIRREL_CLIMB,
 } from "../../src/shared/wildlife/wildlife-data.ts";
 import {
-  rayBlocked,
+  isRayBlocked,
   type Animal,
   type Behavior,
   type Vec3,
@@ -106,7 +106,7 @@ test("support sight refinement matches preserved opaque GLBs through four quarte
           `${name} turn ${turn}`,
         );
         assert.ok(
-          rayBlocked(transform(from), transform(to), [box]),
+          isRayBlocked(transform(from), transform(to), [box]),
           "conservative movement box remains solid",
         );
         assert.equal(

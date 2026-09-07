@@ -1,5 +1,5 @@
 import {
-  rayBlocked,
+  isRayBlocked,
   type Animal,
   type Quat,
   type Vec3,
@@ -254,7 +254,7 @@ export function sightBlocked(
   to: Vec3,
   boxes: Box[],
 ) {
-  if (!rayBlocked(from, to, boxes)) return false;
+  if (!isRayBlocked(from, to, boxes)) return false;
   let supports = sightSupports.get(world);
   if (!supports) {
     supports = world.placements.filter((p) => SUPPORT_MESHES[p.model]);
@@ -262,7 +262,7 @@ export function sightBlocked(
   }
   const hitSupports = new Set<string>();
   for (const box of boxes) {
-    if (!rayBlocked(from, to, [box])) continue;
+    if (!isRayBlocked(from, to, [box])) continue;
     const support = supports.find((p) => box.id.startsWith(p.id + "-"));
     if (!support) return true;
     hitSupports.add(support.id);
@@ -312,7 +312,7 @@ export function sightBlocked(
     const start = local(from),
       end = local(to);
     if (
-      !rayBlocked(start, end, [
+      !isRayBlocked(start, end, [
         { id: "support", min: mesh.min as Vec3, max: mesh.max as Vec3 },
       ])
     )

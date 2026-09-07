@@ -8,10 +8,10 @@ import {
   eye,
   forward,
   pose,
-  rayBlocked,
+  isRayBlocked,
   surfaceHeight,
-  propPoint,
-  type FieldProp,
+  propertyPoint,
+  type FieldProperty,
   type Player,
   type Vec3,
 } from "../../shared/shared.ts";
@@ -25,7 +25,7 @@ import { rotate } from "../../shared/wildlife/wildlife.ts";
  * @param run - Authoritative run and incident history to update
  * @param prop - Equipment that was bumped or turned
  */
-export function spillCase(run: RunState, prop: FieldProp) {
+export function spillCase(run: RunState, prop: FieldProperty) {
   if (
     prop.kind !== "case" ||
     !prop.open ||
@@ -75,7 +75,7 @@ export function updateHats(run: RunState) {
           "The raccoon dropped the borrowed hat on reachable ground. Anyone nearby can return it with E.",
         );
       } else {
-        hat.position = propPoint([0, 0.45, -0.26], r.pose);
+        hat.position = propertyPoint([0, 0.45, -0.26], r.pose);
         hat.position[1] += 0.23;
       }
     }
@@ -117,7 +117,7 @@ export function safe(
     [
       ...run.world.walkables,
       ...fixtureSurfaces(run.world.fixtures, run.route),
-    ].some((surface) => surfaceHeight(surface, point[0], point[2]) !== null) &&
+    ].some((surface) => surfaceHeight(surface, point[0], point[2]) !== undefined) &&
     point[0] > run.world.bounds.min[0] &&
     point[0] < run.world.bounds.max[0] &&
     point[2] > run.world.bounds.min[2] &&
@@ -155,7 +155,7 @@ export function safeSpawn(run: RunState, id: string): Vec3 {
         ...fixtureSurfaces(run.world.fixtures, run.route),
       ]
         .map((s) => surfaceHeight(s, point[0], point[2]))
-        .filter((h): h is number => h !== null && h <= anchor[1] + 0.45);
+        .filter((h): h is number => h !== undefined && h <= anchor[1] + 0.45);
       if (!heights.length) continue;
       point[1] = Math.max(...heights);
       if (
@@ -224,12 +224,12 @@ export function release(run: RunState, p: Player, drop: boolean) {
     ...fixtureSurfaces(run.world.fixtures, run.route),
   ]
     .map((s) => surfaceHeight(s, target[0], target[2]))
-    .filter((y): y is number => y !== null);
+    .filter((y): y is number => y !== undefined);
   if (support.length) target[1] = Math.max(...support) + TIN_HALF[1];
   if (
     !drop &&
     (!safe(run, [target[0], target[1] - TIN_HALF[1], target[2]]) ||
-      rayBlocked(eye(p), target, [
+      isRayBlocked(eye(p), target, [
         ...run.world.walls,
         ...fixtureBoxes(run.world.fixtures, run.route),
       ]))

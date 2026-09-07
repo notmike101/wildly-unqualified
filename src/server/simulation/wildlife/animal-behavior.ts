@@ -6,8 +6,8 @@ import {
   fixtureBoxes,
 } from "../../../shared/world/level.ts";
 import {
-  propRayBlocked,
-  rayBlocked,
+  propertyRayBlocked,
+  isRayBlocked,
   type Animal,
   type Box,
   type Vec3,
@@ -100,12 +100,12 @@ export function disturbed(run: RunState, a: Animal, extra: Box[]) {
       (p) =>
         p.connected &&
         flatDistance(p.position, point) < (p.lastInput?.crouch ? 2 : 4) &&
-        !rayBlocked(
+        !isRayBlocked(
           point,
           [p.position[0], p.position[1] + 0.7, p.position[2]],
           boxes,
         ) &&
-        !propRayBlocked(
+        !propertyRayBlocked(
           point,
           [p.position[0], p.position[1] + 0.7, p.position[2]],
           run.props,
@@ -147,8 +147,8 @@ export function approachPoint(
     ],
     lure: Vec3 = [point[0], Math.max(0.5, point[1]), point[2]];
   if (
-    rayBlocked(eyes, lure, geometry(run).walls) ||
-    propRayBlocked(
+    isRayBlocked(eyes, lure, geometry(run).walls) ||
+    propertyRayBlocked(
       eyes,
       lure,
       run.props.filter((p) => p.id !== ignoredProp),
@@ -167,12 +167,12 @@ export function approachPoint(
       point[2] + Math.sin(angle + turn) * separation,
     ];
     if (
-      !rayBlocked(
+      !isRayBlocked(
         [candidate[0], 0.5, candidate[2]],
         [point[0], Math.max(0.5, point[1]), point[2]],
         [...run.world.walls, ...fixtureBoxes(run.world.fixtures, run.route)],
       ) &&
-      !propRayBlocked(
+      !propertyRayBlocked(
         [candidate[0], 0.5, candidate[2]],
         [point[0], Math.max(0.5, point[1]), point[2]],
         run.props.filter((p) => p.id !== ignoredProp),

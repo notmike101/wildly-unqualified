@@ -258,7 +258,7 @@ test("full uint32 seed changes layout and objective bindings", () => {
 
 test("required subjects have clear production camera rays and distinct resident positions", async () => {
   const { reserveApproaches } = await import("../../src/shared/world/world.ts");
-  const { rayBlocked } = await import("../../src/shared/shared.ts");
+  const { isRayBlocked } = await import("../../src/shared/shared.ts");
   const w = generateReserve(1, "camera");
   const boxes = [...w.walls, ...w.placements.flatMap((p) => p.occluders)];
   for (const c of w.commissions.filter((c) => c.required)) {
@@ -268,7 +268,7 @@ test("required subjects have clear production camera rays and distinct resident 
     assert.ok(
       reserveApproaches(w, c.pocket).every(
         (n) =>
-          !rayBlocked(
+          !isRayBlocked(
             [n.position[0], 1.6, n.position[2]],
             [anchor.point[0], anchor.point[1] + 0.4, anchor.point[2]],
             boxes,

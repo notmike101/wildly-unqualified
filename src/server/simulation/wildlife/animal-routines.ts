@@ -3,7 +3,7 @@ import type { RunState } from "../game.ts";
 import {
   distance,
   pose,
-  rayBlocked,
+  isRayBlocked,
   type Animal,
   type Box,
   type Vec3,
@@ -391,7 +391,7 @@ export function wildlifeStep(
     ) as Vec3;
     // Elevated paths use measured support contacts, pool routes their resolved
     // water bounds. Loose player equipment can still obstruct either path.
-    if (rayBlocked(a.pose.position, proposed, extra)) return;
+    if (isRayBlocked(a.pose.position, proposed, extra)) return;
     a.pose.position = proposed;
     if (s.move !== "swim") {
       const same =

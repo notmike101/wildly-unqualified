@@ -1,7 +1,7 @@
 import Box3D, { type Body, type V } from "box3d-wasm/standard";
 import type {
   Box,
-  FieldProp,
+  FieldProperty,
   FixtureState,
   Pose,
   RouteState,
@@ -37,12 +37,12 @@ export type PhysicsState = {
   velocity: Vec3;
   angularVelocity: Vec3;
   impacts: { point: Vec3; sources: string[] }[];
-  props: FieldProp[];
+  props: FieldProperty[];
 };
 export type ReservePhysics = {
   step(dt: number): PhysicsState;
   setTin(tin: Tin): void;
-  setProps(props: FieldProp[], route: RouteState | FixtureState): void;
+  setProps(props: FieldProperty[], route: RouteState | FixtureState): void;
   dispose(): void;
 };
 export type TinPhysics = ReservePhysics;
@@ -90,7 +90,7 @@ let modulePromise: ReturnType<typeof Box3D> | undefined;
 export async function createPhysics(
   boxes: Box[],
   tin: Tin,
-  props: FieldProp[] = [],
+  props: FieldProperty[] = [],
   route: RouteState | FixtureState = { crossing: null, gateOpen: false },
   fixtures?: Fixture[],
 ): Promise<ReservePhysics> {
@@ -111,7 +111,7 @@ export async function createPhysics(
       string,
       {
         body: MovingBody | null;
-        state: FieldProp;
+        state: FieldProperty;
         mode: "held" | "placed" | "loose";
       }
     >();
@@ -161,7 +161,7 @@ export async function createPhysics(
    * @returns New native body; the owning adapter must destroy and delete it.
    */
   const createPropBody = (
-    value: FieldProp,
+    value: FieldProperty,
     type: "static" | "kinematic" | "dynamic",
   ) => {
     const [x, y, z, w] = value.pose.rotation,
@@ -285,7 +285,7 @@ export async function createPhysics(
    * @throws {Error} The adapter is disposed or fixture state is invalid.
    */
   const setProps = (
-    values: FieldProp[],
+    values: FieldProperty[],
     nextRoute: RouteState | FixtureState,
   ) => {
     ensure();

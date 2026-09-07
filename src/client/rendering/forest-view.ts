@@ -169,7 +169,7 @@ export function addForest(
     let y = -1;
     for (const surface of world.walkables) {
       const height = surfaceHeight(surface, x, z);
-      if (height !== null) y = Math.max(y, height);
+      if (height !== undefined) y = Math.max(y, height);
     }
     return y;
   }
@@ -245,7 +245,7 @@ export function addForest(
         const t = (n + 0.5) / segments;
         const x = a[0] + dx * t,
           z = a[2] + dz * t;
-        if (!world.walkables.some((s) => surfaceHeight(s, x, z) !== null))
+        if (!world.walkables.some((s) => surfaceHeight(s, x, z) !== undefined))
           continue;
         const path = mesh(
           new THREE.BoxGeometry(trail.width, 0.035, length / segments + 0.09),

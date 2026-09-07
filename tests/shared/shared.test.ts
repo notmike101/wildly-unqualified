@@ -4,12 +4,12 @@ import * as Shared from "../../src/shared/shared.ts";
 import {
   parseMessage as parseWorldMessage,
   movePlayer,
-  rayBlocked,
+  isRayBlocked,
   surfaceHeight,
   type Player,
   type Input,
   type Walkable,
-  type FieldProp,
+  type FieldProperty,
 } from "../../src/shared/shared.ts";
 function parseMessage(value: unknown) {
   return parseWorldMessage(
@@ -21,7 +21,7 @@ function parseMessage(value: unknown) {
 const equipmentTarget = (Shared as any).equipmentTarget;
 const equipmentUseTarget = (Shared as any).equipmentUseTarget;
 const playerSpeed = (Shared as any).playerSpeed;
-const propBoxes = (Shared as any).propBoxes;
+const propertyBoxes = (Shared as any).propertyBoxes;
 const player: Player = {
   id: "p1",
   name: "Player",
@@ -85,7 +85,7 @@ test("walkable surfaces interpolate ramps only inside their bounds", () => {
   assert.equal(surfaceHeight(ramp, -2, 0), 0);
   assert.equal(surfaceHeight(ramp, 0, 0), -0.5);
   assert.equal(surfaceHeight(ramp, 2, 0), -1);
-  assert.equal(surfaceHeight(ramp, 0, 2), null);
+  assert.equal(surfaceHeight(ramp, 0, 2), undefined);
 });
 
 test("movement normalizes diagonals and cannot pass thin walls", () => {
@@ -169,15 +169,15 @@ test("occlusion handles parallel rays and obstacles behind subjects", () => {
     min: [-1, 0, -4] as [number, number, number],
     max: [1, 3, -3] as [number, number, number],
   };
-  assert.equal(rayBlocked([0, 1, 0], [0, 1, -5], [b]), true);
-  assert.equal(rayBlocked([2, 1, 0], [2, 1, -5], [b]), false);
-  assert.equal(rayBlocked([0, 1, 0], [0, 1, -2], [b]), false);
+  assert.equal(isRayBlocked([0, 1, 0], [0, 1, -5], [b]), true);
+  assert.equal(isRayBlocked([2, 1, 0], [2, 1, -5], [b]), false);
+  assert.equal(isRayBlocked([0, 1, 0], [0, 1, -2], [b]), false);
 });
 
 const prop = (
-  kind: FieldProp["kind"],
+  kind: FieldProperty["kind"],
   position: [number, number, number],
-): FieldProp => ({
+): FieldProperty => ({
   id: kind,
   kind,
   pose: { position, rotation: [0, 0, 0, 1] },
@@ -215,7 +215,7 @@ test("equipment selectors choose only visible free handles for E and free bait c
   );
   assert.equal(
     equipmentUseTarget(player, [item], { case: definition } as never, []),
-    null,
+    undefined,
   );
   const decoy = prop("decoy", [0, 1, -1.7]),
     sideCase = prop("case", [1.5, 1, -0.2]),
@@ -230,7 +230,7 @@ test("equipment selectors choose only visible free handles for E and free bait c
       { case: definition, decoy: decoyDefinition } as never,
       [],
     ),
-    { propId: "decoy", handle: null, part: "bait-cup", point: [0, 1.5, -1.7] },
+    { propId: "decoy", handle: undefined, part: "bait-cup", point: [0, 1.5, -1.7] },
   );
   const heldScreen = prop("screen", [10, 1, 10]);
   heldScreen.holders[0] = player.id;
@@ -241,23 +241,23 @@ test("equipment selectors choose only visible free handles for E and free bait c
       { screen: definition, decoy: decoyDefinition } as never,
       [],
     ),
-    null,
+    undefined,
   );
   assert.equal(
     equipmentTarget(player, [item], { case: definition } as never, [
       { id: "wall", min: [-2, -2, -0.75], max: [2, 2, -0.7] },
     ]),
-    null,
+    undefined,
   );
 });
 
 test("compound prop boxes preserve openings and carry speed follows holder count", () => {
-  assert.equal(typeof propBoxes, "function");
+  assert.equal(typeof propertyBoxes, "function");
   assert.equal(typeof playerSpeed, "function");
   const item = prop("case", [3, 2, 4]);
-  const boxes = propBoxes(item, definition);
+  const boxes = propertyBoxes(item, definition);
   assert.equal(boxes.length, 2);
-  assert.equal(rayBlocked([3, 2, 3], [3, 2, 5], boxes), false);
+  assert.equal(isRayBlocked([3, 2, 3], [3, 2, 5], boxes), false);
   const movement = { ...input, x: 1, z: 0, run: true };
   item.holders = ["p1", null];
   assert.equal(playerSpeed("p1", movement, [item]), 0.8);

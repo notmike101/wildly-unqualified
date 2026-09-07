@@ -5,7 +5,7 @@ import { generateReserve } from "../../src/shared/world/world.ts";
 import { fixtureBoxes, fixtureSurfaces } from "../../src/shared/world/level.ts";
 import {
   pose,
-  type FieldProp,
+  type FieldProperty,
   type FixtureState,
   type Tin,
 } from "../../src/shared/shared.ts";
@@ -59,7 +59,7 @@ test("native generated crossings use their own seat and compound plank body", as
       portions: 4,
       open: false,
     };
-    const props: FieldProp[] = world.props.map((p) => ({
+    const props: FieldProperty[] = world.props.map((p) => ({
       ...p,
       pose: structuredClone(p.pose),
       velocity: [0, 0, 0],
@@ -298,7 +298,7 @@ test("production movement and navigation keep independent generated geometry and
     await import("../../src/server/simulation/game.ts");
   const { animalRoute } =
     await import("../../src/server/simulation/wildlife/encounters.ts");
-  const { surfaceHeight, rayBlocked } =
+  const { surfaceHeight, isRayBlocked } =
     await import("../../src/shared/shared.ts");
   const a = createRun(7, "movement-a"),
     b = createRun(18, "movement-b");
@@ -316,12 +316,12 @@ test("production movement and navigation keep independent generated geometry and
       end: [number, number, number] = [start[0] + 2, 0, start[2]];
     return (
       b.world.walkables.some(
-        (s) => surfaceHeight(s, start[0], start[2]) !== null,
+        (s) => surfaceHeight(s, start[0], start[2]) !== undefined,
       ) &&
       b.world.walkables.some(
-        (s) => surfaceHeight(s, end[0], end[2]) !== null,
+        (s) => surfaceHeight(s, end[0], end[2]) !== undefined,
       ) &&
-      !rayBlocked(
+      !isRayBlocked(
         [start[0], 1, start[2]],
         [end[0], 1, end[2]],
         b.world.walls.map((w) => ({

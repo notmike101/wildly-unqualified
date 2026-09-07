@@ -1,7 +1,7 @@
 /** Wildlife decision scheduling and species dispatch; public navigation exports stay compatible. */
 import type { RunState } from "../game.ts";
 import { PROP_DEFINITIONS, RULES } from "../../../shared/world/level.ts";
-import { distance, propBoxes, type Vec3 } from "../../../shared/shared.ts";
+import { distance, propertyBoxes, type Vec3 } from "../../../shared/shared.ts";
 import { anchorsFor, homeFor } from "./animal-context.ts";
 import { flatDistance, routeTo, walk } from "./animal-navigation.ts";
 import {
@@ -26,7 +26,7 @@ export { animalRoute, localRecoveryPoint } from "./animal-navigation.ts";
 export function stepAnimals(run: RunState, dt: number): void {
   const extra = run.props
     .filter((p) => !(p.kind === "plank" && p.placed))
-    .flatMap((p) => propBoxes(p, PROP_DEFINITIONS[p.kind]));
+    .flatMap((p) => propertyBoxes(p, PROP_DEFINITIONS[p.kind]));
   for (const a of run.animals) {
     const m = run.animalMemory[a.id];
     if (a.species === "raccoon") {

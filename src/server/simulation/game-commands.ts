@@ -12,11 +12,11 @@ import {
   equipmentTarget,
   equipmentUseTarget,
   recoveryTarget,
-  heldProp,
+  heldProperty,
   parseMessage,
   pose,
-  rayBlocked,
-  propBoxes,
+  isRayBlocked,
+  propertyBoxes,
   type PhotoFrame,
   type PhotoVerdict,
   type Vec3,
@@ -236,7 +236,7 @@ export function applyCommand(
       release(run, p, false);
       return;
     }
-    const carrying = heldProp(id, run.props);
+    const carrying = heldProperty(id, run.props);
     if (carrying) {
       releaseProp(run, carrying, id, true);
       event(run, "place", p, carrying.pose.position);
@@ -274,7 +274,7 @@ export function applyCommand(
         ...run.world.walls,
         ...fixtureBoxes(run.world.fixtures, run.route),
         ...run.props.flatMap((prop) =>
-          propBoxes(prop, PROP_DEFINITIONS[prop.kind]),
+          propertyBoxes(prop, PROP_DEFINITIONS[prop.kind]),
         ),
       ],
       target = equipmentTarget(p, run.props, PROP_DEFINITIONS, [
@@ -284,7 +284,7 @@ export function applyCommand(
       tinReachable =
         (!run.tin.holder || run.tin.holder?.startsWith("animal:")) &&
         distance(eye(p), run.tin.pose.position) <= 2 &&
-        !rayBlocked(eye(p), run.tin.pose.position, reachWalls);
+        !isRayBlocked(eye(p), run.tin.pose.position, reachWalls);
     if (
       target &&
       (!tinReachable ||
@@ -308,10 +308,10 @@ export function applyCommand(
     if (
       latch &&
       distance(eye(p), latch) <= 2 &&
-      !rayBlocked(eye(p), latch, [
+      !isRayBlocked(eye(p), latch, [
         ...run.world.walls,
         ...run.props.flatMap((prop) =>
-          propBoxes(prop, PROP_DEFINITIONS[prop.kind]),
+          propertyBoxes(prop, PROP_DEFINITIONS[prop.kind]),
         ),
       ])
     ) {
@@ -321,7 +321,7 @@ export function applyCommand(
     }
     const heldByOther = run.tin.holder && !run.tin.holder.startsWith("animal:");
     const tooFar = distance(eye(p), run.tin.pose.position) > 2;
-    const blocked = rayBlocked(eye(p), run.tin.pose.position, reachWalls);
+    const blocked = isRayBlocked(eye(p), run.tin.pose.position, reachWalls);
     if (heldByOther || tooFar || blocked) {
       const clue = run.world.commissions
         .map((c) => ({
@@ -332,7 +332,7 @@ export function applyCommand(
         .filter(
           (c) =>
             distance(p.position, c.position) <= 3 &&
-            !rayBlocked(eye(p), c.position, reachWalls),
+            !isRayBlocked(eye(p), c.position, reachWalls),
         )
         .sort(
           (a, b) =>
@@ -363,7 +363,7 @@ export function applyCommand(
     return;
   }
   if (cmd.type === "drop") {
-    const prop = heldProp(id, run.props);
+    const prop = heldProperty(id, run.props);
     if (prop) releaseProp(run, prop, id, false);
     else if (run.tin.holder === id) release(run, p, true);
     else throw Error("Pick up the tin or equipment first");
@@ -374,7 +374,7 @@ export function applyCommand(
     if (run.tick - cooldown.use < RULES.whistleCooldown * 60)
       throw Error("Wait for the whistle or tin cooldown");
     cooldown.use = run.tick;
-    const prop = heldProp(id, run.props);
+    const prop = heldProperty(id, run.props);
     if (prop?.kind === "case") {
       prop.open = !prop.open;
       event(run, "place", p, prop.pose.position);

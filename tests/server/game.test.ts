@@ -20,6 +20,7 @@ import {
   STASH,
   TIN_START,
   PLANK_PLACEMENTS,
+  PROP_RECOVERY_POINTS,
   PROP_DEFINITIONS,
   fixtureSurfaces,
   fixtureBoxes,
@@ -36,8 +37,8 @@ import {
   type ClientMessage,
   type PhotoFrame,
   type Vec3,
-  propBoxes,
-  propPoint,
+  propertyBoxes,
+  propertyPoint,
 } from "../../src/shared/shared.ts";
 
 const crossing = (run: ReturnType<typeof createRun>) =>
@@ -402,7 +403,7 @@ test("heavy carry uses full prop bounds and cannot pass through the wetland soli
   }
   assert.ok(
     Math.max(
-      ...propBoxes(item, PROP_DEFINITIONS.case).map((box) => box.max[0]),
+      ...propertyBoxes(item, PROP_DEFINITIONS.case).map((box) => box.max[0]),
     ) <=
       edge + 0.001,
   );
@@ -690,7 +691,7 @@ test("one carrier can push the staged plank from the west bank into a reachable 
     plank = run.props.find((prop) => prop.kind === "plank")!,
     local = PROP_DEFINITIONS.plank.handles[0];
   run.tin.pose.position = [50, 1, 50];
-  const handle = propPoint(local, plank.pose);
+  const handle = propertyPoint(local, plank.pose);
   p.position = [handle[0], 0, handle[2] + 0.8];
   command(run, "a", "interact");
   assert.equal(plank.holders[0], "a");
@@ -773,7 +774,7 @@ test("turning held equipment sweeps its full outer bounds before a solid contact
   }
   assert.ok(
     Math.max(
-      ...propBoxes(item, PROP_DEFINITIONS.screen).map((box) => box.max[2]),
+      ...propertyBoxes(item, PROP_DEFINITIONS.screen).map((box) => box.max[2]),
     ) <= edge,
   );
   assert.ok(run.events.some((event) => event.kind === "noise"));
@@ -860,8 +861,9 @@ test("one holder turns equipment around the claimed handle", () => {
 test("a staged plank handle cannot rotate the body into bank terrain", () => {
   const run = crew(),
     plank = run.props.find((prop) => prop.kind === "plank")!,
-    p = run.players[0],
-    handle = propPoint(PROP_DEFINITIONS.plank.handles[1], plank.pose);
+    p = run.players[0];
+  plank.pose = structuredClone(PROP_RECOVERY_POINTS.plank[0]);
+  const handle = propertyPoint(PROP_DEFINITIONS.plank.handles[1], plank.pose);
   run.tin.pose.position = [50, 1, 50];
   p.position = [handle[0], -0.25, handle[2]];
   command(run, "a", "interact");
@@ -881,7 +883,7 @@ test("a staged plank handle cannot rotate the body into bank terrain", () => {
     advanceRun(run, 1 / 60);
   }
   const bank = WALKABLES.find((surface) => surface.id === "washout-west-bank")!,
-    deck = propBoxes(plank, PROP_DEFINITIONS.plank)[0],
+    deck = propertyBoxes(plank, PROP_DEFINITIONS.plank)[0],
     ground = surfaceHeight(
       bank,
       plank.pose.position[0],
@@ -912,7 +914,7 @@ test("two holders retain exact handles across a three dimensional slope", () => 
     id
       ? [
           distance(
-            propPoint(PROP_DEFINITIONS.plank.handles[handleIndex], plank.pose),
+            propertyPoint(PROP_DEFINITIONS.plank.handles[handleIndex], plank.pose),
             run.players
               .find((player) => player.id === id)!
               .position.map(
@@ -983,7 +985,7 @@ test("player separation never pushes a supported body into the washout", () => {
       ...fixtureSurfaces(run.world.fixtures, run.route),
     ].some(
       (surface) =>
-        surfaceHeight(surface, a.position[0], a.position[2]) !== null,
+        surfaceHeight(surface, a.position[0], a.position[2]) !== undefined,
     ),
     `separation pushed player into unsupported space at ${a.position}`,
   );
@@ -1118,8 +1120,8 @@ test("one physical tin has exclusive ownership and rejects pickup through walls 
         number,
       ],
     };
-  run.players[0].position = propPoint([0, 0, 0.7], transform);
-  place(run, propPoint([0, 0.25, -0.6], transform));
+  run.players[0].position = propertyPoint([0, 0, 0.7], transform);
+  place(run, propertyPoint([0, 0.25, -0.6], transform));
   assert.throws(() => command(run, "a", "interact"), /blocked|wall|hidden/i);
 });
 
@@ -1604,7 +1606,7 @@ test("a local plank cannot bypass another crossing's water or leave its own deck
     if (variant === "outside-strip") plank.pose.position[2] += 1;
     const yaw = variant === "rotated" ? 0.15 : 0;
     plank.pose.rotation = [0, Math.sin(yaw / 2), 0, Math.cos(yaw / 2)];
-    const handle = propPoint(PROP_DEFINITIONS.plank.handles[0], plank.pose);
+    const handle = propertyPoint(PROP_DEFINITIONS.plank.handles[0], plank.pose);
     player.position = [handle[0], 0, handle[2] + 0.8];
     player.yaw = yaw;
     command(run, "a", "interact");

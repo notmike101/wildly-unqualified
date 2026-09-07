@@ -14,10 +14,10 @@ import {
 import {
   eye,
   distance,
-  rayBlocked,
+  isRayBlocked,
   equipmentTarget,
-  heldProp,
-  propPoint,
+  heldProperty,
+  propertyPoint,
   type Snapshot,
   type Vec3,
 } from "../../shared/shared.ts";
@@ -42,7 +42,7 @@ export function alignLocalCarry(
   position: Vec3,
 ) {
   const local = state.players.find((p) => p.id === localId);
-  const carried = heldProp(localId, state.props);
+  const carried = heldProperty(localId, state.props);
   if (!local || (!carried && state.tin.holder !== localId)) return;
   // Apply camera prediction to the rendered carry group only; photos use authority.
   const delta = position.map((n, i) => n - local.position[i]);
@@ -380,7 +380,7 @@ export async function createView(scene: THREE.Scene, world: ReserveBlueprint) {
       ...fixtureBoxes(world.fixtures, state.route),
     ];
     const target =
-      local && !heldProp(localId, state.props) && state.tin.holder !== localId
+      local && !heldProperty(localId, state.props) && state.tin.holder !== localId
         ? equipmentTarget(local, state.props, PROP_DEFINITIONS, occluders)
         : null;
     state.players.forEach((p) => {
@@ -407,7 +407,7 @@ export async function createView(scene: THREE.Scene, world: ReserveBlueprint) {
         o.visible &&
         !!local &&
         distance(local.position, p.position) < 24 &&
-        !rayBlocked(
+        !isRayBlocked(
           eye(local),
           [p.position[0], p.position[1] + 1.7, p.position[2]],
           occluders,
@@ -626,7 +626,7 @@ export async function createView(scene: THREE.Scene, world: ReserveBlueprint) {
           handleBadges.set(key, badge);
           scene.add(badge);
         }
-        badge.position.set(...propPoint(point, p.pose));
+        badge.position.set(...propertyPoint(point, p.pose));
         badge.position.y += 0.22;
         badge.material = badgeMaterials[owner ? owner.slot + 1 : 0];
         const selected = target?.propId === p.id && target.handle === i;
@@ -636,7 +636,7 @@ export async function createView(scene: THREE.Scene, world: ReserveBlueprint) {
           !!local &&
           !p.placed &&
           distance(local.position, badge.position.toArray() as Vec3) < 5 &&
-          !rayBlocked(eye(local), badge.position.toArray() as Vec3, occluders);
+          !isRayBlocked(eye(local), badge.position.toArray() as Vec3, occluders);
       });
     }
     const carriedPlank = state.props.find(

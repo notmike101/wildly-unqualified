@@ -14,8 +14,8 @@ import {
 import {
   distance,
   forward,
-  rayBlocked,
-  propRayBlocked,
+  isRayBlocked,
+  propertyRayBlocked,
   type Animal,
   type PhotoFrame,
   type PhotoVerdict,
@@ -44,7 +44,7 @@ function tinBlocks(frame: PhotoFrame, from: Vec3, to: Vec3) {
    */
   const local = (v: Vec3) =>
     rotate(v.map((n, i) => n - frame.tin.pose.position[i]) as Vec3, conjugate);
-  return rayBlocked(local(from), local(to), [
+  return isRayBlocked(local(from), local(to), [
     { id: "tin", min: TIN_HALF.map((n) => -n) as Vec3, max: TIN_HALF },
   ]);
 }
@@ -101,7 +101,7 @@ export function evaluatePhoto(
       Math.abs(dot(d, up) / (depth * scale)) <= 1 &&
       !sightBlocked(world, c.position, point, boxes) &&
       !tinBlocks(frame, c.position, point) &&
-      !propRayBlocked(c.position, point, frame.props, PROP_DEFINITIONS)
+      !propertyRayBlocked(c.position, point, frame.props, PROP_DEFINITIONS)
     );
   };
   const reasons: string[] = [];
@@ -170,7 +170,7 @@ export function evaluatePhoto(
           ) &&
           !sightBlocked(world, c.position, p.point, occluders) &&
           !tinBlocks(frame, c.position, p.point) &&
-          !propRayBlocked(c.position, p.point, frame.props, PROP_DEFINITIONS),
+          !propertyRayBlocked(c.position, p.point, frame.props, PROP_DEFINITIONS),
       ).length < 2
     ) {
       feedback.reason = "Subject hidden by a solid object";

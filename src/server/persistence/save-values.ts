@@ -536,7 +536,7 @@ export function incidents(v: Record<string, any>, world: ReserveBlueprint) {
     [...world.walkables, ...fixtureSurfaces(world.fixtures, v.route)].some(
       (s) => {
         const height = surfaceHeight(s, point[0], point[2]);
-        return height !== null && Math.abs(point[1] - height) < 0.01;
+        return height !== undefined && Math.abs(point[1] - height) < 0.01;
       },
     );
   for (const spill of v.spills) {

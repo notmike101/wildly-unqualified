@@ -15,13 +15,13 @@ import {
 import {
   distance,
   eye,
-  heldProp,
+  heldProperty,
   equipmentTarget,
   equipmentUseTarget,
   recoveryTarget,
-  propBoxes,
-  rayBlocked,
-  propRayBlocked,
+  propertyBoxes,
+  isRayBlocked,
+  propertyRayBlocked,
   type Player,
   type Snapshot,
   type Vec3,
@@ -86,7 +86,7 @@ export function renderHud(
         ? `${s.players.find((p) => p.id === s.tin.holder)?.name ?? "A friend"} has the tin.`
         : "Tin placed in the reserve.";
   const me = s.players.find((p) => p.id === localId);
-  const carried = heldProp(localId, s.props);
+  const carried = heldProperty(localId, s.props);
   const occupied = carried?.holders.filter(Boolean).length ?? 0;
   $("equipment").textContent = carried
     ? `${propNames[carried.kind]} · ${occupied}/${carried.kind === "decoy" ? 1 : 2} handles held${carried.kind === "case" ? ` · lid ${carried.open ? "open" : "closed"} · ${s.spareBait} spare portions` : carried.kind === "decoy" ? ` · bait cup ${carried.open ? "filled" : "empty"}` : ""}`
@@ -94,7 +94,7 @@ export function renderHud(
   const walls = [...world!.walls, ...fixtureBoxes(world!.fixtures, s.route)];
   const reachWalls = [
     ...walls,
-    ...s.props.flatMap((prop) => propBoxes(prop, PROP_DEFINITIONS[prop.kind])),
+    ...s.props.flatMap((prop) => propertyBoxes(prop, PROP_DEFINITIONS[prop.kind])),
   ];
   const gate = world!.fixtures
       .filter((f) => f.kind === "gate")
@@ -108,10 +108,10 @@ export function renderHud(
     !!me &&
     !!latch &&
     distance(eye(me), latch) <= 2 &&
-    !rayBlocked(eye(me), latch, [
+    !isRayBlocked(eye(me), latch, [
       ...world!.walls,
       ...s.props.flatMap((prop) =>
-        propBoxes(prop, PROP_DEFINITIONS[prop.kind]),
+        propertyBoxes(prop, PROP_DEFINITIONS[prop.kind]),
       ),
     ]);
   const target = me && equipmentTarget(me, s.props, PROP_DEFINITIONS, walls);
@@ -122,7 +122,7 @@ export function renderHud(
     !!me &&
     (!s.tin.holder || s.tin.holder?.startsWith("animal:")) &&
     distance(eye(me), s.tin.pose.position) <= 2 &&
-    !rayBlocked(eye(me), s.tin.pose.position, reachWalls);
+    !isRayBlocked(eye(me), s.tin.pose.position, reachWalls);
   const targetProp =
     target &&
     me &&
@@ -149,7 +149,7 @@ export function renderHud(
       .filter(
         (c) =>
           distance(c.position, me.position) <= 3 &&
-          !rayBlocked(eye(me), c.position, reachWalls),
+          !isRayBlocked(eye(me), c.position, reachWalls),
       )
       .sort(
         (a, b) =>
@@ -325,7 +325,7 @@ export function renderHud(
               ) as Vec3;
               return (
                 !sightBlocked(world!, eye(me), point, walls) &&
-                !propRayBlocked(eye(me), point, s.props, PROP_DEFINITIONS)
+                !propertyRayBlocked(eye(me), point, s.props, PROP_DEFINITIONS)
               );
             })
           );
