@@ -62,6 +62,7 @@ export default defineConfig([
             '@stylistic/dot-location': ['error', 'property'],
             '@stylistic/eol-last': 'error',
             '@stylistic/generator-star-spacing': ['error', { after: true, before: false }],
+            '@stylistic/implicit-arrow-linebreak': ['error', 'beside'],
             '@stylistic/indent': ['error', 4, {
                 ArrayExpression: 1,
                 CallExpression: { arguments: 1 },
