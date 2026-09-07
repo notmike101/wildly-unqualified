@@ -16,7 +16,6 @@
     "format": "prettier --write \"*.{ts,mjs,html,css,json}\" \"{src,tests,scripts}/**/*.{ts,css,json}\"",
     "format:check": "prettier --check \"*.{ts,mjs,html,css,json}\" \"{src,tests,scripts}/**/*.{ts,css,json}\"",
     "lint": "eslint . --max-warnings 0",
-    "lint:docs": "eslint --config eslint.docs.config.mjs . --max-warnings 0",
     "wu:dev": "npm run dev",
     "wu:build": "npm run build",
     "wu:serve": "npm start",
@@ -33,17 +32,22 @@
     "ws": "8.21.3"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@stylistic/eslint-plugin": "^5.10.0",
     "@types/node": "26.0.0",
     "@types/three": "0.185.4",
     "@types/ws": "8.18.1",
-    "eslint": "9.39.5",
+    "eslint": "10.10.0",
     "eslint-config-airbnb-extended": "3.2.0",
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-jsdoc": "64.3.6",
+    "eslint-plugin-unicorn": "^74.0.0",
+    "globals": "^17.12.0",
     "gltf-validator": "2.0.0-dev.3.10",
     "playwright": "1.63.0",
     "prettier": "3.9.6",
     "typescript": "6.0.3",
+    "typescript-eslint": "^8.69.0",
     "typescript-native": "npm:typescript@7.0.2",
     "vite": "8.2.2"
   }
