@@ -109,3 +109,60 @@ test('generated brook wash pools remain visible above the trail surface', () => 
         forest.dispose();
     }
 });
+
+test('forest cycles through 12/3/6/3 minutes with readable nights and repeatable photo lighting', () => {
+    const scene = new THREE.Scene();
+    const forest = addForest(scene, new Map(), generateReserve(1, 'cycle-test'));
+    const sun = scene.getObjectsByProperty('isDirectionalLight', true)[0] as THREE.DirectionalLight;
+    const ambient = scene.getObjectsByProperty('isHemisphereLight', true)[0] as THREE.HemisphereLight;
+    const route = {};
+    const lighting = (minute: number) => {
+        forest.update(route, minute * 3600);
+
+        return {
+            intensity: sun.intensity,
+            color: sun.color.toArray(),
+            ambient: ambient.intensity,
+            fog: (scene.fog as THREE.Fog).color.toArray(),
+            position: sun.position.toArray(),
+        };
+    };
+
+    try {
+        const day = lighting(0);
+
+        assert.deepEqual(lighting(12), day);
+        const sunset = lighting(13.5);
+        const night = lighting(15);
+
+        assert.ok(night.intensity < sunset.intensity && sunset.intensity < day.intensity);
+        assert.ok(night.intensity >= 1 && night.ambient >= 1);
+        assert.ok(night.color[2] > night.color[0], 'moonlight is blue');
+        assert.ok(sunset.color[0] > sunset.color[2], 'sunset is warm');
+        assert.deepEqual(lighting(21), night);
+        assert.deepEqual(lighting(22.5), sunset);
+        assert.deepEqual(lighting(24), day);
+        assert.deepEqual(lighting(24 * 1000 + 18), night);
+
+        for (const minute of [12, 15, 21, 24]) {
+            const before = lighting(minute - 1 / 3600);
+            const after = lighting(minute + 1 / 3600);
+
+            assert.ok(Math.abs(before.intensity - after.intensity) < 0.001);
+            assert.ok(new THREE.Vector3(...before.position).distanceTo(new THREE.Vector3(...after.position)) < 0.01);
+        }
+
+        forest.centerShadows([35, 2, -20]);
+        lighting(18);
+        const nightOffset = sun.position.clone().sub(sun.target.position);
+
+        lighting(0); // A delayed daylight photograph applied while the live world is at night.
+        const photoOffset = sun.position.clone().sub(sun.target.position);
+
+        assert.ok(photoOffset.distanceTo(nightOffset) > 1, 'photo update moves the shadow light immediately');
+        lighting(18);
+        assert.ok(sun.position.clone().sub(sun.target.position).distanceTo(nightOffset) < 1e-9);
+    } finally {
+        forest.dispose();
+    }
+});

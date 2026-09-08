@@ -10,6 +10,13 @@ server handles multiplayer, simulation and saves. Players need a WebGPU-capable
 browser. The current build is `forest-expedition-1`, with save schema **3**;
 preserved MVP/prototype releases and their older saves must stay together.
 
+The reserve has a gentle 24-minute atmospheric cycle: 12 minutes of daylight,
+3 minutes of sunset, 6 minutes of moonlit night, and 3 minutes of dawn. Nights
+keep paths and wildlife readable and do not change animal behavior, movement,
+or photo scoring. The shared simulation clock keeps the crew synchronized,
+stops while paused, and resumes from saves. Photographs retain the lighting
+at their captured tick, including pending images rendered later.
+
 ## Development
 
 Use Node **26.5 or later within major 26** and pnpm, from this game's repository root:

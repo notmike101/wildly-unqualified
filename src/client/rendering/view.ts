@@ -483,7 +483,7 @@ export async function createView(scene: THREE.Scene, world: ReserveBlueprint) {
                 }
             }
         }
-        forest.update(state.route);
+        forest.update(state.route, state.tick);
         const variant = world.seed % 2;
 
         for (const a of state.animals) {

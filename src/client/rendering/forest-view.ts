@@ -1,5 +1,5 @@
 import * as THREE from 'three/webgpu';
-import { SkyMesh } from 'three/addons/objects/SkyMesh.js';
+import { addAtmosphere } from './atmosphere.ts';
 import type { ReserveBlueprint } from '../../shared/world/world.ts';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { WorldPlacement } from '../../shared/world/level.ts';
@@ -136,40 +136,7 @@ export function addForest(
 
     // eslint-disable-next-line unicorn/no-null -- Three.js requires null to clear a scene background.
     scene.background = null;
-    scene.fog = new THREE.Fog(0x94_AF_B0, 72, 225);
-    const sky = new SkyMesh();
-
-    sky.material.fog = false;
-    sky.name = 'ForestSky';
-    sky.scale.setScalar(10_000);
-    sky.turbidity.value = 4;
-    sky.rayleigh.value = 1.4;
-    sky.mieCoefficient.value = 0.004;
-    sky.mieDirectionalG.value = 0.78;
-    sky.cloudCoverage.value = 0.56;
-    sky.cloudDensity.value = 0.65;
-    sky.cloudScale.value = 0.0014;
-    sky.cloudSpeed.value = 0;
-    sky.sunPosition.value.set(-0.45, 0.75, 0.4).normalize();
-    root.add(sky);
-    root.add(new THREE.HemisphereLight(0xC4_DC_E3, 0x43_54_3A, 2));
-    const sun = new THREE.DirectionalLight(0xFF_ED_CF, 3.1);
-
-    sun.position.copy(sky.sunPosition.value).multiplyScalar(105);
-    sun.castShadow = true;
-    sun.shadow.mapSize.set(4096, 4096);
-    Object.assign(sun.shadow.camera, {
-        left: -42,
-        right: 42,
-        top: 42,
-        bottom: -42,
-        near: 1,
-        far: 250,
-    });
-    sun.shadow.camera.updateProjectionMatrix();
-    sun.shadow.bias = -0.00015;
-    sun.shadow.normalBias = 0.08;
-    root.add(sun, sun.target);
+    const atmosphere = addAtmosphere(scene, root);
 
     // The distant floor is below the authored walkable surfaces and water.
 
@@ -457,26 +424,15 @@ export function addForest(
          * Set each gate leaf's visual rotation from authoritative fixture state.
          *
          * @param route - States indexed by fixture ID
+         * @param tick - Authoritative live or frozen-photo tick; defaults to daylight
          */
-        update(route: FixtureState) {
+        update(route: FixtureState, tick = 0) {
+            atmosphere.update(tick);
             for (const { id, leaf } of gateLeaves)
                 leaf.rotation.y = route[id].open ? Math.PI / 2 : 0;
         },
 
-        /**
-         * Move the directional light and its target together around the current camera region.
-         *
-         * @param point - World position at the center of the shadow region
-         */
-        centerShadows(point: Vec3) {
-            sun.target.position.set(...point);
-            sun.target.updateMatrixWorld();
-            sun.position
-                .copy(sky.sunPosition.value)
-                .multiplyScalar(105)
-                .add(sun.target.position);
-            sun.updateMatrixWorld();
-        },
+        centerShadows: atmosphere.centerShadows,
 
         /**
          * Release generated terrain/materials, instance buffers, sky, and shadow resources, then
@@ -488,9 +444,7 @@ export function addForest(
             });
             generatedGeometry.forEach((g) => g.dispose());
             materials.forEach((m) => m.dispose());
-            sky.geometry.dispose();
-            sky.material.dispose();
-            sun.shadow.dispose();
+            atmosphere.dispose();
             root.removeFromParent();
         },
     };
