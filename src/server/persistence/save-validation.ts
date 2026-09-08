@@ -2,7 +2,7 @@
 Validate complete saved runs, frozen photos, and JPEG payloads before restoration.
  */
 import type { RunState } from '../simulation/game.ts';
-import { distance } from '../../shared/shared.ts';
+import { distance, ALBUM_LIMITS } from '../../shared/shared.ts';
 import {
     validateReserve,
     type ReserveBlueprint,
@@ -371,15 +371,17 @@ function validateRun(
     integer(v.failedSetups);
     const pending = object(v.pendingPhotos);
 
-    if (Object.keys(pending).length > 64) throw new Error('Too many pending photos');
+    if (Object.keys(pending).length > ALBUM_LIMITS.total) throw new Error('Too many pending photos');
     for (const [key, f] of Object.entries(pending)) {
         id(key);
         photo(f, new Map(v.players.map((p) => [p.id, p.slot])), world);
         if (object(f).id !== key) throw new Error('Invalid pending photo id');
     }
     const albumIds = new Set<string>();
+    const credited = new Set<string>();
+    let extras = 0;
 
-    list(v.album, 64, (x) => {
+    list(v.album, ALBUM_LIMITS.total, (x) => {
         const p = object(x, [
             'id',
             'photographer',
@@ -398,11 +400,17 @@ function validateRun(
         if (!ids.has(p.photographer)) throw new Error('Missing saved photographer');
         integer(p.tick);
         list(p.credits, 8, (a): asserts a is string => one(a, assignments));
+        if (p.credits.length === 0) extras++;
         if (
             new Set(p.credits).size !== p.credits.length
                 || p.credits.some((id: string) => !assignments.includes(id))
         )
             throw new Error('Invalid photo credit selection');
+        for (const credit of p.credits) {
+            if (credited.has(credit) || !completed.includes(credit))
+                throw new Error('Duplicate or unearned photo credit');
+            credited.add(credit);
+        }
         list(p.assists, 4, id);
         if (p.assists.some((playerId: string) => !ids.has(playerId)))
             throw new Error('Missing saved assisting player');
@@ -428,6 +436,8 @@ function validateRun(
         )
             throw new Error('Pending capture does not match its album record');
     });
+    if (extras > ALBUM_LIMITS.extras)
+        throw new Error('Too many extra photos');
     for (const key of [...images.keys(), ...Object.keys(pending)])
         if (!albumIds.has(key)) throw new Error('Orphan saved image or frame');
 
@@ -454,7 +464,7 @@ export function decodeSave(raw: string) {
     object(data, ['version', 'run', 'images']);
     const imageData = object(data.images);
 
-    if (Object.keys(imageData).length > 64) throw new Error('Too many saved images');
+    if (Object.keys(imageData).length > ALBUM_LIMITS.total) throw new Error('Too many saved images');
     const images = new Map<string, Uint8Array>();
 
     for (const [key, value] of Object.entries(imageData)) {

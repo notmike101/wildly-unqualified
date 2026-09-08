@@ -19,6 +19,7 @@ import {
     pose,
     isRayBlocked,
     propertyBoxes,
+    ALBUM_LIMITS,
     type PhotoFrame,
     type PhotoVerdict,
     type Vec3,
@@ -65,7 +66,7 @@ export function applyCommand(
     run: RunState,
     id: string,
     input: unknown,
-): void | { frame: PhotoFrame; verdict: PhotoVerdict } {
+): void | { frame: PhotoFrame; verdict: PhotoVerdict; retained: boolean } {
     const command = parseMessage(input),
         p = player(run, id);
 
@@ -538,23 +539,30 @@ export function applyCommand(
             ),
         ];
 
-        run.album.push({
-            id: frame.id,
-            photographer: id,
-            tick: run.tick,
-            credits,
-            assists,
-            favorites: [],
-            // eslint-disable-next-line unicorn/no-null -- Album records serialize the absence of an incident as null.
-            incident: null,
-            thumbnail: 'pending',
-        });
-        run.pendingPhotos[frame.id] = frame;
-        const extras = run.album.filter((p) => p.credits.length === 0);
-        const remove = new Set(extras.slice(0, -21).map((p) => p.id));
+        const extras = run.album.filter((photo) => photo.credits.length === 0);
+        const removable = extras.find((photo) => photo.favorites.length === 0);
+        const isFull = run.album.length >= ALBUM_LIMITS.total
+            || (credits.length === 0 && extras.length >= ALBUM_LIMITS.extras);
+        const isRetained = !isFull || removable !== undefined;
 
-        run.album = run.album.filter((p) => !remove.has(p.id));
-        for (const id of remove) delete run.pendingPhotos[id];
+        if (isFull && removable) {
+            run.album = run.album.filter((photo) => photo.id !== removable.id);
+            delete run.pendingPhotos[removable.id];
+        }
+        if (isRetained) {
+            run.album.push({
+                id: frame.id,
+                photographer: id,
+                tick: run.tick,
+                credits,
+                assists,
+                favorites: [],
+                // eslint-disable-next-line unicorn/no-null -- Album records serialize the absence of an incident as null.
+                incident: null,
+                thumbnail: 'pending',
+            });
+            run.pendingPhotos[frame.id] = frame;
+        }
         if (credits.length === 0) {
             run.failedSetups++;
             if (run.failedSetups >= 3)
@@ -564,6 +572,6 @@ export function applyCommand(
                 );
         }
 
-        return { frame, verdict };
+        return { frame, verdict, retained: isRetained };
     }
 }

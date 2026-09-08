@@ -171,6 +171,7 @@ export type PhotoFrame = {
     hats: CrewHat[];
 };
 export type PhotoVerdict = { credits: string[]; reason: string };
+export const ALBUM_LIMITS = { total: 64, extras: 56 } as const;
 export type PhotoRecord = {
     id: string;
     photographer: string;
@@ -227,7 +228,7 @@ export type ClientMessage = { worldId: string } & (
 export type ServerMessage
     = | { type: 'world'; id: string; hash: string; blueprint: ReserveBlueprint }
         | { type: 'snapshot'; value: Snapshot }
-        | { type: 'photo'; frame: PhotoFrame; verdict: PhotoVerdict }
+        | { type: 'photo'; frame: PhotoFrame; verdict: PhotoVerdict; retained: boolean }
         | { type: 'notice'; text: string }
         | { type: 'welcome'; playerId: string; host: boolean }
         | {

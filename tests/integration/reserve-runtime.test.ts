@@ -432,7 +432,7 @@ test('generated gate interaction follows the actual opened latch and preserves o
     );
 });
 
-test('unimplemented new wildlife commissions do not inherit permissive legacy credit', async () => {
+test('new wildlife commissions require their selected behavior and resident identity', async () => {
     const { createRun, addPlayer, makePhotoFrame, evaluatePhoto }
         = await import('../../src/server/simulation/game.ts');
     const run = createRun(0, 'pending-routines'),
@@ -448,12 +448,14 @@ test('unimplemented new wildlife commissions do not inherit permissive legacy cr
         p = addPlayer(run, 'a', 'A');
 
     subject.pose = pose(anchor.point);
-    subject.behavior = 'dabble';
+    subject.behavior = 'wander';
     p.position = [anchor.point[0], 0, anchor.point[2] + 3];
     p.pitch = -0.25;
     const frame = makePhotoFrame(run, p.id);
 
     assert.ok(!evaluatePhoto(frame, run.world).credits.includes(c.id));
+    subject.behavior = 'dabble';
+    assert.ok(evaluatePhoto(makePhotoFrame(run, p.id), run.world).credits.includes(c.id));
     const malformed = structuredClone(frame);
 
     malformed.animals[1].id = malformed.animals[0].id;

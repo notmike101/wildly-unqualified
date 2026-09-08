@@ -153,6 +153,7 @@ test('eight credited photographs leave space for 56 retained extras', async (t) 
     const result = shutter(run);
 
     assert.deepEqual(result.verdict.credits, []);
+    assert.equal(result.retained, true);
     assert.equal(run.album.length, 64);
     assert.ok(protectedIds.every((id) => run.album.some((p) => p.id === id)));
     assert.ok(run.pendingPhotos[result.frame.id]);
@@ -209,6 +210,7 @@ test('56 favorited extras make uncredited captures preview-only across pending/r
                 'existing capture return supplies a preview without a new API',
             );
             assert.deepEqual(result.verdict.credits, []);
+            assert.equal(result.retained, false);
             assert.equal(
                 run.album.length,
                 beforeAlbum.length,
@@ -269,6 +271,7 @@ test('a new credited capture remains retainable when all 56 extras are favorited
     const result = shutter(run);
 
     assert.ok(result.verdict.credits.includes(commission.id));
+    assert.equal(result.retained, true);
     assert.equal(run.album.length, 64);
     assert.deepEqual(
         run.album.map((p) => p.id),
@@ -295,6 +298,34 @@ test('save validation reserves eight credit slots even when total photo count is
     assert.equal(run.album.filter((p) => p.credits.length === 0).length, 57);
     await assert.rejects(saveRun(direction, run, images));
     assert.deepEqual(await readFile(path.join(direction, 'run.json')), before);
+});
+
+test('duplicate and unearned saved photo credits cannot consume reserved slots', async (t) => {
+    const run = crew(), images = new Map<string, Uint8Array>(), direction = await directory(t);
+
+    credits(run, images);
+    await saveRun(direction, run, images);
+    const before = await readFile(path.join(direction, 'run.json'));
+    const duplicate = record(run, images, [run.world.commissions[0].id]);
+
+    await assert.rejects(saveRun(direction, run, images), /credit/i);
+    run.album.pop();
+    delete run.pendingPhotos[duplicate];
+    run.completed.shift();
+    await assert.rejects(saveRun(direction, run, images), /credit/i);
+    assert.deepEqual(await readFile(path.join(direction, 'run.json')), before);
+});
+
+test('the shutter never exceeds the total bound even for an invalid credit ledger', () => {
+    const run = crew(), images = new Map<string, Uint8Array>();
+
+    for (let index = 0; index < 64; index++)
+        record(run, images, [run.world.commissions[0].id]);
+    const result = shutter(run);
+
+    assert.equal(result.retained, false);
+    assert.equal(run.album.length, 64);
+    assert.equal(Object.keys(run.pendingPhotos).length, 64);
 });
 
 test('genuine 48-resident world fits eight credit photos plus 56 extras at maximum JPEG mixtures', async (t) => {

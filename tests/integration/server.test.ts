@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { test, type TestContext } from 'node:test';
+import fs from 'node:fs/promises';
+import { syncBuiltinESMExports } from 'node:module';
 import {
     mkdtemp,
     mkdir,
@@ -21,10 +23,12 @@ import {
     loadRoom,
     loadRun,
     saveRun,
+    saveRoom,
 } from '../../src/server/persistence/save.ts';
 import {
     createRun,
     addPlayer,
+    makePhotoFrame,
     applyCommand as applyWorldCommand,
 } from '../../src/server/simulation/game.ts';
 
@@ -559,6 +563,120 @@ test('failed final save keeps the server available and permits a repaired retry'
     assert.equal((await loadRun(server.dataDir))!.run.paused, true);
 });
 
+test('failed upload does not restore a frame evicted while its save awaited IO', async (t) => {
+    const root = await mkdtemp(path.join(tmpdir(), 'wu upload rollback '));
+    const dataDirectory = path.join(root, 'private'),
+        webDirectory = path.join(root, 'web');
+
+    await mkdir(webDirectory);
+    await writeFile(path.join(webDirectory, 'index.html'), '<!doctype html><title>Upload rollback</title>');
+    const room = await loadRoom(dataDirectory),
+        run = createRun(9);
+
+    addPlayer(run, 'host', 'Host');
+    room.hostId = 'host';
+    run.phase = 'outing';
+
+    // Arrange a full extra album; eviction itself runs through the real socket.
+
+    for (let index = 0; index < 56; index++) {
+        const frame = makePhotoFrame(run, 'host');
+
+        run.pendingPhotos[frame.id] = frame;
+        run.album.push({
+            id: frame.id, photographer: 'host', tick: frame.tick,
+            credits: [], assists: [], favorites: [],
+            // eslint-disable-next-line unicorn/no-null -- Album records serialize absent incidents as null.
+            incident: null, thumbnail: 'pending',
+        });
+    }
+    const evictedId = run.album[0].id;
+
+    await saveRoom(dataDirectory, room);
+    await saveRun(dataDirectory, run, new Map());
+    const server = await startServer({ host: '127.0.0.1', port: 0, origin, dataDir: dataDirectory, webDir: webDirectory });
+    const clients: ReturnType<typeof connect>[] = [];
+    let releaseUpload!: () => void;
+    // eslint-disable-next-line unicorn/prefer-promise-with-resolvers -- The configured ES2023 library does not include Promise.withResolvers.
+    const gate = new Promise<void>((resolve) => {
+        releaseUpload = resolve;
+    });
+    const temporary = path.join(dataDirectory, 'run.json.tmp');
+    let isBlocked = false;
+
+    t.after(async () => {
+        releaseUpload();
+        t.mock.restoreAll();
+        syncBuiltinESMExports();
+        for (const client of clients) client.socket.terminate();
+        await rm(temporary, { recursive: true, force: true });
+        try {
+            await server.close();
+        } finally {
+            await rm(root, { recursive: true, force: true });
+        }
+    });
+    const host = await admit(server.url, room.hostSecret, 'Host');
+    const client = connect(server.url, host.cookie);
+
+    clients.push(client);
+    await until(() => client.messages.filter((m) => m.type === 'photo').length === 56);
+    client.socket.send(encode(client, { type: 'resume', seq: 1 }));
+    await until(() => client.messages.some((m) => m.type === 'snapshot' && !m.value.paused));
+
+    // Gate only the upload write. All validation, other IO, and socket commands remain real.
+
+    const originalWrite = fs.writeFile;
+
+    t.mock.method(fs, 'writeFile', async (...arguments_: Parameters<typeof fs.writeFile>) => {
+        if (!isBlocked && arguments_[0] === temporary && typeof arguments_[1] === 'string'
+            && arguments_[1].includes('"thumbnail":"ready"')) {
+            await mkdir(temporary);
+            isBlocked = true;
+            await gate;
+        }
+
+        return originalWrite(...arguments_);
+    });
+    syncBuiltinESMExports();
+    const jpeg = Buffer.from(
+        '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/2wBDAQMDAwQDBAgEBAgQCwkLEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBD/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAn/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFAEBAAAAAAAAAAAAAAAAAAAAAP/EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAMAwEAAhEDEQA/AJVAA//Z',
+        'base64',
+    );
+    const uploading = fetch(server.url + '/api/photos/' + evictedId, {
+        method: 'POST',
+        headers: { Origin: origin, Cookie: host.cookie, 'Content-Type': 'image/jpeg' },
+        body: jpeg,
+    });
+
+    await until(() => isBlocked);
+    client.socket.send(encode(client, { type: 'photo', seq: 2 }));
+    await until(() => client.messages.some((m) => m.type === 'snapshot'
+        && m.value.album.length === 56 && m.value.album.every((p) => p.id !== evictedId)));
+    releaseUpload();
+    const response = await uploading;
+
+    assert.equal(response.status, 500, 'the original persistence failure still reaches the uploader');
+    await rm(temporary, { recursive: true, force: true });
+    t.mock.restoreAll();
+    syncBuiltinESMExports();
+
+    client.socket.terminate();
+    await until(() => client.socket.readyState === WebSocket.CLOSED);
+    const reconnected = connect(server.url, host.cookie);
+
+    clients.push(reconnected);
+    await until(() => reconnected.messages.some((m) => m.type === 'photo'));
+    assert.equal(reconnected.messages.some((m) => m.type === 'photo' && m.frame.id === evictedId), false,
+        'reconnect must not replay the evicted frame after upload rollback');
+    await server.close();
+    const saved = (await loadRun(dataDirectory))!;
+
+    assert.equal(saved.run.album.length, 56);
+    assert.equal(saved.run.pendingPhotos[evictedId], undefined);
+    assert.equal(saved.images.has(evictedId), false);
+});
+
 test('authenticated favorites stay shared in the ended exhibition and across restart', async (t) => {
     const original = await fixture(t),
         room = await loadRoom(original.dataDir);
@@ -676,7 +794,6 @@ test('authenticated favorites stay shared in the ended exhibition and across res
 test('restart and relocation retain rule-earned photo credit, pending capture, bait and animals across a new origin with recovered host and reassigned guest', async (t) => {
     const root = await mkdtemp(path.join(tmpdir(), 'wu relocation '));
 
-    t.after(() => rm(root, { recursive: true, force: true }));
     const webDirectory = path.join(root, 'web'),
         dataDirectory = path.join(root, 'original');
 
@@ -717,6 +834,7 @@ test('restart and relocation retain rule-earned photo credit, pending capture, b
     const captured = applyCommand(run, 'host', { type: 'photo', seq: 1 });
 
     assert.ok(captured);
+    assert.equal(captured.retained, true);
     assert.deepEqual(captured.verdict.credits, [commission.id]);
     assert.deepEqual(run.completed, [commission.id]);
     assert.deepEqual(run.album[0].credits, [commission.id]);
@@ -743,12 +861,16 @@ test('restart and relocation retain rule-earned photo credit, pending capture, b
         webDir: webDirectory,
     });
 
-    t.after(() => server.close());
+    t.after(async () => {
+        await server.close();
+        await rm(root, { recursive: true, force: true });
+    });
     const host = await admit(server.url, room.hostSecret, 'Host'),
         client = connect(server.url, host.cookie);
 
     t.after(() => client.socket.terminate());
     await until(() => client.messages.some((m) => m.type === 'photo'));
+    assert.equal(client.messages.find((m) => m.type === 'photo')!.retained, true);
     assert.deepEqual(
         client.messages.find((m) => m.type === 'photo')!.frame,
         frame,
@@ -1027,7 +1149,7 @@ test('restart and relocation retain rule-earned photo credit, pending capture, b
     const recoveredGuest = connect(server.url, newGuest.cookie, movedOrigin);
 
     t.after(() => recoveredGuest.socket.terminate());
-    await until(() => recoveredGuest.messages.some((m) => m.type === 'welcome'));
+    await until(() => recoveredGuest.messages.some((m) => m.type === 'snapshot'));
     assert.equal(
         recoveredGuest.messages.find((m) => m.type === 'welcome')!.playerId,
         'guest',

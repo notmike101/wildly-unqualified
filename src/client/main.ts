@@ -121,7 +121,7 @@ const history = new Map<number, Input>(),
     sent = new Map<number, number>();
 const pendingFrames = new Map<
         string,
-        { frame: PhotoFrame; verdict: PhotoVerdict }
+        { frame: PhotoFrame; verdict: PhotoVerdict; retained: boolean }
     >(),
     frameTimes: number[] = [];
 const assetErrors: string[] = [];
@@ -406,8 +406,8 @@ async function installWorld(
 
         client.queuedSnapshot = undefined;
         if (pending) receive(pending);
-        for (const { frame, verdict } of pendingFrames.values())
-            if (frame.worldId === blueprint.id) queuePhoto(frame, verdict);
+        for (const { frame, verdict, retained } of pendingFrames.values())
+            if (frame.worldId === blueprint.id) queuePhoto(frame, verdict, retained);
     } catch (error) {
         nextView?.dispose();
         if (epoch !== client.installEpoch) return;
@@ -486,8 +486,8 @@ function openSocket() {
                     notify(`${who} · ${m.kind === 'impact' ? 'clatter' : m.kind}`);
             }
             if (m.type === 'photo' && m.frame.worldId === client.installingId) {
-                pendingFrames.set(m.frame.id, { frame: m.frame, verdict: m.verdict });
-                if (client.worldReady) queuePhoto(m.frame, m.verdict);
+                pendingFrames.set(m.frame.id, { frame: m.frame, verdict: m.verdict, retained: m.retained });
+                if (client.worldReady) queuePhoto(m.frame, m.verdict, m.retained);
             }
             if (m.type === 'snapshot') receive(m.value);
         } catch (error) {
@@ -656,8 +656,9 @@ function toggleFavorite(photoId: string) {
  *
  * @param frame - Frozen server-authorized shutter frame
  * @param verdict - Server scoring result shown beside the preview
+ * @param isRetained - Whether the server retained an album record for upload
  */
-function queuePhoto(frame: PhotoFrame, verdict: PhotoVerdict) {
+function queuePhoto(frame: PhotoFrame, verdict: PhotoVerdict, isRetained: boolean) {
     client.photoChain = (async () => {
         try {
             await client.photoChain;
@@ -712,6 +713,12 @@ function queuePhoto(frame: PhotoFrame, verdict: PhotoVerdict) {
                 () => ($('photo-toast').hidden = true),
                 8000,
             );
+            if (!isRetained) {
+                pendingFrames.delete(frame.id);
+                $('photo-result').textContent += ' · Album full: preview only.';
+
+                return;
+            }
             const response = await fetch(
                 `/api/photos/${encodeURIComponent(frame.id)}`,
                 {
@@ -908,7 +915,7 @@ $('invite-button').addEventListener('click', () => void api('/api/invite')
 Retry locally retained photo frames or explain how to recover saved pending captures.
  */
 $('retry-photos').addEventListener('click', () => {
-    for (const p of pendingFrames.values()) queuePhoto(p.frame, p.verdict);
+    for (const p of pendingFrames.values()) queuePhoto(p.frame, p.verdict, p.retained);
     if (pendingFrames.size === 0)
         notify(
             'No local pending frames. Rejoining also restores saved pending photos.',

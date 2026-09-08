@@ -853,6 +853,7 @@ test('maximum combined schema-3 photo payload fits with one blueprint and reject
 
     assert.equal(maximum.length, 65_536);
     assert.equal(validJPEG(maximum), true);
+    run.completed = run.world.commissions.map((commission) => commission.id);
     for (const ready of [0, 32, 64]) {
         run.album = [];
         run.pendingPhotos = {};
@@ -867,7 +868,7 @@ test('maximum combined schema-3 photo payload fits with one blueprint and reject
                 id: frame.id,
                 photographer: 'a',
                 tick: frame.tick,
-                credits: [],
+                credits: index < 8 ? [run.world.commissions[index].id] : [],
                 assists: ['b', 'c', 'd'],
                 favorites: ['a', 'b', 'c', 'd'],
                 // eslint-disable-next-line unicorn/no-null -- The serialized game contract represents an empty slot with null.

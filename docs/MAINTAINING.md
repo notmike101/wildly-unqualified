@@ -107,16 +107,53 @@ Keep world generation deterministic. Generation and validation deliberately shar
 Use the existing pinned dependencies and Node 26.5+ within major 26, from the game repository root:
 
 ```sh
-npm ci
+pnpm install --frozen-lockfile
 npm run build
 npm run format:check
-npm run lint:docs
+npm run lint
 npm test
 ```
 
 Tests live under `tests/client`, `tests/server`, `tests/shared`, and `tests/integration`, with the visible browser driver under `tests/e2e` and reusable test helpers under `tests/helpers`. The npm test glob discovers all `tests/**/*.test.ts`; historical handoff drafts are excluded. `tests/server/game.test.ts`, the `tests/integration/expedition-*.test.ts` files, and `tests/shared/world.test.ts` exercise the extracted code through its existing public API. `tests/integration/release.test.ts` checks the portable package's exact runtime contents, including the new server modules. When adding a runtime module, update the allowlist in `scripts/release.ts` and its expectation in `tests/integration/release.test.ts`. Browser-only modules are included by the existing build.
 
-The complete suite includes a large deterministic seed sweep and takes roughly three minutes on the development machine. `npm run test:browser` is the existing visible gameplay driver and uses port 4320 by default (override `WU_TEST_PORT` and set a matching `WU_TEST_URL`); its historical acceptance results are separate from this cleanup. The dated records below describe prior checks; the reorganization verification is recorded separately.
+The complete suite includes a large deterministic seed sweep and takes several minutes on the development machine. `npm run test:browser` is the existing visible gameplay driver and uses port 4320 by default (override `WU_TEST_PORT` and set a matching `WU_TEST_URL`); its historical acceptance results are separate from the Node suite. Current test repairs and dated prior checks are recorded below.
+
+## Test suite repair — 2026-09-07
+
+The starting suite had 206 tests: 191 passing and 15 failing. After the repairs,
+`npm test` passes **209/209**, with zero skipped, cancelled or TODO tests, in
+225.906 seconds. `npm run build` (including typecheck) and `npm run lint` pass;
+Vite still reports its existing large-bundle warning.
+
+- Album retention now permits 56 extras plus eight separately credited photos,
+  protects favorites and credits, and evicts the oldest eligible extra. Saturated
+  protected albums produce previews without an upload obligation. Save validation
+  rejects excess extras, repeated credits across photos, and credits absent from
+  the completed ledger. The shutter also enforces the total 64-photo bound.
+- Upload rollback restores a pending frame only if its album record still exists.
+  A real socket/upload regression gates the filesystem write, creates an actual
+  filesystem obstruction, and proves eviction survives the failed save and rejoin.
+- Deer investigations remain stationary around an unchanged reachable decoy until
+  interest expires. The regression checks pose stability, expiry and relocation.
+- Wildlife fixtures now observe actual bounded transitions and shared bait use.
+  They retain exact-resident credit, food-removal, theft, recovery and framing
+  checks; supported Mallard behavior and legitimate optional cameos are tested
+  explicitly. Relocation waits for the snapshot it reads, rather than just welcome.
+- Portable releases now copy `pnpm-lock.yaml` and `pnpm-workspace.yaml`. The release
+  test, frozen-lockfile production installation, health and HTML checks pass.
+
+This result covers the complete Node suite, not the separate historical visible
+browser outing. That driver still needs input-capture and generated-scenario
+migration. A diagnostic run verified ordinary JPEG upload, equipment handles,
+lid controls, shared carry, release and spill creation, then stopped at pointer
+capture throttling. Both owned browsers and the server closed. Unfinished driver
+changes were removed from the working tree and retained in the ignored
+`.artifacts/tests-passing/browser-investigation.patch` for continuation.
+
+Full test logs and lint evidence are under `.artifacts/tests-passing/`; browser
+failure and cleanup evidence is under
+`.artifacts/wildly-unqualified/mvp-2026-09-05/outing-2p-0ms-1788832644938/`.
+The dated records below preserve their historical results.
 
 ## Responsibility-based layout verification — 2026-09-07
 

@@ -645,9 +645,11 @@ export async function startServer(
                     try {
                         await flush();
                     } catch (error) {
-                        images.delete(record.id);
-                        current.thumbnail = 'pending';
-                        run.pendingPhotos[record.id] = frame;
+                        if (run.album.includes(current)) {
+                            images.delete(record.id);
+                            current.thumbnail = 'pending';
+                            run.pendingPhotos[record.id] = frame;
+                        }
                         throw error;
                     }
                     json(response, 200, { ready: true });
@@ -726,6 +728,7 @@ export async function startServer(
                         send(ws, {
                             type: 'photo',
                             frame,
+                            retained: true,
                             verdict: {
                                 credits:
                   run.album.find((p) => p.id === frame.id)?.credits ?? [],

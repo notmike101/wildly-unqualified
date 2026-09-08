@@ -183,6 +183,12 @@ export function stepAnimals(run: RunState, dt: number): void {
                 );
 
                 if (target && run.tick < m.interestUntilTick) {
+                    if (
+                        !changed
+                        && a.behavior === 'investigate'
+                        && flatDistance(a.pose.position, decoy.pose.position) < 2
+                    )
+                        continue;
                     a.behavior = 'approach';
                     if (walk(run, a, target, 0.9, dt, extra)) a.behavior = 'investigate';
                     continue;

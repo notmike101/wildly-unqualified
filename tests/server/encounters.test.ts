@@ -480,7 +480,10 @@ test('a raccoon stops washing when the visible food is removed', () => {
 
     run.tin.pose = pose([wash[0] + 0.6, 0.109, wash[2]]);
     run.tin.open = true;
-    for (let index = 0; index < 60 && r.behavior !== 'wash'; index++)
+
+    // This resident reaches washing at 20.5 seconds after yielding to its siblings.
+
+    for (let index = 0; index < 300 && r.behavior !== 'wash'; index++)
         step(run, 0.1);
     assert.equal(r.behavior, 'wash');
     run.tin.open = false;
@@ -495,14 +498,25 @@ test('deer cautiously investigates the actual moved decoy and resumes interest a
         decoy = run.props.find((p) => p.kind === 'decoy')!;
 
     decoy.pose = pose([d.pose.position[0] + 3, 0.5, d.pose.position[2]]);
-    step(run, 3);
+    for (let index = 0; index < 120 && d.behavior !== 'investigate'; index++)
+        step(run, 0.1);
     assert.equal(d.behavior, 'investigate');
     assert.ok(distance(d.pose.position, decoy.pose.position) < 2);
+    const investigatingPose = structuredClone(d.pose);
+
+    for (let index = 0; index < 5; index++) {
+        step(run, 0.1);
+        assert.equal(d.behavior, 'investigate', 'an unchanged decoy keeps a stable inspection');
+        assert.deepEqual(d.pose, investigatingPose);
+    }
     step(run, 12);
     assert.notEqual(d.behavior, 'investigate');
     decoy.pose.position[2] += 3;
-    step(run, 5);
+    for (let index = 0; index < 120 && d.behavior !== 'investigate'; index++)
+        step(run, 0.1);
     assert.equal(d.behavior, 'investigate');
+    assert.ok(distance(d.pose.position, decoy.pose.position) < 2);
+    assert.ok(distance(d.target, decoy.pose.position) < 2);
 });
 
 test('washing requires food at the selected stream and heron feeding follows either selected patch', () => {

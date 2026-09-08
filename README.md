@@ -12,7 +12,7 @@ preserved MVP/prototype releases and their older saves must stay together.
 
 ## Development
 
-Use Node **26.5 or later within major 26**, from this game's repository root:
+Use Node **26.5 or later within major 26** and pnpm, from this game's repository root:
 
 ```sh
 pnpm install --frozen-lockfile
@@ -21,8 +21,8 @@ npm test
 ```
 
 `npm run build` typechecks source, tests and tooling, then writes the Vite web
-bundle to `dist/`. `npm test` includes the existing failing expansion requirements;
-see the maintenance guide before interpreting its exit status.
+bundle to `dist/`. `npm test` runs all Node unit and integration tests, including
+the expansion requirements. Build first so the release tests have current assets.
 
 For a separate local room, start the server in one PowerShell terminal:
 
@@ -84,27 +84,27 @@ Original Blender scenes and versioned exports remain intact.
 
 ```sh
 npm run format:check
-npm run lint:docs
+npm run typecheck
 npm run lint
 npm run build
 npm test
 npm run release
 ```
 
-General Airbnb lint has existing style debt; the documentation lint is a separate
-gate. The release command packages `dist/` and the allowlisted server runtime into
+ESLint checks code style and JSDoc; there is no separate `lint:docs` script.
+The release command packages `dist/` and the allowlisted server runtime into
 a new directory under `.artifacts/wildly-unqualified/releases/`. It refuses to
 overwrite an existing release. Follow [the server guide](docs/SERVER.md) to install
 the pinned production dependencies and start the portable package.
 
-Verification on **2026-09-07**: build/typecheck, formatting, documentation lint and
-portable startup/save checks passed. The full suite had **192 passing tests and
-14 existing failures**; general lint reported **1,510 errors and 17 warnings**.
-Visible two-player startup passed, but the outing driver reproduced the baseline
-camera-navigation failure. The server's existing MIME allowlist also does not yet
-serve JSON/WAV/OGG, so packaged audio does not imply completed audio integration.
-See the [verification record](docs/MAINTAINING.md#responsibility-based-layout-verification--2026-09-07)
-for scope and evidence; these are dated results, not a claim that all checks pass.
+Verification on **2026-09-07**: all **209 Node tests pass**, with no skipped tests;
+build/typecheck and ESLint pass. Portable packaging, a frozen-lockfile production
+installation, health and HTML serving also pass. See the
+[test repair record](docs/MAINTAINING.md#test-suite-repair--2026-09-07) for scope.
+The separate visible browser outing is not passing: it still needs its controls
+and historical four-assignment scenario migrated to the generated reserve.
+The server's existing MIME allowlist also does not yet serve JSON/WAV/OGG, so
+packaged audio does not imply completed audio integration.
 
 `npm run test:browser` runs the existing visible outing driver on port **4320** by
 default and requires installed **Microsoft Edge** with WebGPU support. Run

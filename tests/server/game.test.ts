@@ -1299,7 +1299,10 @@ test('rattle brings inspection before theft; whistle diverts the same carried ti
         firstTarget,
         'a newer whistle cannot erase the commitment immediately',
     );
-    step(run, 38);
+
+    // Observe delivery before a different resident can inspect and steal it again.
+
+    for (let index = 0; index < 380 && run.tin.holder; index++) step(run, 0.1);
     // eslint-disable-next-line unicorn/no-null -- The serialized game contract represents an empty slot with null.
     assert.equal(run.tin.holder, null);
     assert.ok(
@@ -1445,7 +1448,22 @@ test('rejected deer portraits explain the framed selected behavior instead of of
         ];
         for (const behavior of ['alert', 'settle'] as const) {
             deer.behavior = behavior;
-            const result = evaluatePhoto(makePhotoFrame(run, 'a'), run.world);
+
+            // An optional cameo accepts a portrait regardless of the selected behavior.
+
+            const frame = makePhotoFrame(run, 'a');
+
+            assert.deepEqual(
+                evaluatePhoto(frame, run.world).credits,
+                run.world.commissions
+                    .filter((c) => c.kind === 'cameo' && c.subjects.includes(deer.id))
+                    .map((c) => c.id),
+                'only the framed deer cameo can earn optional credit',
+            );
+            const result = evaluatePhoto(frame, {
+                ...run.world,
+                commissions: run.world.commissions.filter((c) => c.required),
+            });
 
             assert.deepEqual(result.credits, []);
             assert.match(result.reason, /deer/i);
@@ -1553,12 +1571,12 @@ test('photographs freeze the authoritative pose; early pair credit works and alb
     assert.equal(accepted.frame.animals[0].pose.position[0], oldX);
     assert.deepEqual(run.pendingPhotos[accepted.frame.id], accepted.frame);
     assert.throws(() => command(run, 'a', 'photo'), /wait|cooldown/i);
-    for (let index = 0; index < 26; index++) {
+    for (let index = 0; index < 60; index++) {
         step(run, 1.1);
         command(run, 'a', 'photo');
     }
     assert.equal(run.completed.length, 1);
-    assert.ok(run.album.length <= 24);
+    assert.equal(run.album.length, 57);
     assert.equal(run.album.filter((p) => p.credits.length).length, 1);
     assert.equal(Object.keys(run.pendingPhotos).length, run.album.length);
     assert.ok(run.album.some((p) => p.id === accepted.frame.id));
@@ -1742,17 +1760,33 @@ test('a linked generated encounter preserves tin identity through theft, pause, 
     a.position = [tin.pose.position[0], 0, tin.pose.position[2] + 0.8];
     command(run, 'a', 'interact');
     assert.equal(tin.holder, 'a');
-    a.position = [pairAnchor[0], 0, pairAnchor[2] + 1];
-    for (let portion = 0; portion < 4; portion++) {
-        command(run, 'a', 'use');
-        if (portion < 3) step(run, 3.1);
+    const isFeeding = () => h.behavior === 'feed'
+        && h.remaining <= 3
+        && distance(h.pose.position, pairAnchor) < 0.25
+        && run.baitPatches[pairCommission.anchor!] > 0;
+
+    // The shared patch feeds several residents; replenish until the bound heron gets a turn.
+
+    for (let batch = 0; batch < 4 && !isFeeding(); batch++) {
+        if (batch) {
+            a.position = [...run.world.camp];
+            command(run, 'a', 'use');
+            step(run, 3.1);
+        }
+        a.position = [pairAnchor[0], 0, pairAnchor[2] + 1];
+        for (let portion = 0; portion < 4; portion++) {
+            command(run, 'a', 'use');
+            if (portion < 3) step(run, 3.1);
+        }
+        assert.equal(run.baitPatches[pairCommission.anchor!], 4);
+        a.position = [...run.world.camp];
+        until(() => isFeeding() || run.baitPatches[pairCommission.anchor!] === 0, 90);
     }
-    assert.equal(run.baitPatches[pairCommission.anchor!], 4);
-    a.position = [...run.world.camp];
-    until(() => h.behavior === 'feed' && h.remaining <= 3, 25);
-    a.position = pairPoint(34, 0, -29.8);
-    command(run, 'a', 'interact');
-    a.position = [...run.world.camp];
+    assert.ok(isFeeding(), 'the bound heron reaches actual stocked food');
+
+    // Hold the lure beyond the heron's shy radius so another raccoon cannot steal it.
+
+    a.position = pairPoint(32, 0, -29.8);
     until(() => r.behavior === 'inspect' && h.behavior === 'display', 12);
     b.position = pairPoint(36.5, 0, -22);
     b.yaw = 0;
@@ -1765,7 +1799,7 @@ test('a linked generated encounter preserves tin identity through theft, pause, 
     );
     assert.equal(run.tin, tin);
     assert.equal(tin.portions, 0);
-    until(() => run.baitPatches[pairCommission.anchor!] === 0, 15);
+    until(() => run.baitPatches[pairCommission.anchor!] === 0, 90);
     assert.equal(run.baitPatches[pairCommission.anchor!], 0);
     assert.ok(run.album.at(-1)!.assists.includes('a'));
     assert.ok(run.observations.some((s) => /quiet|noise|inspect/i.test(s)));
