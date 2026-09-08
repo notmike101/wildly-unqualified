@@ -149,10 +149,8 @@ export async function buildRelease(
         path.resolve(output, 'package.json'),
         JSON.stringify(manifest, undefined, 2) + '\n',
     );
-    await copyFile(
-        path.resolve(root, 'package-lock.json'),
-        path.resolve(output, 'package-lock.json'),
-    );
+    for (const file of ['pnpm-lock.yaml', 'pnpm-workspace.yaml'])
+        await copyFile(path.resolve(root, file), path.resolve(output, file));
     await copyFile(path.resolve(root, 'docs/SERVER.md'), path.resolve(output, 'SERVER.md'));
     await cp(web, path.resolve(output, 'wildly-unqualified/web'), {
         recursive: true,

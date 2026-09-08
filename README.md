@@ -15,7 +15,7 @@ preserved MVP/prototype releases and their older saves must stay together.
 Use Node **26.5 or later within major 26**, from this game's repository root:
 
 ```sh
-npm ci
+pnpm install --frozen-lockfile
 npm run build
 npm test
 ```

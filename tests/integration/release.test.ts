@@ -15,7 +15,7 @@ test('portable release contains the exact runtime lock and no credentials or dev
     await buildRelease(destination);
     const source = fileURLToPath(new URL('../../', import.meta.url));
 
-    for (const file of ['package-lock.json'])
+    for (const file of ['pnpm-lock.yaml', 'pnpm-workspace.yaml'])
         assert.equal(
             await readFile(path.join(destination, file), 'utf8'),
             await readFile(path.join(source, file), 'utf8'),

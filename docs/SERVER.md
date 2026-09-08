@@ -15,7 +15,7 @@ browser. Operation on another home-server OS/architecture requires verification.
 From the game repository root:
 
 ```powershell
-npm ci
+pnpm install --frozen-lockfile
 npm run build
 $env:WU_DATA_DIR = '.artifacts/development-data'
 $env:WU_WEB_DIR = 'dist'
@@ -50,7 +50,7 @@ runtime imports.
 From the portable release directory:
 
 ```sh
-npm ci --omit=dev
+pnpm install --prod --frozen-lockfile
 npm start
 ```
 
