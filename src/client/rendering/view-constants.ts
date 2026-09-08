@@ -1,3 +1,5 @@
-/** Shared crew colors and camera range for live views, HUD, maps, and photographs. */
-export const CREW_COLORS = [0xf4bd4f, 0xef7166, 0x51bddb, 0xb397ee];
+/**
+Shared crew colors and camera range for live views, HUD, maps, and photographs.
+ */
+export const CREW_COLORS = [0xF4_BD_4F, 0xEF_71_66, 0x51_BD_DB, 0xB3_97_EE];
 export const CAMERA_FAR = 360;
