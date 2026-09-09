@@ -33,7 +33,7 @@ The first release is `v0.1.0-alpha.1`, Windows x64, in the private GitHub reposi
       A protocol guest was used for the first native window's gameplay check.
 - [x] Check standalone-package independence with an empty PATH and unrelated cwd.
 - [x] Run Node tests (212 passed, zero skipped), typecheck, lint and native build checks.
-- [ ] Publish the ZIP, checksums and candid alpha release notes; verify privacy,
+- [x] Publish the ZIP, checksums and candid alpha release notes; verify privacy,
       tag commit and uploaded artifact digests.
 
 ## Evidence and build
@@ -64,6 +64,15 @@ bundled Node; local user/workspace paths are absent from both binaries.
 The visible gameplay check used the earlier native build; static linkage and
 shutdown fixes were subsequently rebuilt and checked through compilation,
 dependency inspection and server adapter regressions.
+
+Published release: https://github.com/notmike101/wildly-unqualified/releases/tag/v0.1.0-alpha.1
+
+The 44.27 MiB ZIP was extracted outside the repository and its bundled server
+passed the empty-PATH/unrelated-cwd smoke check. GitHub reports prerelease=true,
+draft=false and private=true. The release tag and BUILD.json both identify
+`3e1bba01f2c099eb0a14dcc249e4ba733f522847`. Both uploaded asset digests match
+their local SHA-256 values. ZIP SHA-256:
+`08f69011aa0287515eee1aa230daca71d17d3361a91f4c628312559258d1bd83`.
 
 ## Sources
 
