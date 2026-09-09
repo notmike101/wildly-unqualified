@@ -89,6 +89,13 @@ Original Blender scenes and versioned exports remain intact.
 
 ## Checks and packaging
 
+The Windows desktop build uses a small Tauri 2 launcher and the shared WebView2
+runtime, with the existing Node server bundled alongside it. See
+[desktop packaging and research](docs/DESKTOP.md) and the
+[player instructions](desktop/README.md). Build on Windows x64 with Node 26.5.0,
+Rust and Visual Studio C++ build tools using `npm run release:desktop`.
+The output is under `.artifacts/`; players do not install these development tools.
+
 ```sh
 npm run format:check
 npm run typecheck

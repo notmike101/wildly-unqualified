@@ -19,6 +19,7 @@ export default defineConfig([
             'web/**',
             'web-mvp/**',
             'dist/**',
+            'desktop/target/**',
             '*.mjs',
         ],
     },

@@ -17,3 +17,5 @@ data-expedition/
 .env
 .env.*
 !.env.example
+desktop/target/
+desktop/gen/
